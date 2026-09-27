@@ -193,9 +193,12 @@ def evaluate(
     ):
         raise DataContractError("Invalid calibrated probabilities")
 
+    # Rank on the published precision so the exported review policy can be
+    # reconstructed exactly from predictions.csv, including score ties.
+    published_pd = [round(float(value), 10) for value in calibrated_pd]
     review_count = math.ceil(len(test) * config.review_fraction)
     order = sorted(
-        range(len(test)), key=lambda i: (-calibrated_pd[i], test[i].application.application_id)
+        range(len(test)), key=lambda i: (-published_pd[i], test[i].application.application_id)
     )
     reviewed = set(order[:review_count])
     predictions: list[dict[str, Any]] = []
@@ -210,7 +213,7 @@ def evaluate(
                 "principal_cents": app.principal_cents,
                 "label": int(test_y[i]),
                 "raw_pd": round(float(raw_pd[i]), 10),
-                "calibrated_pd": round(float(calibrated_pd[i]), 10),
+                "calibrated_pd": published_pd[i],
                 "review_selected": int(i in reviewed),
             }
         )

@@ -6,6 +6,7 @@ import csv
 import hashlib
 import html
 import json
+import math
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
@@ -159,20 +160,29 @@ def verify_result(destination: Path) -> dict[str, Any]:
             ):
                 raise DataContractError(f"Metrics disagree with predictions: {title}")
         review = np.asarray([int(row["review_selected"]) for row in predictions])
+        policy = summary["review_at_fixed_capacity"]
+        fraction = float(policy["fraction"])
         if (
             set(review) - {0, 1}
-            or int(review.sum()) != summary["review_at_fixed_capacity"]["loans"]
+            or not 0 < fraction <= 1
+            or math.ceil(len(predictions) * fraction) != int(policy["loans"])
+            or int(review.sum()) != int(policy["loans"])
         ):
-            raise DataContractError("Review selection count disagrees with summary")
+            raise DataContractError("Review capacity disagrees with predictions")
+        probability = np.asarray([float(row["calibrated_pd"]) for row in predictions])
+        ranked = sorted(
+            range(len(predictions)),
+            key=lambda i: (-probability[i], predictions[i]["application_id"]),
+        )
+        if set(np.flatnonzero(review)) != set(ranked[: int(policy["loans"])]):
+            raise DataContractError("Review selection is not the top-ranked fixed-capacity group")
         selected = labels[review == 1]
-        policy = summary["review_at_fixed_capacity"]
         if (
             abs(float(selected.mean()) - policy["precision"]) > 0.000002
             or abs(float(selected.sum() / labels.sum()) - policy["default_capture"]) > 0.000002
         ):
             raise DataContractError("Review outcomes disagree with predictions")
 
-        probability = np.asarray([float(row["calibrated_pd"]) for row in predictions])
         principals = np.asarray([int(row["principal_cents"]) / 100 for row in predictions])
         lgd = float(summary["config"]["scenario_lgd"])
 
@@ -198,10 +208,6 @@ def verify_result(destination: Path) -> dict[str, Any]:
         check_aggregate(np.arange(len(predictions)), summary["test_portfolio"])
         with (destination / "calibration_bins.csv").open(newline="", encoding="utf-8") as handle:
             bins = list(csv.DictReader(handle))
-        ranked = sorted(
-            range(len(predictions)),
-            key=lambda i: (-probability[i], predictions[i]["application_id"]),
-        )
         if len(bins) != 10:
             raise DataContractError("Risk bucket count disagrees with predictions")
         for rank, (indices, bucket) in enumerate(

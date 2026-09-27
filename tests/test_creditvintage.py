@@ -183,6 +183,36 @@ def test_export_verifier_recomputes_metrics_even_if_hashes_are_rewritten(tmp_pat
         verify_result(tmp_path)
 
 
+def test_export_verifier_checks_the_actual_top_capacity_group(tmp_path) -> None:
+    write_result(evaluate(*generate(seed=7, per_vintage=25), Config(seed=7)), tmp_path)
+    predictions = tmp_path / "predictions.csv"
+    with predictions.open(newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        rows = list(reader)
+        columns = reader.fieldnames
+    assert columns is not None
+    assert verify_result(tmp_path)["loans"] == len(rows)
+
+    # Preserve review count, precision, and default capture while selecting
+    # a lower-ranked loan. Rehashing the file must not make this pass.
+    selected = next(row for row in rows if row["review_selected"] == "1" and row["label"] == "1")
+    unselected = next(row for row in rows if row["review_selected"] == "0" and row["label"] == "1")
+    selected["review_selected"] = "0"
+    unselected["review_selected"] = "1"
+    with predictions.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=columns)
+        writer.writeheader()
+        writer.writerows(rows)
+    manifest_path = tmp_path / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["files_sha256"]["predictions.csv"] = hashlib.sha256(
+        predictions.read_bytes()
+    ).hexdigest()
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(DataContractError, match="top-ranked fixed-capacity"):
+        verify_result(tmp_path)
+
+
 def test_cli_run_verify_and_partial_input_failure(tmp_path, capsys) -> None:
     output = tmp_path / "run"
     assert main(["run", "--seed", "7", "--per-vintage", "25", "--out", str(output)]) == 0

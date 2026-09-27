@@ -80,7 +80,9 @@ mypy src
 The command creates a standalone `index.html`, CSV tables, `summary.json`,
 and a manifest of SHA-256 output digests plus an input-event digest. `verify`
 checks file digests and independently recomputes test AUC, average precision,
-and Brier from the prediction rows. The summary records Python, NumPy and
+and Brier from the prediction rows. It also checks that the published review
+flags select exactly the highest-ranked loans at the stated capacity, with
+application ID breaking score ties. The summary records Python, NumPy and
 scikit-learn versions; exact floating-point output across environments is not
 promised. The hashes detect accidental edits, not an
 adversary who can rewrite files and manifest together.
