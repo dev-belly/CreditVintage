@@ -15,7 +15,7 @@ import sklearn
 from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import average_precision_score, brier_score_loss, roc_auc_score
-from sklearn.pipeline import make_pipeline
+from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import StandardScaler
 
 from creditvintage.core import (
@@ -146,18 +146,13 @@ def _digest(
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
-def evaluate(
+def _fit_stages(
     applications: list[Application],
     features: list[FeatureEvent],
     performance: list[PerformanceEvent],
-    config: Config | None = None,
-    *,
-    data_kind: str = "user_supplied",
-) -> Result:
-    """Fit before calibration starts; calibrate before test starts; never fit on test."""
-    config = config or Config()
-    if data_kind not in {"synthetic", "user_supplied"}:
-        raise DataContractError("Unknown data kind")
+    config: Config,
+) -> tuple[Pipeline, IsotonicRegression, list[CohortRow], list[CohortRow], np.ndarray]:
+    """Freeze the model and calibrator before the first test application."""
     train = _rows_between(
         snapshot(applications, features, performance, config.calibration_start),
         config.train_start,
@@ -170,22 +165,40 @@ def evaluate(
         config.calibration_end,
         "calibration",
     )
+    model = make_pipeline(
+        StandardScaler(), LogisticRegression(C=1.0, max_iter=1000, random_state=config.seed)
+    )
+    model.fit(_matrix(train), _labels(train))
+    calibration_raw = model.predict_proba(_matrix(calibration))[:, 1]
+    calibrator = IsotonicRegression(out_of_bounds="clip")
+    calibrator.fit(calibration_raw, _labels(calibration))
+    return model, calibrator, train, calibration, calibration_raw
+
+
+def evaluate(
+    applications: list[Application],
+    features: list[FeatureEvent],
+    performance: list[PerformanceEvent],
+    config: Config | None = None,
+    *,
+    data_kind: str = "user_supplied",
+) -> Result:
+    """Fit before calibration starts; calibrate before test starts; never fit on test."""
+    config = config or Config()
+    if data_kind not in {"synthetic", "user_supplied"}:
+        raise DataContractError("Unknown data kind")
+    model, calibrator, train, calibration, _ = _fit_stages(
+        applications, features, performance, config
+    )
     test = _rows_between(
         snapshot(applications, features, performance, config.evaluation_as_of),
         config.test_start,
         config.test_end,
         "test",
     )
-    model = make_pipeline(
-        StandardScaler(), LogisticRegression(C=1.0, max_iter=1000, random_state=config.seed)
-    )
     train_y = _labels(train)
     calibration_y = _labels(calibration)
     test_y = _labels(test)
-    model.fit(_matrix(train), train_y)
-    calibration_raw = model.predict_proba(_matrix(calibration))[:, 1]
-    calibrator = IsotonicRegression(out_of_bounds="clip")
-    calibrator.fit(calibration_raw, calibration_y)
     raw_pd = model.predict_proba(_matrix(test))[:, 1]
     calibrated_pd = np.asarray(calibrator.predict(raw_pd), dtype=float)
     if not np.all(np.isfinite(calibrated_pd)) or not np.all(

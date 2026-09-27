@@ -5,7 +5,9 @@ import hashlib
 import json
 from dataclasses import asdict, replace
 from datetime import date, timedelta
+from pathlib import Path
 
+import numpy as np
 import pytest
 
 from creditvintage.artifacts import verify_result, write_result
@@ -20,6 +22,7 @@ from creditvintage.core import (
     snapshot,
 )
 from creditvintage.model import Config, evaluate
+from creditvintage.monitoring import monitor, score_psi, verify_monitor, write_monitor
 from creditvintage.sample import generate
 
 DECISION = date(2022, 1, 1)
@@ -257,3 +260,82 @@ def test_supplied_csv_path_matches_same_synthetic_events(tmp_path, capsys) -> No
     assert verify_result(output)["input_sha256"] == expected_sha
     assert json.loads((output / "summary.json").read_text())["data_kind"] == "user_supplied"
     assert "User-supplied data" in (output / "index.html").read_text()
+
+
+def test_early_monitor_uses_no_current_outcomes_or_future_applications() -> None:
+    apps, features, reports = generate(seed=7, per_vintage=25)
+    cutoff = date(2024, 9, 1)
+    complete = monitor(apps, features, reports, cutoff, Config(seed=7))
+    historical_ids = {app.application_id for app in apps if app.decision_at < date(2024, 7, 1)}
+    no_current_reports = [report for report in reports if report.application_id in historical_ids]
+    pending = monitor(apps, features, no_current_reports, cutoff, Config(seed=7))
+    assert complete.summary == pending.summary
+    assert complete.scores == pending.scores
+    assert complete.bins == pending.bins
+    assert complete.summary["current_loans"] == 75
+    assert all(row["decision_at"] <= cutoff.isoformat() for row in complete.scores)
+    with pytest.raises(DataContractError, match="test has unlabelled loans"):
+        evaluate(apps, features, no_current_reports, Config(seed=7))
+
+
+def test_score_psi_is_reference_frozen_and_descriptive() -> None:
+    reference = np.linspace(0.01, 0.99, 100)
+    psi, bins = score_psi(reference, reference.copy())
+    assert psi == 0
+    assert sum(row["reference_loans"] for row in bins) == 100
+    assert sum(row["current_loans"] for row in bins) == 100
+    shifted, _ = score_psi(reference, np.full(100, 0.99))
+    assert shifted > psi
+    with pytest.raises(DataContractError, match="no distribution"):
+        score_psi(np.full(100, 0.2), reference)
+
+
+def test_monitor_artifacts_recompute_psi_after_rehashed_tampering(tmp_path) -> None:
+    result = monitor(*generate(seed=7, per_vintage=25), date(2024, 9, 1), Config(seed=7))
+    write_monitor(result, tmp_path)
+    assert verify_monitor(tmp_path)["loans"] == 75
+    scores_path = tmp_path / "monitor_scores.csv"
+    with scores_path.open(newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        rows = list(reader)
+        columns = reader.fieldnames
+    assert columns is not None
+    for row in rows:
+        row["raw_pd"] = "0.999999"
+    with scores_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=columns)
+        writer.writeheader()
+        writer.writerows(rows)
+    with pytest.raises(DataContractError, match="digest mismatch"):
+        verify_monitor(tmp_path)
+    manifest_path = tmp_path / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["files_sha256"]["monitor_scores.csv"] = hashlib.sha256(
+        scores_path.read_bytes()
+    ).hexdigest()
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(DataContractError, match="Monitor PSI or bin count disagrees"):
+        verify_monitor(tmp_path)
+
+
+def test_cli_monitor_and_committed_sample(tmp_path, capsys) -> None:
+    out = tmp_path / "monitor"
+    assert (
+        main(
+            [
+                "monitor",
+                "--as-of",
+                "2024-09-01",
+                "--per-vintage",
+                "25",
+                "--out",
+                str(out),
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+    assert (out / "index.html").exists()
+    assert main(["verify-monitor", str(out)]) == 0
+    assert json.loads(capsys.readouterr().out)["loans"] == 75
+    assert verify_monitor(Path("docs/monitor"))["loans"] == 320

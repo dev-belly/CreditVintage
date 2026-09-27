@@ -5,6 +5,7 @@ reviewable risk report.** It is designed to demonstrate the data controls a
 banking or risk analytics team should ask about before trusting a score.
 
 [Live synthetic report](https://dev-belly.github.io/CreditVintage/demo/) ·
+[Early score monitor](https://dev-belly.github.io/CreditVintage/monitor/) ·
 [Published report files](docs/demo/index.html) ·
 [Test predictions](docs/demo/predictions.csv) ·
 [Run summary](docs/demo/summary.json) ·
@@ -32,6 +33,7 @@ fitness. Regulatory default definitions can include other criteria; see the
 | Probability quality | Fixed logistic baseline and a separate isotonic calibration sample. ROC-AUC, average precision and Brier are all shown on untouched test vintages. |
 | Decision capacity | The top 10% review capacity is fixed in advance; precision and default capture are measured on test. |
 | Monetary scenario | `predicted probability × origination principal × assumed 45% LGD`. This is a scenario proxy, not observed recovery loss or an accounting provision. |
+| Early monitoring | A frozen model scores visible test applications before their labels mature. Raw-score distribution is compared with the calibration cohort without using current outcomes. |
 
 Dates are calendar dates with **end-of-day availability semantics**. Real
 intraday decisions need timestamps and a source-system availability audit.
@@ -62,6 +64,36 @@ distribution shift. The fixed 10% review group contains 48 loans and captures
 [summary.json](docs/demo/summary.json); [predictions.csv](docs/demo/predictions.csv)
 contains every test label, raw score, calibrated score, and review flag.
 
+## Before outcomes mature: score monitoring
+
+The separate `monitor` command freezes the same train and calibration stages,
+then scores only applications visible by a chosen cutoff. It needs **no
+performance reports from the current cohort**. Its raw-score population
+stability index (PSI) compares current applications with the calibration cohort;
+it is a distribution diagnostic, not a default-rate, quality, or significance
+test. It never triggers automatic approval, retraining, or alerts.
+
+```bash
+creditvintage monitor --as-of 2024-10-01 --out outputs/early
+creditvintage verify-monitor outputs/early
+```
+
+The [published synthetic monitoring example](https://dev-belly.github.io/CreditVintage/monitor/)
+has 480 reference and 320 visible current applications. Its PSI is **0.041**
+overall, with a 0.220 September vintage diagnostic on 80 loans. These are
+descriptive values on generated data, not validated decision thresholds. Ten
+quantile bins are learned **only from reference raw scores**, repeated edges
+are collapsed, and each bin receives a stated 0.5-count smoothing term. A
+monthly PSI is omitted below 20 loans. The [score rows](docs/monitor/monitor_scores.csv),
+[reference scores](docs/monitor/reference_scores.csv), [bin contributions](docs/monitor/score_bins.csv),
+and [manifest](docs/monitor/manifest.json) let `verify-monitor` independently
+recompute the result. Current labels are absent from the monitor output.
+
+With supplied CSVs, pass the same three input paths shown below and an
+appropriate `--as-of` date. The train and calibration outcome gaps still need
+complete reports; the current window may have none. Keep borrower-level
+monitor files private.
+
 ## Run and verify
 
 Python 3.12+:
@@ -72,6 +104,8 @@ source .venv/bin/activate
 python -m pip install -e ".[dev]"
 creditvintage run --out outputs/latest
 creditvintage verify outputs/latest
+creditvintage monitor --as-of 2024-10-01 --out outputs/early
+creditvintage verify-monitor outputs/early
 pytest -q
 ruff check src tests
 mypy src
@@ -121,6 +155,21 @@ define other mature, nonoverlapping windows. Keep borrower-level files private.
 - No protected attributes are used, but their absence does not prove fairness.
   Selection bias, approvals-only labels, population drift, and policy impacts
   need separate study before any real use.
+- Score PSI alone cannot tell whether calibration, realized loss, or fairness
+  has changed. The published early example includes four current vintages;
+  binning, smoothing, sample size, and shifting acceptance policy all affect
+  the diagnostic.
+
+## Related open-source work
+
+[scorecardpy](https://github.com/ShichenXie/scorecardpy) provides traditional
+scorecard development and PSI evaluation; [Evidently](https://github.com/evidentlyai/evidently)
+provides general data and model monitoring. Credit risk case studies such as
+[Lending Club Credit Risk](https://github.com/tubolyroli/lending-club-credit-risk)
+and [RiskLens](https://github.com/Tussar98/risklens) show vintage maturity,
+calibration, and drift in broader pipelines. CreditVintage focuses its small,
+testable contract on application-time availability, explicit outcome maturity,
+and the transition from label-free monitoring to out-of-time evaluation.
 
 The package has a standard-library event contract, NumPy/scikit-learn model
 evaluation, a dependency-free static HTML report, strict tests for timing and

@@ -1,0 +1,43 @@
+{
+  "as_of": "2024-10-01",
+  "by_vintage": [
+    {
+      "loans": 80,
+      "psi": 0.071644,
+      "vintage": "2024-07"
+    },
+    {
+      "loans": 80,
+      "psi": 0.131014,
+      "vintage": "2024-08"
+    },
+    {
+      "loans": 80,
+      "psi": 0.220251,
+      "vintage": "2024-09"
+    },
+    {
+      "loans": 80,
+      "psi": 0.082028,
+      "vintage": "2024-10"
+    }
+  ],
+  "current_loans": 320,
+  "current_window": [
+    "2024-07-01",
+    "2024-12-31"
+  ],
+  "data_kind": "synthetic",
+  "effective_bins": 10,
+  "kind": "label_free_score_monitor",
+  "project": "CreditVintage",
+  "psi": 0.040825,
+  "reference_loans": 480,
+  "reference_window": [
+    "2023-07-01",
+    "2023-12-31"
+  ],
+  "requested_bins": 10,
+  "score": "raw logistic probability; calibrator trained before test applications",
+  "smoothing_per_bin": 0.5
+}

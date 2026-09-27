@@ -1,0 +1,11 @@
+{
+  "files_sha256": {
+    "index.html": "09bc91adfbad5c8cb501c500273ce74de3176df619f1aaac2ae5eae08960cbed",
+    "monitor.json": "45e61e277e5fe52464e3b936f48f34a7f9153d85f634d7aea39eaacbc19f9e9b",
+    "monitor_scores.csv": "799f47965f519144f4e104adf9404ad4bb219da8e994f1aa93d06f5917cb0c46",
+    "reference_scores.csv": "5861fd6e8e1981dc7abd3be2e181daf97e4c38e7ddbd69b1eb825b5aa78fce64",
+    "score_bins.csv": "b1e43ca0d7a1af2fc9cf8a186a7f2b96701d37ee4769c24e592912c8a051940d"
+  },
+  "input_sha256": "45d03c5fb5b11f5cb8331a58ed151a5b9cc6e26399496f0c1ff7dd4b65cb1e29",
+  "kind": "label_free_score_monitor"
+}
