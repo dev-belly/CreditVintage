@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CreditVintage | Credit cohort evaluation</title>
+  <meta name="description" content="A reproducible synthetic credit cohort experiment with point-in-time features, mature labels and an auditable out-of-time report.">
+  <style>
+    :root { color-scheme: light; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { max-width: 780px; margin: 0 auto; padding: clamp(2rem, 6vw, 5rem) 1.25rem; color: #17304c; background: #f7f9fc; line-height: 1.6; }
+    main { padding: clamp(1.5rem, 4vw, 3rem); background: white; border: 1px solid #dae4ef; border-radius: 20px; box-shadow: 0 12px 36px #17304c0b; }
+    h1 { line-height: 1.15; letter-spacing: -.035em; margin: .3rem 0 1rem; font-size: clamp(2.4rem, 6vw, 4rem); }
+    .eyebrow { color: #2874a6; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; font-size: .78rem; }
+    .lead { font-size: 1.2rem; max-width: 58ch; }
+    .note { border-left: 3px solid #e2a249; padding-left: 1rem; margin: 2rem 0; }
+    a { color: #155d91; }
+    .button { display: inline-block; background: #155d91; color: white; padding: .75rem 1.1rem; border-radius: 8px; font-weight: 700; text-decoration: none; }
+    .button:hover, .button:focus-visible { background: #0c426a; }
+    footer { margin-top: 2rem; font-size: .92rem; color: #53687e; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">Reproducible research project</div>
+    <h1>CreditVintage</h1>
+    <p class="lead">From application-time records to mature credit outcomes and an auditable out-of-time evaluation.</p>
+    <p>The report includes cohort metrics, calibration, a fixed review-capacity scenario, downloadable test predictions and file hashes.</p>
+    <p class="note"><strong>Synthetic experiment.</strong> These numbers do not describe real borrowers or a deployable credit policy. In this run, independent isotonic calibration worsened Brier score; the result is shown as measured.</p>
+    <p><a class="button" href="demo/">Open the computed report</a></p>
+    <footer><a href="https://github.com/dev-belly/CreditVintage">Source, methodology and run instructions</a> · <a href="demo/predictions.csv">Test predictions</a></footer>
+  </main>
+</body>
+</html>

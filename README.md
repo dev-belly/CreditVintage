@@ -4,7 +4,8 @@
 reviewable risk report.** It is designed to demonstrate the data controls a
 banking or risk analytics team should ask about before trusting a score.
 
-[Computed synthetic report](docs/demo/index.html) ·
+[Live synthetic report](https://dev-belly.github.io/CreditVintage/demo/) ·
+[Published report files](docs/demo/index.html) ·
 [Test predictions](docs/demo/predictions.csv) ·
 [Run summary](docs/demo/summary.json) ·
 [Artifact hashes](docs/demo/manifest.json)
