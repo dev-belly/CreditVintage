@@ -1,0 +1,10 @@
+{
+  "files_sha256": {
+    "calibration_bins.csv": "5612d8ee083b95b99a97646f13765ac33e3b5de66a5e134b9e425ab5832147e2",
+    "index.html": "8ad9edf00044879701f0039fe5da9ebf43b68d4cbae22adce5c4a9ab27ea1ac4",
+    "predictions.csv": "c11ffd775cfa43643ede896bbfc028adc314676345b1f731a3b4514958118d94",
+    "summary.json": "da0c6f9e6dfc516bbbb91b527a58c3ca327e1827df144a028119dc651fea35fd",
+    "vintage_metrics.csv": "7cfcbfabe2cf9bd8ce5e03fc205732f57a9ef52aaeab2c812b1770a8ae3443b6"
+  },
+  "input_sha256": "45d03c5fb5b11f5cb8331a58ed151a5b9cc6e26399496f0c1ff7dd4b65cb1e29"
+}

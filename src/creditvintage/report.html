@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CreditVintage | auditable risk research</title>
+  <style>
+    :root {
+      --ink: #e9f1f7; --muted: #94aab8; --panel: #142536;
+      --line: #294153; --gold: #e9bb72; --teal: #63c9b9;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: #091723; color: var(--ink);
+      font: 16px/1.6 system-ui, sans-serif;
+    }
+    main { max-width: 1120px; margin: auto; padding: 42px 26px 100px; }
+    header { border-bottom: 1px solid var(--line); padding-bottom: 30px; }
+    .eyebrow {
+      letter-spacing: .22em; color: var(--gold);
+      font-size: 12px; font-weight: 700;
+    }
+    h1 {
+      font-size: clamp(40px, 6vw, 76px); letter-spacing: -.06em;
+      line-height: 1.05; margin: 18px 0;
+    }
+    h2 { margin: 0 0 18px; font-size: 24px; letter-spacing: -.03em; }
+    p { color: var(--muted); max-width: 780px; }
+    .badge {
+      display: inline-block; border: 1px solid var(--gold);
+      color: var(--gold); padding: 5px 12px; border-radius: 20px;
+      font-size: 12px; letter-spacing: .12em;
+    }
+    .grid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 14px; margin: 28px 0;
+    }
+    .card, .panel {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 14px; padding: 22px;
+    }
+    .card span { display: block; color: var(--muted); font-size: 13px; }
+    .card strong { font-size: 29px; letter-spacing: -.04em; }
+    .card small { display: block; color: var(--muted); }
+    .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    section { margin-top: 26px; }
+    .vintage {
+      display: grid; grid-template-columns: 72px 1fr 55px 150px;
+      align-items: center; gap: 12px; margin: 12px 0; font-size: 13px;
+    }
+    .vintage small { color: var(--muted); text-align: right; }
+    .track {
+      height: 12px; border-radius: 12px;
+      background: #263b4c; overflow: hidden;
+    }
+    .track i { display: block; height: 100%; background: var(--teal); }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td {
+      padding: 9px; border-bottom: 1px solid var(--line);
+      text-align: right;
+    }
+    th:first-child, td:first-child { text-align: left; }
+    th { color: var(--muted); font-weight: 500; }
+    a { color: var(--teal); }
+    footer {
+      border-top: 1px solid var(--line); margin-top: 30px;
+      padding-top: 22px; color: var(--muted); font-size: 13px;
+    }
+    @media (max-width: 800px) {
+      .grid { grid-template-columns: repeat(2, 1fr); }
+      .columns { grid-template-columns: 1fr; }
+      .vintage { grid-template-columns: 64px 1fr 48px; }
+      .vintage small { grid-column: 2 / 4; text-align: left; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">CREDITVINTAGE / RESEARCH CONTROL PANEL</div>
+    <h1>Know what was known.</h1>
+    <span class="badge">@@SOURCE@@</span>
+    <p>Application-time features, 180-day outcome maturity and chronological
+      train / calibration / test windows. The default demo uses generated loans
+      and makes no claim about a real lender.</p>
+  </header>
+  <div class="grid">
+    <div class="card"><span>Out-of-time loans</span><strong>@@TEST_LOANS@@</strong>
+      <small>2024 Jul–Dec vintage</small></div>
+    <div class="card"><span>Observed 90+ DPD</span><strong>@@DEFAULT_RATE@@%</strong>
+      <small>six-report horizon</small></div>
+    <div class="card"><span>Calibrated Brier</span><strong>@@BRIER@@</strong>
+      <small>constant baseline @@BASELINE_BRIER@@</small></div>
+    <div class="card"><span>Review capture</span><strong>@@CAPTURE@@%</strong>
+      <small>at @@CAPACITY@@% fixed capacity</small></div>
+  </div>
+  <div class="columns">
+    <section class="panel"><h2>Vintage drift</h2>
+      <p>Observed default rate and predicted mean by origination month.</p>
+      @@BARS@@
+    </section>
+    <section class="panel"><h2>How to read this</h2>
+      <p>ROC-AUC @@AUC@@; average precision @@AP@@. The vintage-block bootstrap
+        95% ROC-AUC interval is @@AUC_LOW@@–@@AUC_HIGH@@; only six test months
+        are available.</p>
+      <p>Raw logistic Brier @@RAW_BRIER@@; calibration
+        @@CALIBRATION_DIRECTION@@ it to @@BRIER@@ in this run. Calibration is
+        reported as a measured step, not assumed to improve every sample.</p>
+      <p>Scenario expected loss $@@SCENARIO_EL@@ assumes an unchanged LGD of
+        @@LGD@@% and origination principal as exposure. It is not a measured
+        recovery loss, accounting provision, or regulatory capital estimate.</p>
+      <p>Training outcomes are mature before calibration applications;
+        calibration outcomes are mature before test applications. Test labels
+        never enter fitting or threshold selection.</p>
+    </section>
+  </div>
+  <section class="panel"><h2>Risk buckets</h2>
+    <p>Bucket 1 has the highest predicted probability. Rates are descriptive
+      and may be noisy.</p>
+    <table>
+      <thead><tr><th>Bucket</th><th>Loans</th><th>Mean PD</th>
+        <th>90+ DPD</th><th>Scenario EL</th></tr></thead>
+      <tbody>@@DECILES@@</tbody>
+    </table>
+  </section>
+  <footer>Recalculate from <a href="predictions.csv">test predictions</a>,
+    <a href="vintage_metrics.csv">vintage metrics</a>,
+    <a href="calibration_bins.csv">risk buckets</a>,
+    <a href="summary.json">summary</a>, and
+    <a href="manifest.json">file hashes</a>. @@FOOTER_NOTE@@
+  </footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,81 @@
+{
+  "cohorts": {
+    "calibration": {
+      "default_rate": 0.202083,
+      "loans": 480
+    },
+    "test": {
+      "default_rate": 0.222917,
+      "loans": 480
+    },
+    "train": {
+      "default_rate": 0.204167,
+      "loans": 960
+    }
+  },
+  "config": {
+    "calibration_end": "2023-12-31",
+    "calibration_start": "2023-07-01",
+    "evaluation_as_of": "2025-07-01",
+    "review_fraction": 0.1,
+    "scenario_lgd": 0.45,
+    "seed": 20260927,
+    "test_end": "2024-12-31",
+    "test_start": "2024-07-01",
+    "train_end": "2022-12-31",
+    "train_start": "2022-01-01"
+  },
+  "data_kind": "synthetic",
+  "environment": {
+    "numpy": "2.5.3",
+    "python": "3.12.14",
+    "scikit_learn": "1.9.1"
+  },
+  "label_rule": "90+ DPD within 180 days; negatives need all six reports",
+  "model": "fixed logistic regression + separate isotonic calibration",
+  "project": "CreditVintage",
+  "review_at_fixed_capacity": {
+    "default_capture": 0.233645,
+    "fraction": 0.1,
+    "loans": 48,
+    "precision": 0.520833
+  },
+  "test_metrics": {
+    "calibrated": {
+      "average_precision": 0.406758,
+      "brier": 0.157742,
+      "roc_auc": 0.735023
+    },
+    "constant_train_rate": {
+      "average_precision": 0.222917,
+      "brier": 0.173576,
+      "roc_auc": 0.5
+    },
+    "raw_logistic": {
+      "average_precision": 0.434483,
+      "brier": 0.154954,
+      "roc_auc": 0.747338
+    }
+  },
+  "test_portfolio": {
+    "loans": 480,
+    "mean_pd": 0.187783,
+    "observed_default_rate": 0.222917,
+    "principal_usd": 7977052.5,
+    "scenario_expected_loss_usd": 663835.47,
+    "scenario_observed_loss_proxy_usd": 812183.8
+  },
+  "vintage_bootstrap": {
+    "brier_95_interval": [
+      0.136411,
+      0.182318
+    ],
+    "requested_replicates": 300,
+    "roc_auc_95_interval": [
+      0.652721,
+      0.800793
+    ],
+    "unit": "origination_month",
+    "valid_replicates": 300
+  }
+}
