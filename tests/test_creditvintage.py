@@ -186,6 +186,55 @@ def test_export_verifier_recomputes_metrics_even_if_hashes_are_rewritten(tmp_pat
         verify_result(tmp_path)
 
 
+@pytest.mark.parametrize(
+    ("field", "expected_error"),
+    [
+        ("default_rate", "Test default rate disagrees"),
+        ("baseline_brier", "Constant baseline disagrees"),
+    ],
+)
+def test_export_verifier_rejects_rehashed_summary_inconsistency(
+    tmp_path, field: str, expected_error: str
+) -> None:
+    write_result(evaluate(*generate(seed=7, per_vintage=25), Config(seed=7)), tmp_path)
+    summary_path = tmp_path / "summary.json"
+    summary = json.loads(summary_path.read_text())
+    if field == "default_rate":
+        summary["cohorts"]["test"]["default_rate"] = 0.0
+    else:
+        summary["test_metrics"]["constant_train_rate"]["brier"] = 0.0
+    summary_path.write_text(json.dumps(summary))
+    manifest_path = tmp_path / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["files_sha256"]["summary.json"] = hashlib.sha256(summary_path.read_bytes()).hexdigest()
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(DataContractError, match=expected_error):
+        verify_result(tmp_path)
+
+
+def test_export_verifier_rejects_rehashed_inconsistent_vintage(tmp_path) -> None:
+    write_result(evaluate(*generate(seed=7, per_vintage=25), Config(seed=7)), tmp_path)
+    predictions_path = tmp_path / "predictions.csv"
+    with predictions_path.open(newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        rows = list(reader)
+        columns = reader.fieldnames
+    assert columns is not None
+    rows[0]["vintage"] = "2024-01"
+    with predictions_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=columns)
+        writer.writeheader()
+        writer.writerows(rows)
+    manifest_path = tmp_path / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["files_sha256"]["predictions.csv"] = hashlib.sha256(
+        predictions_path.read_bytes()
+    ).hexdigest()
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(DataContractError, match="date or segment disagrees"):
+        verify_result(tmp_path)
+
+
 def test_export_verifier_checks_the_actual_top_capacity_group(tmp_path) -> None:
     write_result(evaluate(*generate(seed=7, per_vintage=25), Config(seed=7)), tmp_path)
     predictions = tmp_path / "predictions.csv"

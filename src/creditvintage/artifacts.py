@@ -7,6 +7,7 @@ import hashlib
 import html
 import json
 import math
+from datetime import date
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
@@ -14,7 +15,7 @@ from typing import Any
 import numpy as np
 from sklearn.metrics import average_precision_score, brier_score_loss, roc_auc_score
 
-from creditvintage.core import DataContractError
+from creditvintage.core import _ID, DataContractError
 from creditvintage.model import Result
 
 PREDICTION_COLUMNS = (
@@ -139,12 +140,46 @@ def verify_result(destination: Path) -> dict[str, Any]:
                 raise DataContractError(f"Artifact digest mismatch: {name}")
         summary = json.loads((destination / "summary.json").read_text(encoding="utf-8"))
         with (destination / "predictions.csv").open(newline="", encoding="utf-8") as handle:
-            predictions = list(csv.DictReader(handle))
+            reader = csv.DictReader(handle)
+            if reader.fieldnames != list(PREDICTION_COLUMNS):
+                raise DataContractError("Unexpected prediction columns")
+            predictions = list(reader)
+        if any(
+            set(row) != set(PREDICTION_COLUMNS) or any(value is None for value in row.values())
+            for row in predictions
+        ):
+            raise DataContractError("Malformed prediction row")
         if len({row["application_id"] for row in predictions}) != len(predictions):
             raise DataContractError("Duplicate prediction ID")
         labels = np.asarray([int(row["label"]) for row in predictions])
         if len(predictions) != summary["cohorts"]["test"]["loans"] or set(labels) != {0, 1}:
             raise DataContractError("Prediction count or outcomes disagree with summary")
+        config = summary["config"]
+        start = date.fromisoformat(config["test_start"])
+        end = date.fromisoformat(config["test_end"])
+        as_of = date.fromisoformat(config["evaluation_as_of"])
+        if not start <= end <= as_of or any(
+            not _ID.fullmatch(row["application_id"])
+            or row["segment"] not in {"retail", "small_business"}
+            or int(row["principal_cents"]) <= 0
+            or not start <= (decision := date.fromisoformat(row["decision_at"])) <= end
+            or decision.strftime("%Y-%m") != row["vintage"]
+            for row in predictions
+        ):
+            raise DataContractError("Prediction identity, date or segment disagrees with contract")
+        if abs(float(labels.mean()) - float(summary["cohorts"]["test"]["default_rate"])) > 0.000002:
+            raise DataContractError("Test default rate disagrees with predictions")
+        train_rate = float(summary["cohorts"]["train"]["default_rate"])
+        if not 0 <= train_rate <= 1:
+            raise DataContractError("Invalid train default rate")
+        baseline = summary["test_metrics"]["constant_train_rate"]
+        baseline_brier = brier_score_loss(labels, np.full(len(labels), train_rate))
+        if (
+            abs(float(baseline["roc_auc"]) - 0.5) > 0.000002
+            or abs(float(baseline["average_precision"]) - float(labels.mean())) > 0.000002
+            or abs(float(baseline["brier"]) - baseline_brier) > 0.000002
+        ):
+            raise DataContractError("Constant baseline disagrees with predictions")
         for key, title in (("raw_pd", "raw_logistic"), ("calibrated_pd", "calibrated")):
             p = np.asarray([float(row[key]) for row in predictions])
             if not np.all(np.isfinite(p)) or not np.all((0 <= p) & (p <= 1)):
