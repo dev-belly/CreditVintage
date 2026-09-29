@@ -327,6 +327,22 @@ def test_early_monitor_uses_no_current_outcomes_or_future_applications() -> None
         evaluate(apps, features, no_current_reports, Config(seed=7))
 
 
+def test_monitor_does_not_inspect_current_cohort_performance() -> None:
+    apps, features, reports = generate(seed=7, per_vintage=25)
+    cutoff = date(2024, 9, 1)
+    baseline = monitor(apps, features, reports, cutoff, Config(seed=7))
+    current = next(app for app in apps if date(2024, 7, 1) <= app.decision_at <= cutoff)
+    # This source row fails the training snapshot's chronology contract if it
+    # is read. Current-cohort outcomes are outside a label-free monitor's inputs.
+    bad_current = PerformanceEvent(
+        current.application_id, current.decision_at, current.decision_at, 90
+    )
+    independent = monitor(apps, features, reports + [bad_current], cutoff, Config(seed=7))
+    assert independent.summary == baseline.summary
+    assert independent.scores == baseline.scores
+    assert independent.bins == baseline.bins
+
+
 def test_score_psi_is_reference_frozen_and_descriptive() -> None:
     reference = np.linspace(0.01, 0.99, 100)
     psi, bins = score_psi(reference, reference.copy())

@@ -73,6 +73,12 @@ stability index (PSI) compares current applications with the calibration cohort;
 it is a distribution diagnostic, not a default-rate, quality, or significance
 test. It never triggers automatic approval, retraining, or alerts.
 
+The monitoring path uses performance reports only for the train and calibration
+cohorts. It builds the current application snapshot without performance reports,
+so current outcomes cannot change the score distribution or whether the monitor
+passes its cohort checks. The input digest still covers all supplied event rows;
+it identifies the source bundle, including rows the monitor did not use.
+
 ```bash
 creditvintage monitor --as-of 2024-10-01 --out outputs/early
 creditvintage verify-monitor outputs/early

@@ -130,12 +130,21 @@ def monitor(
         raise DataContractError("Monitor cutoff must be on or after the test window starts")
     if data_kind not in {"synthetic", "user_supplied"}:
         raise DataContractError("Unknown data kind")
+    # Only the train and calibration cohorts supply labels. A current-cohort
+    # report must not alter whether a label-free monitoring run succeeds.
+    stage_ids = {
+        app.application_id
+        for app in applications
+        if (config.train_start <= app.decision_at <= config.train_end)
+        or (config.calibration_start <= app.decision_at <= config.calibration_end)
+    }
+    stage_performance = [report for report in performance if report.application_id in stage_ids]
     model, calibrator, _, calibration, calibration_raw = _fit_stages(
-        applications, features, performance, config
+        applications, features, stage_performance, config
     )
     current_rows = [
         row
-        for row in snapshot(applications, features, performance, as_of)
+        for row in snapshot(applications, features, [], as_of)
         if config.test_start <= row.application.decision_at <= config.test_end
     ]
     if len(current_rows) < 20:
