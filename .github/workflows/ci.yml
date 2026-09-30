@@ -23,3 +23,7 @@ jobs:
       - run: pytest -q
       - run: creditvintage run --out outputs/ci
       - run: creditvintage verify outputs/ci
+      - run: creditvintage monitor --as-of 2024-10-01 --out outputs/ci-monitor
+      - run: creditvintage verify-monitor outputs/ci-monitor
+      - run: creditvintage verify docs/demo
+      - run: creditvintage verify-monitor docs/monitor

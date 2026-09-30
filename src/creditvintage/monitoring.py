@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import csv
 import html
-import json
 import math
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
@@ -16,6 +14,9 @@ import numpy as np
 
 from creditvintage.artifacts import _csv, _hash, _json
 from creditvintage.core import (
+    _ID,
+    HORIZON_DAYS,
+    REPORT_LAG_DAYS,
     Application,
     DataContractError,
     FeatureEvent,
@@ -23,6 +24,7 @@ from creditvintage.core import (
     snapshot,
 )
 from creditvintage.model import Config, _digest, _fit_stages, _matrix
+from creditvintage.validation import finite_number, read_csv_rows, read_json_object
 
 MONITOR_FILES = (
     "monitor.json",
@@ -250,7 +252,7 @@ def write_monitor(result: MonitorResult, destination: Path) -> dict[str, Any]:
 def verify_monitor(destination: Path) -> dict[str, Any]:
     """Recompute score drift from published rows, even if hashes were rewritten."""
     try:
-        manifest = json.loads((destination / "manifest.json").read_text(encoding="utf-8"))
+        manifest = read_json_object(destination / "manifest.json")
         if manifest["kind"] != "label_free_score_monitor" or set(manifest["files_sha256"]) != set(
             MONITOR_FILES
         ):
@@ -258,27 +260,10 @@ def verify_monitor(destination: Path) -> dict[str, Any]:
         for name, digest in manifest["files_sha256"].items():
             if _hash(destination / name) != digest:
                 raise DataContractError(f"Artifact digest mismatch: {name}")
-        summary = json.loads((destination / "monitor.json").read_text(encoding="utf-8"))
-
-        def read_csv(name: str, columns: set[str]) -> list[dict[str, str]]:
-            with (destination / name).open(newline="", encoding="utf-8") as handle:
-                reader = csv.DictReader(handle)
-                if (
-                    reader.fieldnames is None
-                    or set(reader.fieldnames) != columns
-                    or len(reader.fieldnames) != len(columns)
-                ):
-                    raise DataContractError(f"Unexpected monitor columns: {name}")
-                rows = list(reader)
-            if any(
-                set(row) != columns or any(value is None for value in row.values()) for row in rows
-            ):
-                raise DataContractError(f"Malformed monitor row: {name}")
-            return rows
-
-        reference_rows = read_csv("reference_scores.csv", {"raw_pd"})
-        current_rows = read_csv("monitor_scores.csv", set(SCORE_COLUMNS))
-        bin_rows = read_csv("score_bins.csv", set(BIN_COLUMNS))
+        summary = read_json_object(destination / "monitor.json")
+        reference_rows = read_csv_rows(destination / "reference_scores.csv", ("raw_pd",))
+        current_rows = read_csv_rows(destination / "monitor_scores.csv", SCORE_COLUMNS)
+        bin_rows = read_csv_rows(destination / "score_bins.csv", BIN_COLUMNS)
         if (
             summary["kind"] != "label_free_score_monitor"
             or summary["reference_loans"] != len(reference_rows)
@@ -290,7 +275,23 @@ def verify_monitor(destination: Path) -> dict[str, Any]:
             raise DataContractError("Monitor counts or method disagree with score rows")
         cutoff = date.fromisoformat(summary["as_of"])
         start, end = (date.fromisoformat(value) for value in summary["current_window"])
+        reference_start, reference_end = (
+            date.fromisoformat(value) for value in summary["reference_window"]
+        )
+        if not (
+            reference_start <= reference_end
+            and reference_end + timedelta(days=HORIZON_DAYS + REPORT_LAG_DAYS) <= start <= end
+            and start <= cutoff
+        ):
+            raise DataContractError(
+                "Monitor windows must include the reference-label maturation gap"
+            )
         for row in current_rows:
+            if not _ID.fullmatch(row["application_id"]) or row["segment"] not in {
+                "retail",
+                "small_business",
+            }:
+                raise DataContractError("Monitor application identity or segment is invalid")
             decision = date.fromisoformat(row["decision_at"])
             if not start <= decision <= min(end, cutoff) or row["vintage"] != decision.strftime(
                 "%Y-%m"
@@ -310,7 +311,7 @@ def verify_monitor(destination: Path) -> dict[str, Any]:
             raise DataContractError("Monitor PSI or bin count disagrees with scores")
         for published, expected in zip(bin_rows, bins, strict=True):
             if any(
-                abs(float(published[key]) - float(value)) > 0.00000002
+                abs(finite_number(published[key], f"monitor bin {key}") - float(value)) > 0.00000002
                 for key, value in expected.items()
             ):
                 raise DataContractError("Monitor bins disagree with scores")
@@ -329,7 +330,7 @@ def verify_monitor(destination: Path) -> dict[str, Any]:
             )
         if summary["by_vintage"] != expected_months:
             raise DataContractError("Monitor vintages disagree with scores")
-    except (OSError, KeyError, TypeError, ValueError) as exc:
+    except (OSError, KeyError, TypeError, ValueError, OverflowError) as exc:
         raise DataContractError(f"Cannot verify monitor: {exc}") from exc
     return {
         "status": "verified",
