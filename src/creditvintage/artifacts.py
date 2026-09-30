@@ -16,7 +16,8 @@ import numpy as np
 from sklearn.metrics import average_precision_score, brier_score_loss, roc_auc_score
 
 from creditvintage.core import _ID, DataContractError
-from creditvintage.model import Result
+from creditvintage.model import Config, Result
+from creditvintage.validation import finite_number, read_csv_rows, read_json_object
 
 PREDICTION_COLUMNS = (
     "application_id",
@@ -28,6 +29,14 @@ PREDICTION_COLUMNS = (
     "raw_pd",
     "calibrated_pd",
     "review_selected",
+)
+AGGREGATE_COLUMNS = (
+    "loans",
+    "observed_default_rate",
+    "mean_pd",
+    "principal_usd",
+    "scenario_expected_loss_usd",
+    "scenario_observed_loss_proxy_usd",
 )
 RESULT_FILES = (
     "summary.json",
@@ -117,10 +126,8 @@ def write_result(result: Result, destination: Path) -> dict[str, Any]:
     destination.mkdir(parents=True, exist_ok=True)
     _json(destination / "summary.json", result.summary)
     _csv(destination / "predictions.csv", result.predictions, PREDICTION_COLUMNS)
-    bucket_columns = tuple(result.deciles[0])
-    _csv(destination / "calibration_bins.csv", result.deciles, bucket_columns)
-    vintage_columns = tuple(result.vintages[0])
-    _csv(destination / "vintage_metrics.csv", result.vintages, vintage_columns)
+    _csv(destination / "calibration_bins.csv", result.deciles, ("risk_bucket", *AGGREGATE_COLUMNS))
+    _csv(destination / "vintage_metrics.csv", result.vintages, ("vintage", *AGGREGATE_COLUMNS))
     (destination / "index.html").write_text(render_report(result), encoding="utf-8")
     manifest = {
         "input_sha256": result.input_sha256,
@@ -132,33 +139,34 @@ def write_result(result: Result, destination: Path) -> dict[str, Any]:
 
 def verify_result(destination: Path) -> dict[str, Any]:
     try:
-        manifest = json.loads((destination / "manifest.json").read_text(encoding="utf-8"))
+        manifest = read_json_object(destination / "manifest.json")
         if set(manifest["files_sha256"]) != set(RESULT_FILES):
             raise DataContractError("Unexpected artifact inventory")
         for name, digest in manifest["files_sha256"].items():
             if _hash(destination / name) != digest:
                 raise DataContractError(f"Artifact digest mismatch: {name}")
-        summary = json.loads((destination / "summary.json").read_text(encoding="utf-8"))
-        with (destination / "predictions.csv").open(newline="", encoding="utf-8") as handle:
-            reader = csv.DictReader(handle)
-            if reader.fieldnames != list(PREDICTION_COLUMNS):
-                raise DataContractError("Unexpected prediction columns")
-            predictions = list(reader)
-        if any(
-            set(row) != set(PREDICTION_COLUMNS) or any(value is None for value in row.values())
-            for row in predictions
-        ):
-            raise DataContractError("Malformed prediction row")
+        summary = read_json_object(destination / "summary.json")
+        predictions = read_csv_rows(destination / "predictions.csv", PREDICTION_COLUMNS)
         if len({row["application_id"] for row in predictions}) != len(predictions):
             raise DataContractError("Duplicate prediction ID")
         labels = np.asarray([int(row["label"]) for row in predictions])
         if len(predictions) != summary["cohorts"]["test"]["loans"] or set(labels) != {0, 1}:
             raise DataContractError("Prediction count or outcomes disagree with summary")
         config = summary["config"]
-        start = date.fromisoformat(config["test_start"])
-        end = date.fromisoformat(config["test_end"])
-        as_of = date.fromisoformat(config["evaluation_as_of"])
-        if not start <= end <= as_of or any(
+        checked_config = Config(
+            train_start=date.fromisoformat(config["train_start"]),
+            train_end=date.fromisoformat(config["train_end"]),
+            calibration_start=date.fromisoformat(config["calibration_start"]),
+            calibration_end=date.fromisoformat(config["calibration_end"]),
+            test_start=date.fromisoformat(config["test_start"]),
+            test_end=date.fromisoformat(config["test_end"]),
+            evaluation_as_of=date.fromisoformat(config["evaluation_as_of"]),
+            scenario_lgd=finite_number(config["scenario_lgd"], "scenario LGD"),
+            review_fraction=finite_number(config["review_fraction"], "configured review fraction"),
+            seed=config["seed"],
+        )
+        start, end = checked_config.test_start, checked_config.test_end
+        if any(
             not _ID.fullmatch(row["application_id"])
             or row["segment"] not in {"retail", "small_business"}
             or int(row["principal_cents"]) <= 0
@@ -167,17 +175,28 @@ def verify_result(destination: Path) -> dict[str, Any]:
             for row in predictions
         ):
             raise DataContractError("Prediction identity, date or segment disagrees with contract")
-        if abs(float(labels.mean()) - float(summary["cohorts"]["test"]["default_rate"])) > 0.000002:
+        if (
+            abs(
+                float(labels.mean())
+                - finite_number(summary["cohorts"]["test"]["default_rate"], "test default rate")
+            )
+            > 0.000002
+        ):
             raise DataContractError("Test default rate disagrees with predictions")
-        train_rate = float(summary["cohorts"]["train"]["default_rate"])
+        train_rate = finite_number(
+            summary["cohorts"]["train"]["default_rate"], "train default rate"
+        )
         if not 0 <= train_rate <= 1:
             raise DataContractError("Invalid train default rate")
         baseline = summary["test_metrics"]["constant_train_rate"]
         baseline_brier = brier_score_loss(labels, np.full(len(labels), train_rate))
         if (
-            abs(float(baseline["roc_auc"]) - 0.5) > 0.000002
-            or abs(float(baseline["average_precision"]) - float(labels.mean())) > 0.000002
-            or abs(float(baseline["brier"]) - baseline_brier) > 0.000002
+            abs(finite_number(baseline["roc_auc"], "baseline AUC") - 0.5) > 0.000002
+            or abs(
+                finite_number(baseline["average_precision"], "baseline AP") - float(labels.mean())
+            )
+            > 0.000002
+            or abs(finite_number(baseline["brier"], "baseline Brier") - baseline_brier) > 0.000002
         ):
             raise DataContractError("Constant baseline disagrees with predictions")
         for key, title in (("raw_pd", "raw_logistic"), ("calibrated_pd", "calibrated")):
@@ -190,18 +209,24 @@ def verify_result(destination: Path) -> dict[str, Any]:
                 "brier": brier_score_loss(labels, p),
             }
             if any(
-                abs(computed[name] - summary["test_metrics"][title][name]) > 0.000002
+                abs(
+                    computed[name]
+                    - finite_number(summary["test_metrics"][title][name], f"{title} {name}")
+                )
+                > 0.000002
                 for name in computed
             ):
                 raise DataContractError(f"Metrics disagree with predictions: {title}")
         review = np.asarray([int(row["review_selected"]) for row in predictions])
         policy = summary["review_at_fixed_capacity"]
-        fraction = float(policy["fraction"])
+        fraction = finite_number(policy["fraction"], "review fraction")
+        review_count = math.ceil(len(predictions) * fraction)
         if (
             set(review) - {0, 1}
             or not 0 < fraction <= 1
-            or math.ceil(len(predictions) * fraction) != int(policy["loans"])
-            or int(review.sum()) != int(policy["loans"])
+            or fraction != checked_config.review_fraction
+            or review_count != finite_number(policy["loans"], "review loans")
+            or int(review.sum()) != review_count
         ):
             raise DataContractError("Review capacity disagrees with predictions")
         probability = np.asarray([float(row["calibrated_pd"]) for row in predictions])
@@ -209,20 +234,25 @@ def verify_result(destination: Path) -> dict[str, Any]:
             range(len(predictions)),
             key=lambda i: (-probability[i], predictions[i]["application_id"]),
         )
-        if set(np.flatnonzero(review)) != set(ranked[: int(policy["loans"])]):
+        if set(np.flatnonzero(review)) != set(ranked[:review_count]):
             raise DataContractError("Review selection is not the top-ranked fixed-capacity group")
         selected = labels[review == 1]
         if (
-            abs(float(selected.mean()) - policy["precision"]) > 0.000002
-            or abs(float(selected.sum() / labels.sum()) - policy["default_capture"]) > 0.000002
+            abs(float(selected.mean()) - finite_number(policy["precision"], "review precision"))
+            > 0.000002
+            or abs(
+                float(selected.sum() / labels.sum())
+                - finite_number(policy["default_capture"], "review default capture")
+            )
+            > 0.000002
         ):
             raise DataContractError("Review outcomes disagree with predictions")
 
         principals = np.asarray([int(row["principal_cents"]) / 100 for row in predictions])
-        lgd = float(summary["config"]["scenario_lgd"])
+        lgd = checked_config.scenario_lgd
 
         def check_aggregate(indices: np.ndarray, stated: dict[str, Any]) -> None:
-            if len(indices) != int(stated["loans"]):
+            if len(indices) != finite_number(stated["loans"], "cohort loans"):
                 raise DataContractError("Cohort count disagrees with predictions")
             actual = {
                 "observed_default_rate": float(labels[indices].mean()),
@@ -237,12 +267,13 @@ def verify_result(destination: Path) -> dict[str, Any]:
             }
             for name, value in actual.items():
                 tolerance = 0.02 if name.endswith("usd") else 0.000002
-                if abs(value - float(stated[name])) > tolerance:
+                if abs(value - finite_number(stated[name], f"cohort {name}")) > tolerance:
                     raise DataContractError(f"Cohort {name} disagrees with predictions")
 
         check_aggregate(np.arange(len(predictions)), summary["test_portfolio"])
-        with (destination / "calibration_bins.csv").open(newline="", encoding="utf-8") as handle:
-            bins = list(csv.DictReader(handle))
+        bins = read_csv_rows(
+            destination / "calibration_bins.csv", ("risk_bucket", *AGGREGATE_COLUMNS)
+        )
         if len(bins) != 10:
             raise DataContractError("Risk bucket count disagrees with predictions")
         for rank, (indices, bucket) in enumerate(
@@ -251,8 +282,9 @@ def verify_result(destination: Path) -> dict[str, Any]:
             if int(bucket["risk_bucket"]) != rank:
                 raise DataContractError("Risk bucket order is invalid")
             check_aggregate(indices, bucket)
-        with (destination / "vintage_metrics.csv").open(newline="", encoding="utf-8") as handle:
-            vintages = list(csv.DictReader(handle))
+        vintages = read_csv_rows(
+            destination / "vintage_metrics.csv", ("vintage", *AGGREGATE_COLUMNS)
+        )
         months = sorted({row["vintage"] for row in predictions})
         if [row["vintage"] for row in vintages] != months:
             raise DataContractError("Vintage coverage disagrees with predictions")
@@ -261,7 +293,7 @@ def verify_result(destination: Path) -> dict[str, Any]:
                 [i for i, row in enumerate(predictions) if row["vintage"] == month]
             )
             check_aggregate(indices, vintage)
-    except (OSError, KeyError, TypeError, ValueError) as exc:
+    except (OSError, KeyError, TypeError, ValueError, OverflowError) as exc:
         raise DataContractError(f"Cannot verify result: {exc}") from exc
     return {
         "status": "verified",
