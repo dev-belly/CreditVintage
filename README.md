@@ -191,3 +191,23 @@ The package has a standard-library event contract, NumPy/scikit-learn model
 evaluation, a dependency-free static HTML report, strict tests for timing and
 corruption, and CI on Python 3.12/3.13. This is research software, not a credit
 decision service.
+
+## Source-to-prediction lineage
+
+[Generate the PITBridge × CreditVintage explorer locally](docs/LINEAGE.md). The `lineage-demo` command writes a standalone `index.html`: select a held-out application to trace its three model features to the source record, revision, publication, ingestion and decision cutoff. Its default generated synthetic cohort has **480 applications, 1,440 selected features and 120 held-out predictions**. The original evaluation above remains a separate 480-test-application example. The per-application integration bundle is generated locally and is not committed as a public dataset.
+
+The adapter is a real code path, not a diagram connecting two independent demos. It verifies PITBridge's saved bundle through SQL and its separate Python oracle, enforces application/entity mapping and feature units, exports model inputs, and runs CreditVintage on those exported CSVs. The source fixture includes **192 observations unavailable at their decision**, including corrections published on the decision date but ingested the next day.
+
+Install the pinned reference implementation before using this optional integration:
+
+```bash
+git clone https://github.com/dev-belly/PITBridge.git ../PITBridge
+git -C ../PITBridge checkout 2f2438aa9b62502c7b1c9773b572d09f6b04f9ea
+python -m pip install -e ../PITBridge
+creditvintage lineage-demo --out outputs/lineage
+creditvintage verify-lineage outputs/lineage
+```
+
+Open `outputs/lineage/index.html` in your browser after generation. `verify-lineage` checks file hashes, replays the original PIT sources, reconstructs every feature and lineage row, independently verifies the evaluation artifacts, and refits the model from saved applications/features/performance. It compares saved predictions using a numerical tolerance. [The integration contract](docs/LINEAGE.md) explains the units, UTC convention, dependency pin and boundaries.
+
+The original `run`, `monitor`, `verify` and `verify-monitor` commands do not need PITBridge installed. CI exercises the integration with a pinned PITBridge checkout on Python 3.12 and 3.13.

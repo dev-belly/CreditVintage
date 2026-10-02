@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CreditVintage × PITBridge · Source to prediction</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#111319;color:#f1f0e9}*{box-sizing:border-box}body{margin:0}main{max-width:1250px;margin:auto;padding:48px 24px}.eyebrow{color:#d7fa73;font:12px ui-monospace,monospace;letter-spacing:.12em}h1{font-size:clamp(36px,6vw,72px);line-height:1.04;letter-spacing:-.05em;max-width:950px}h2{font-size:24px}p{line-height:1.7;max-width:850px;color:#acb6c1}a{color:#d7fa73}nav{display:flex;gap:22px;flex-wrap:wrap;margin:22px 0}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:30px 0}.card{padding:22px;background:#1b1e25;border:1px solid #343b45;border-radius:10px}.number{display:block;font-size:36px;font-weight:700;color:#d7fa73}.caption{font-size:13px;color:#b4bdc6}label{display:block;color:#d7fa73;margin-bottom:10px}select{padding:12px;background:#1b1e25;color:#f1f0e9;border:1px solid #586439;border-radius:6px;width:min(100%,420px);font-size:16px}.prediction{padding:20px;background:#1d2618;border-left:3px solid #d7fa73;line-height:1.9;margin:18px 0}.scroll{overflow-x:auto;border:1px solid #343b45;border-radius:8px}table{border-collapse:collapse;width:100%;font:13px ui-monospace,monospace}td,th{padding:14px;white-space:nowrap;border-bottom:1px solid #343b45;text-align:left}th{color:#d7fa73;background:#1b1e25}[hidden]{display:none!important}code{color:#d7fa73}footer{margin-top:45px;color:#8e9aa7;font-size:13px}.flow{font:15px ui-monospace,monospace;color:#d7fa73}.note{border-left:2px solid #ffb994;padding-left:16px}button:focus-visible,a:focus-visible,select:focus-visible{outline:2px solid #d7fa73;outline-offset:5px}
+</style></head>
+<body><main>
+<div class="eyebrow">CREDITVINTAGE × PITBRIDGE / SYNTHETIC RESEARCH</div>
+<h1>A prediction is a result.<br>Its sources are the evidence.</h1>
+<p>PITBridge selects the records available at each decision. A checked adapter exports three defined credit features; CreditVintage evaluates them with separate training, calibration and test periods. Select a held-out application to inspect its source records.</p>
+<nav><a href="https://github.com/dev-belly/CreditVintage#source-to-prediction-lineage">Source & replay</a><a href="evaluation/">This cohort's evaluation</a><a href="../monitor/">Score monitoring</a><a href="https://github.com/dev-belly/PITBridge">PITBridge</a></nav>
+<div class="cards"><div class="card"><span class="number">@@APPLICATIONS@@</span><span class="caption">Applications across three periods</span></div><div class="card"><span class="number">@@FEATURES@@</span><span class="caption">Selected source features</span></div><div class="card"><span class="number">@@EXCLUDED@@</span><span class="caption">Source records available after the decision</span></div></div>
+<p class="flow">Preserved source events → decision-time features → prospective evaluation</p>
+<h2>Inspect a held-out application</h2>
+<label for="application">Application</label><select id="application">@@OPTIONS@@</select>
+<div class="prediction" id="prediction" aria-live="polite"></div>
+<div class="scroll"><table id="lineage"><thead><tr><th>Application</th><th>Decision UTC</th><th>Feature</th><th>Value</th><th>Source</th><th>Record ID</th><th>Revision</th><th>Event UTC</th><th>Published UTC</th><th>Ingested UTC</th><th>Available UTC</th></tr></thead><tbody>@@ROWS@@</tbody></table></div>
+<noscript><p>JavaScript is disabled: the table shows all held-out source rows. Download the complete CSV below.</p></noscript>
+<h2>The contract between the two systems</h2>
+<p><b>Decision dates mean UTC end of day.</b> Availability is the later of publication and ingestion. Observations older than seven days, deleted records and missing features are rejected. Utilization and debt-to-income are fractions; prior delinquencies is a count. Principal remains integer USD cents.</p>
+<p class="note">This example includes historical corrections published on the decision date but ingested the next day. They must not replace the selected earlier record. Public inputs are synthetic. The 180-day 90+ DPD label is a research definition; calibrated probabilities and model scores are not a deployed lending policy.</p>
+<h2>Download and reproduce</h2>
+<nav><a href="lineage.csv">All source lineage</a><a href="features.csv">Model features</a><a href="applications.csv">Applications</a><a href="performance.csv">Performance events</a><a href="pit/inputs.json">Original PIT source events</a><a href="evaluation/predictions.csv">Held-out predictions</a><a href="manifest.json">Bundle manifest</a></nav>
+<p><code>creditvintage verify-lineage docs/lineage</code> checks both bundles, reconstructs the adapter output and refits the model from saved inputs. Every prediction is compared within the stated numerical tolerance.</p>
+<footer>CreditVintage × PITBridge · Reproducible research by <a href="https://github.com/dev-belly">dev-belly</a></footer>
+</main><script type="application/json" id="predictions">@@PREDICTIONS@@</script><script>
+const records=JSON.parse(document.getElementById('predictions').textContent);const select=document.getElementById('application');
+function show(){const row=records[select.value];document.querySelectorAll('#lineage tbody tr').forEach(tr=>tr.hidden=tr.dataset.application!==select.value);document.getElementById('prediction').textContent=`${row.application_id} · ${row.decision_at} · ${row.segment} | Raw PD ${(row.raw_pd*100).toFixed(2)}% · Calibrated PD ${(row.calibrated_pd*100).toFixed(2)}% | Mature 180-day outcome: ${row.label===1?'90+ DPD observed':'nondefault with complete reporting'} · Review queue: ${row.review_selected?'selected':'not selected'}`;}
+select.addEventListener('change',show);show();
+</script></body></html>
