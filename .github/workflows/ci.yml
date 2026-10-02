@@ -13,17 +13,30 @@ jobs:
         python-version: ["3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: dev-belly/PITBridge
+          ref: 2f2438aa9b62502c7b1c9773b572d09f6b04f9ea
+          path: .pitbridge
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - run: python -m pip install -e ".[dev]"
-      - run: ruff check src tests
-      - run: ruff format --check src tests
-      - run: mypy src
-      - run: pytest -q
+      - run: python -m pip install -e .pitbridge
+      - name: Lint, formatting, types and tests
+        run: |
+          set +e
+          status=0
+          ruff check src tests --output-format concise || status=1
+          ruff format --check --diff src tests || status=1
+          mypy src || status=1
+          pytest -q || status=1
+          exit "$status"
       - run: creditvintage run --out outputs/ci
       - run: creditvintage verify outputs/ci
       - run: creditvintage monitor --as-of 2024-10-01 --out outputs/ci-monitor
       - run: creditvintage verify-monitor outputs/ci-monitor
       - run: creditvintage verify docs/demo
       - run: creditvintage verify-monitor docs/monitor
+      - run: creditvintage lineage-demo --out outputs/ci-lineage
+      - run: creditvintage verify-lineage outputs/ci-lineage
