@@ -261,6 +261,8 @@ def verify_monitor(destination: Path) -> dict[str, Any]:
             if _hash(destination / name) != digest:
                 raise DataContractError(f"Artifact digest mismatch: {name}")
         summary = read_json_object(destination / "monitor.json")
+        if summary["data_kind"] not in {"synthetic", "user_supplied"}:
+            raise DataContractError("Unknown data kind")
         reference_rows = read_csv_rows(destination / "reference_scores.csv", ("raw_pd",))
         current_rows = read_csv_rows(destination / "monitor_scores.csv", SCORE_COLUMNS)
         bin_rows = read_csv_rows(destination / "score_bins.csv", BIN_COLUMNS)
@@ -330,6 +332,11 @@ def verify_monitor(destination: Path) -> dict[str, Any]:
             )
         if summary["by_vintage"] != expected_months:
             raise DataContractError("Monitor vintages disagree with scores")
+        result = MonitorResult(
+            summary, reference.tolist(), current_rows, bins, manifest["input_sha256"]
+        )
+        if (destination / "index.html").read_bytes() != _render_monitor(result).encode("utf-8"):
+            raise DataContractError("HTML monitor disagrees with verified evidence")
     except (OSError, KeyError, TypeError, ValueError, OverflowError) as exc:
         raise DataContractError(f"Cannot verify monitor: {exc}") from exc
     return {

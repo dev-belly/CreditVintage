@@ -137,6 +137,58 @@ def write_result(result: Result, destination: Path) -> dict[str, Any]:
     return manifest
 
 
+def _verify_bootstrap(
+    predictions: list[dict[str, str]],
+    labels: np.ndarray,
+    probability: np.ndarray,
+    seed: int,
+    stated: dict[str, Any],
+) -> None:
+    """Replay whole-month sampling from portable rows, without fitting a model."""
+    iterations = 300  # The evaluation path has a fixed, documented budget.
+    if stated["unit"] != "origination_month" or stated["requested_replicates"] != iterations:
+        raise DataContractError("Vintage bootstrap method or budget is invalid")
+    months = sorted({row["vintage"] for row in predictions})
+    groups = [
+        np.asarray([i for i, row in enumerate(predictions) if row["vintage"] == month])
+        for month in months
+    ]
+    rng = np.random.default_rng(seed)
+    auc, brier = [], []
+    for _ in range(iterations):
+        chosen = rng.choice(len(groups), size=len(groups), replace=True)
+        indices = np.concatenate([groups[i] for i in chosen])
+        if len(set(labels[indices])) < 2:
+            continue
+        auc.append(float(roc_auc_score(labels[indices], probability[indices])))
+        brier.append(float(brier_score_loss(labels[indices], probability[indices])))
+    if not auc or stated["valid_replicates"] != len(auc):
+        raise DataContractError("Vintage bootstrap replicate count disagrees with predictions")
+    for key, values in (("roc_auc_95_interval", auc), ("brier_95_interval", brier)):
+        interval = stated[key]
+        if not isinstance(interval, list) or len(interval) != 2:
+            raise DataContractError("Vintage bootstrap interval needs two endpoints")
+        actual = np.quantile(values, [0.025, 0.975])
+        if any(
+            abs(finite_number(value, f"bootstrap {key}") - expected) > 0.000002
+            for value, expected in zip(interval, actual, strict=True)
+        ):
+            raise DataContractError("Vintage bootstrap interval disagrees with predictions")
+
+
+def _numeric_aggregates(rows: list[dict[str, str]], identity: str) -> list[dict[str, Any]]:
+    return [
+        {
+            identity: int(row[identity]) if identity == "risk_bucket" else row[identity],
+            **{
+                key: int(row[key]) if key == "loans" else float(row[key])
+                for key in AGGREGATE_COLUMNS
+            },
+        }
+        for row in rows
+    ]
+
+
 def verify_result(destination: Path) -> dict[str, Any]:
     try:
         manifest = read_json_object(destination / "manifest.json")
@@ -146,6 +198,8 @@ def verify_result(destination: Path) -> dict[str, Any]:
             if _hash(destination / name) != digest:
                 raise DataContractError(f"Artifact digest mismatch: {name}")
         summary = read_json_object(destination / "summary.json")
+        if summary["data_kind"] not in {"synthetic", "user_supplied"}:
+            raise DataContractError("Unknown data kind")
         predictions = read_csv_rows(destination / "predictions.csv", PREDICTION_COLUMNS)
         if len({row["application_id"] for row in predictions}) != len(predictions):
             raise DataContractError("Duplicate prediction ID")
@@ -230,6 +284,9 @@ def verify_result(destination: Path) -> dict[str, Any]:
         ):
             raise DataContractError("Review capacity disagrees with predictions")
         probability = np.asarray([float(row["calibrated_pd"]) for row in predictions])
+        _verify_bootstrap(
+            predictions, labels, probability, checked_config.seed, summary["vintage_bootstrap"]
+        )
         ranked = sorted(
             range(len(predictions)),
             key=lambda i: (-probability[i], predictions[i]["application_id"]),
@@ -293,6 +350,15 @@ def verify_result(destination: Path) -> dict[str, Any]:
                 [i for i, row in enumerate(predictions) if row["vintage"] == month]
             )
             check_aggregate(indices, vintage)
+        report = Result(
+            summary,
+            predictions,
+            _numeric_aggregates(bins, "risk_bucket"),
+            _numeric_aggregates(vintages, "vintage"),
+            manifest["input_sha256"],
+        )
+        if (destination / "index.html").read_bytes() != render_report(report).encode("utf-8"):
+            raise DataContractError("HTML report disagrees with verified evidence")
     except (OSError, KeyError, TypeError, ValueError, OverflowError) as exc:
         raise DataContractError(f"Cannot verify result: {exc}") from exc
     return {

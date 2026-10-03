@@ -265,5 +265,7 @@ class ReplayTests(unittest.TestCase):
         manifest_path.write_text(json.dumps(manifest))
         self.rehash("evaluation/summary.json")
         self.rehash("evaluation/manifest.json")
-        with self.assertRaisesRegex(DataContractError, "model replay: config"):
+        # The independent report verifier can now detect the changed seed while
+        # replaying bootstrap intervals, before lineage refits the model.
+        with self.assertRaisesRegex(DataContractError, "model replay: config|bootstrap"):
             verify_lineage(self.path)
