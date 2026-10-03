@@ -28,8 +28,19 @@ def read_json_object(path: Path) -> dict[str, Any]:
     def parse_number(value: str) -> float:
         return finite_number(value, f"{path.name} JSON number")
 
+    def unique_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise DataContractError(f"Duplicate JSON key in {path.name}: {key}")
+            result[key] = value
+        return result
+
     document = json.loads(
-        path.read_text(encoding="utf-8"), parse_float=parse_number, parse_constant=parse_number
+        path.read_text(encoding="utf-8"),
+        parse_float=parse_number,
+        parse_constant=parse_number,
+        object_pairs_hook=unique_keys,
     )
     if not isinstance(document, dict):
         raise DataContractError(f"Expected a JSON object: {path.name}")

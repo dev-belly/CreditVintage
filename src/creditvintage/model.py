@@ -44,6 +44,8 @@ class Config:
     seed: int = 20260927
 
     def __post_init__(self) -> None:
+        if type(self.seed) is not int or not 0 <= self.seed < 2**32:
+            raise DataContractError("seed must be a uint32 integer")
         lag = timedelta(days=HORIZON_DAYS + REPORT_LAG_DAYS)
         if not (
             self.train_start <= self.train_end
