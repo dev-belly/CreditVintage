@@ -3,31 +3,43 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CreditVintage | Credit cohort evaluation</title>
-  <meta name="description" content="A reproducible synthetic credit cohort experiment with point-in-time features, mature labels and an auditable out-of-time report.">
+  <title>CreditVintage | Source to prediction</title>
+  <meta name="description" content="Inspect decision-time source records, prospective credit evaluation and early score monitoring in reproducible synthetic research.">
   <style>
-    :root { color-scheme: light; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    body { max-width: 780px; margin: 0 auto; padding: clamp(2rem, 6vw, 5rem) 1.25rem; color: #17304c; background: #f7f9fc; line-height: 1.6; }
-    main { padding: clamp(1.5rem, 4vw, 3rem); background: white; border: 1px solid #dae4ef; border-radius: 20px; box-shadow: 0 12px 36px #17304c0b; }
-    h1 { line-height: 1.15; letter-spacing: -.035em; margin: .3rem 0 1rem; font-size: clamp(2.4rem, 6vw, 4rem); }
-    .eyebrow { color: #2874a6; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; font-size: .78rem; }
-    .lead { font-size: 1.2rem; max-width: 58ch; }
-    .note { border-left: 3px solid #e2a249; padding-left: 1rem; margin: 2rem 0; }
-    a { color: #155d91; }
-    .button { display: inline-block; background: #155d91; color: white; padding: .75rem 1.1rem; border-radius: 8px; font-weight: 700; text-decoration: none; }
-    .button:hover, .button:focus-visible { background: #0c426a; }
-    footer { margin-top: 2rem; font-size: .92rem; color: #53687e; }
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #111319; color: #f1f0e9; }
+    * { box-sizing: border-box; }
+    body { margin: 0; line-height: 1.6; }
+    main { max-width: 1050px; margin: auto; padding: clamp(2rem, 6vw, 5rem) 1.5rem; }
+    header { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 1rem; padding-bottom: 1.8rem; border-bottom: 1px solid #353c45; }
+    .eyebrow { color: #d7fa73; letter-spacing: .12em; font: .8rem ui-monospace, monospace; }
+    h1 { font-size: clamp(3rem, 8vw, 5.5rem); line-height: 1.02; letter-spacing: -.05em; margin: 3rem 0 1.6rem; }
+    h2 { margin: .8rem 0; font-size: 1.5rem; }
+    p { color: #acb6c1; }
+    .lead { font-size: 1.2rem; max-width: 720px; }
+    a { color: #d7fa73; text-underline-offset: .2rem; }
+    .button { display: inline-block; background: #d7fa73; color: #111319; padding: .85rem 1.2rem; border-radius: 6px; text-decoration: none; font-weight: 700; }
+    .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 1.3rem; margin: 2rem 0; }
+    .reports { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr)); gap: 1rem; margin: 3rem 0; }
+    article { background: #1b1e25; padding: 1.5rem; border: 1px solid #353c45; border-radius: 10px; }
+    .number { color: #d7fa73; font: .85rem ui-monospace, monospace; }
+    .note { border-left: 2px solid #ffb994; padding-left: 1rem; max-width: 800px; }
+    footer { border-top: 1px solid #353c45; padding-top: 1.5rem; margin-top: 3rem; color: #8e9aa7; font-size: .9rem; }
+    a:focus-visible { outline: 2px solid #d7fa73; outline-offset: 5px; }
   </style>
 </head>
 <body>
-  <main>
-    <div class="eyebrow">Reproducible research project</div>
-    <h1>CreditVintage</h1>
-    <p class="lead">From application-time records to mature credit outcomes and an auditable out-of-time evaluation.</p>
-    <p>The report includes cohort metrics, calibration, a fixed review-capacity scenario, downloadable test predictions and file hashes.</p>
-    <p class="note"><strong>Synthetic experiment.</strong> These numbers do not describe real borrowers or a deployable credit policy. In this run, independent isotonic calibration worsened Brier score; the result is shown as measured.</p>
-    <p><a class="button" href="demo/">Open the computed report</a> · <a href="https://github.com/dev-belly/CreditVintage#source-to-prediction-lineage">Trace source to prediction</a> · <a href="monitor/">Explore early score monitoring</a></p>
-    <footer><a href="https://github.com/dev-belly/CreditVintage">Source, methodology and run instructions</a> · <a href="demo/predictions.csv">Test predictions</a></footer>
-  </main>
+<main>
+  <header><span class="eyebrow">CREDITVINTAGE / FINANCIAL RESEARCH</span><a href="https://github.com/dev-belly">by dev-belly</a></header>
+  <h1>Credit scores.<br>With evidence.</h1>
+  <p class="lead">From the records available at a decision to mature credit outcomes. Inspect the inputs, the evaluation and the assumptions behind each result.</p>
+  <div class="actions"><a class="button" href="lineage/">Explore source → prediction</a><a href="lineage/evidence.zip">Download the complete example</a></div>
+  <section class="reports" aria-label="Research reports">
+    <article><span class="number">01 / SOURCE LINEAGE</span><h2>What was known?</h2><p>Trace three model features to their source records, revisions and publication or ingestion times. A synthetic cohort of 480 applications includes late historical corrections.</p><a href="lineage/">Inspect an application ↗</a></article>
+    <article><span class="number">02 / MODEL EVALUATION</span><h2>Does it hold up?</h2><p>Separate training, calibration and held-out periods. Compare raw and calibrated probabilities, vintage results and a fixed review-capacity scenario.</p><a href="demo/">Open the original risk report ↗</a></article>
+    <article><span class="number">03 / EARLY MONITORING</span><h2>Has the score drifted?</h2><p>Inspect the score distribution before new credit outcomes mature. Follow the reference bins and application-level evidence behind the diagnostic.</p><a href="monitor/">Explore score monitoring ↗</a></article>
+  </section>
+  <p class="note"><strong>Synthetic research examples.</strong> The source-lineage example and the original risk report use separate cohorts. The original report retains the measured worsening of Brier score after independent isotonic calibration. These examples do not describe real borrowers or a deployed credit policy.</p>
+  <footer><a href="https://github.com/dev-belly/CreditVintage">Source & run instructions</a> · <a href="https://github.com/dev-belly/CreditVintage/blob/main/docs/LINEAGE.md">Integration contract</a> · <a href="lineage/evidence.zip">Saved evidence ZIP</a></footer>
+</main>
 </body>
 </html>
