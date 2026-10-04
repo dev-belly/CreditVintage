@@ -121,15 +121,18 @@ The command creates a standalone `index.html`, CSV tables, `summary.json`,
 and a manifest of SHA-256 output digests plus an input-event digest. `verify`
 checks file digests and independently recomputes test AUC, average precision,
 Brier, the test default rate, and the constant baseline from the prediction
-rows. It enforces the full training, calibration and test outcome-maturation
+rows. It also replays all 300 whole-month bootstrap draws from saved predictions
+and the recorded seed, checking interval endpoints and valid replicate counts.
+It enforces the full training, calibration and test outcome-maturation
 gaps, then checks prediction dates against the stated test window and their
 vintage labels. It also checks that the published review
 flags select exactly the highest-ranked loans at the stated capacity, with
 application ID breaking score ties and the recorded configuration defining
 the same capacity. Both verifiers reject non-finite numeric claims (`NaN`,
-infinity and overflow), duplicate or malformed CSV columns, and fractional
+infinity and overflow), duplicate JSON keys, duplicate or malformed CSV columns, and fractional
 cohort counts. `verify-monitor` also validates current application identities,
-segments and the reference-label maturation gap. These checks run even when
+segments and the reference-label maturation gap. Both rebuild the HTML page from
+the verified evidence, rejecting a rehashed webpage with invented claims. These checks run even when
 the output hashes have been updated to match edited files; the regression
 suite covers those inconsistent reports alongside the original published
 examples. The summary records Python, NumPy and

@@ -148,3 +148,59 @@ def test_rehashed_aggregate_csv_rejects_duplicate_headers(tmp_path: Path, name: 
 def test_original_published_reports_still_verify() -> None:
     assert verify_result(Path("docs/demo"))["loans"] == 480
     assert verify_monitor(Path("docs/monitor"))["loans"] == 320
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("roc_auc_95_interval", [0.99, 1.0]),
+        ("brier_95_interval", [0.0, 0.001]),
+        ("valid_replicates", 299),
+        ("requested_replicates", 20),
+        ("unit", "independent_loan"),
+    ],
+)
+def test_rehashed_bootstrap_claims_must_replay_from_prediction_rows(
+    tmp_path: Path, key: str, value: Any
+) -> None:
+    directory = _report(tmp_path, "demo")
+    _edit_json(directory, "summary.json", ("vintage_bootstrap", key), value)
+    with pytest.raises(DataContractError, match="bootstrap"):
+        verify_result(directory)
+
+
+@pytest.mark.parametrize("kind", ["demo", "monitor"])
+def test_rehashed_html_must_match_verified_report_evidence(tmp_path: Path, kind: str) -> None:
+    directory = _report(tmp_path, kind)
+    (directory / "index.html").write_text("<h1>Invented perfect model performance</h1>")
+    _rehash(directory, "index.html")
+    verify = verify_result if kind == "demo" else verify_monitor
+    with pytest.raises(DataContractError, match="HTML"):
+        verify(directory)
+
+
+@pytest.mark.parametrize(
+    ("kind", "name", "key"),
+    [
+        ("demo", "summary.json", "data_kind"),
+        ("monitor", "monitor.json", "data_kind"),
+        ("demo", "manifest.json", "input_sha256"),
+        ("monitor", "manifest.json", "input_sha256"),
+        ("demo", "summary.json", "roc_auc"),
+    ],
+)
+def test_duplicate_json_keys_cannot_make_report_claims_ambiguous(
+    tmp_path: Path, kind: str, name: str, key: str
+) -> None:
+    directory = _report(tmp_path, kind)
+    path = directory / name
+    content = path.read_text()
+    marker = f'"{key}":'
+    replacement = f'"{key}": "conflicting earlier claim", {marker}'
+    assert marker in content
+    path.write_text(content.replace(marker, replacement, 1))
+    if name != "manifest.json":
+        _rehash(directory, name)
+    verify = verify_result if kind == "demo" else verify_monitor
+    with pytest.raises(DataContractError, match="Duplicate JSON key"):
+        verify(directory)
