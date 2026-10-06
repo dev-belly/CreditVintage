@@ -29,7 +29,7 @@ For example, a utilization correction is published at noon on a decision date bu
 
 `verify-lineage` calls PITBridge's hash and semantic verification, which checks the SQL snapshots against independent Python enumeration. It reruns the adapter and compares the exported features and lineage. It checks the evaluation artifacts with CreditVintage's independent metric verifier, then refits from the three preserved input CSVs and compares each held-out probability with `rtol=1e-8, atol=1e-10`. Prediction identities and metadata must agree exactly. The root model-input digest must match the replay.
 
-The dependency reference is PITBridge commit `2f2438aa9b62502c7b1c9773b572d09f6b04f9ea`. CI checks out that exact commit. The adapter accepts its `pitbridge/0.1.0` bundle schema; recording a reference commit in a manifest is documentation, not a signature attesting the installed package. File hashes and semantic replay do not establish real-world source authenticity.
+The dependency reference is PITBridge commit `ed19dc698534f45a2b646fb4976ff6b01966b0cc`, which includes the [finite binary64 numeric-contract repair](https://github.com/dev-belly/PITBridge/pull/3). Both integration CI and the public-site build check out that exact commit, and the generated summary records the same reference. The adapter still enforces the fraction/count ranges above; the upstream numeric repair does not widen its credit-feature contract. The adapter accepts the `pitbridge/0.1.0` bundle schema; recording a reference commit in a manifest is documentation, not a signature attesting the installed package. File hashes and semantic replay do not establish real-world source authenticity.
 
 ## Tests
 

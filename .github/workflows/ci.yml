@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: dev-belly/PITBridge
-          ref: 2f2438aa9b62502c7b1c9773b572d09f6b04f9ea
+          ref: ed19dc698534f45a2b646fb4976ff6b01966b0cc
           path: .pitbridge
       - uses: actions/setup-python@v5
         with:
