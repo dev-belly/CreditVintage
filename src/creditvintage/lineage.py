@@ -31,7 +31,7 @@ from creditvintage.validation import read_csv_rows, read_json_object
 
 SOURCE = "credit_application"
 MAX_AGE_DAYS = 7
-PIT_COMMIT = "2f2438aa9b62502c7b1c9773b572d09f6b04f9ea"
+PIT_COMMIT = "ed19dc698534f45a2b646fb4976ff6b01966b0cc"
 LINEAGE_COLUMNS = (
     "application_id",
     "decision_at_utc",
