@@ -13,6 +13,7 @@ from html import escape
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
+from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 import numpy as np
 
@@ -231,6 +232,9 @@ def _source_data(apps: list[Application], features: list[FeatureEvent]) -> dict[
 
 
 def render_lineage(summary: dict[str, Any], lineage: list[dict[str, Any]], result: Result) -> str:
+    explorer_version = summary.get("explorer_version", 1)
+    if type(explorer_version) is not int or explorer_version not in (1, 2):
+        raise DataContractError("Unsupported lineage explorer version")
     predicted = {row["application_id"]: row for row in result.predictions}
     test_lineage = [row for row in lineage if row["application_id"] in predicted]
     options = "".join(
@@ -246,6 +250,11 @@ def render_lineage(summary: dict[str, Any], lineage: list[dict[str, Any]], resul
     payload = json.dumps(predicted, sort_keys=True, allow_nan=False).replace("<", "\\u003c")
     template = files("creditvintage").joinpath("lineage.html").read_text(encoding="utf-8")
     for key, value in {
+        "@@ARCHIVE_LINK@@": (
+            '<a href="evidence.zip" download>Complete evidence ZIP</a>'
+            if explorer_version == 2
+            else ""
+        ),
         "@@APPLICATIONS@@": str(summary["applications"]),
         "@@FEATURES@@": str(summary["feature_rows"]),
         "@@EXCLUDED@@": str(summary["future_observations"]),
@@ -255,6 +264,23 @@ def render_lineage(summary: dict[str, Any], lineage: list[dict[str, Any]], resul
     }.items():
         template = template.replace(key, value)
     return template
+
+
+def _archive_evidence(directory: Path) -> None:
+    """Package the fixed evidence inventory for local and published explorers."""
+    names = sorted((*BUNDLE_FILES, "manifest.json"))
+    with ZipFile(directory / "evidence.zip", "w", compression=ZIP_DEFLATED) as archive:
+        for name in names:
+            item = ZipInfo(f"lineage/{name}", date_time=(1980, 1, 1, 0, 0, 0))
+            item.compress_type = ZIP_DEFLATED
+            item.external_attr = 0o100644 << 16
+            archive.writestr(item, (directory / name).read_bytes())
+    with ZipFile(directory / "evidence.zip") as archive:
+        if archive.namelist() != [f"lineage/{name}" for name in names]:
+            raise ValueError("Evidence archive inventory mismatch")
+        for name in names:
+            if archive.read(f"lineage/{name}") != (directory / name).read_bytes():
+                raise ValueError(f"Evidence archive bytes mismatch: {name}")
 
 
 def write_demo(destination: Path, seed: int = 20260927, per_vintage: int = 20) -> dict[str, Any]:
@@ -282,6 +308,7 @@ def write_demo(destination: Path, seed: int = 20260927, per_vintage: int = 20) -
     decision_times = {decision.entity_id: decision.decision_at for decision in decisions}
     summary = {
         "schema_version": 1,
+        "explorer_version": 2,
         "data_kind": "synthetic",
         "seed": seed,
         "applications": len(apps),
@@ -314,6 +341,7 @@ def write_demo(destination: Path, seed: int = 20260927, per_vintage: int = 20) -
             },
         },
     )
+    _archive_evidence(destination)
     return summary
 
 
@@ -344,9 +372,12 @@ def _verify_lineage(destination: Path) -> dict[str, Any]:
         ):
             raise DataContractError(f"Lineage digest mismatch: {name}")
     summary = read_json_object(destination / "summary.json")
+    explorer_version = summary.get("explorer_version", 1)
     if (
         type(summary.get("schema_version")) is not int
         or summary["schema_version"] != 1
+        or type(explorer_version) is not int
+        or explorer_version not in (1, 2)
         or summary.get("data_kind") != "synthetic"
         or summary.get("decision_convention") != "end_of_day_utc"
         or summary.get("max_age_days") != MAX_AGE_DAYS
