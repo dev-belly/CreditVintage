@@ -102,7 +102,7 @@ monitor files private.
 
 ## Run and verify
 
-Python 3.12+:
+Python 3.12+, from the repository root. On Linux or macOS:
 
 ```bash
 python -m venv .venv
@@ -116,6 +116,29 @@ pytest -q
 ruff check src tests
 mypy src
 ```
+
+On Windows PowerShell, run the environment's executables directly; activation
+and execution-policy changes are unnecessary:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\.venv\Scripts\creditvintage.exe run --out outputs/latest
+.\.venv\Scripts\creditvintage.exe verify outputs/latest
+.\.venv\Scripts\creditvintage.exe monitor --as-of 2024-10-01 --out outputs/early
+.\.venv\Scripts\creditvintage.exe verify-monitor outputs/early
+.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\ruff.exe check src tests
+.\.venv\Scripts\mypy.exe src
+```
+
+For later examples on Windows, replace `creditvintage` with
+`.\.venv\Scripts\creditvintage.exe` and `python` with `.\.venv\Scripts\python.exe`.
+CreditVintage writes its HTML and JSON with UTF-8 and LF endings, and `.gitattributes` preserves
+committed evidence bytes even with Git's `core.autocrlf=true`. Regenerate older
+Windows exports with the updated package before verifying them. CI checks
+generated and committed reports, the lineage download and its replay on Linux
+Python 3.12/3.13 and Windows Python 3.12.
 
 The command creates a standalone `index.html`, CSV tables, `summary.json`,
 and a manifest of SHA-256 output digests plus an input-event digest. `verify`

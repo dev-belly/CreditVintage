@@ -222,7 +222,11 @@ class ReplayTests(unittest.TestCase):
 
     def test_rehashed_explorer_forgery_is_rejected(self) -> None:
         path = self.path / "index.html"
-        path.write_text(path.read_text().replace("Raw PD", "Invented PD"))
+        path.write_text(
+            path.read_text(encoding="utf-8").replace("Raw PD", "Invented PD"),
+            encoding="utf-8",
+            newline="",
+        )
         self.rehash("index.html")
         with self.assertRaisesRegex(DataContractError, "explorer"):
             verify_lineage(self.path)

@@ -239,7 +239,7 @@ def write_monitor(result: MonitorResult, destination: Path) -> dict[str, Any]:
     )
     _csv(destination / "monitor_scores.csv", result.scores, SCORE_COLUMNS)
     _csv(destination / "score_bins.csv", result.bins, BIN_COLUMNS)
-    (destination / "index.html").write_text(_render_monitor(result), encoding="utf-8")
+    (destination / "index.html").write_text(_render_monitor(result), encoding="utf-8", newline="")
     manifest = {
         "kind": "label_free_score_monitor",
         "input_sha256": result.input_sha256,

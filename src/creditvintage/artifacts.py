@@ -49,7 +49,9 @@ RESULT_FILES = (
 
 def _json(path: Path, value: Any) -> None:
     path.write_text(
-        json.dumps(value, sort_keys=True, indent=2, allow_nan=False) + "\n", encoding="utf-8"
+        json.dumps(value, sort_keys=True, indent=2, allow_nan=False) + "\n",
+        encoding="utf-8",
+        newline="",
     )
 
 
@@ -128,7 +130,7 @@ def write_result(result: Result, destination: Path) -> dict[str, Any]:
     _csv(destination / "predictions.csv", result.predictions, PREDICTION_COLUMNS)
     _csv(destination / "calibration_bins.csv", result.deciles, ("risk_bucket", *AGGREGATE_COLUMNS))
     _csv(destination / "vintage_metrics.csv", result.vintages, ("vintage", *AGGREGATE_COLUMNS))
-    (destination / "index.html").write_text(render_report(result), encoding="utf-8")
+    (destination / "index.html").write_text(render_report(result), encoding="utf-8", newline="")
     manifest = {
         "input_sha256": result.input_sha256,
         "files_sha256": {name: _hash(destination / name) for name in RESULT_FILES},

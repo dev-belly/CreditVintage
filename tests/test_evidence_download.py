@@ -60,6 +60,9 @@ class EvidenceDownloadTests(unittest.TestCase):
             for name in (*BUNDLE_FILES, "manifest.json"):
                 with self.subTest(file=name):
                     content = archive.read(f"lineage/{name}")
+                    # The pinned PIT bundle keeps its original source bytes.
+                    if not name.startswith("pit/"):
+                        self.assertNotIn(b"\r\n", content)
                     self.assertEqual(content, (self.base / name).read_bytes())
                     if name != "manifest.json":
                         self.assertEqual(
@@ -100,7 +103,7 @@ class EvidenceDownloadTests(unittest.TestCase):
             (destination / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
             page = (destination / "index.html").read_text(encoding="utf-8")
             page = page.replace('<a href="evidence.zip" download>Complete evidence ZIP</a>', "")
-            (destination / "index.html").write_text(page, encoding="utf-8")
+            (destination / "index.html").write_text(page, encoding="utf-8", newline="")
             manifest = json.loads((destination / "manifest.json").read_text(encoding="utf-8"))
             for name in ("summary.json", "index.html"):
                 manifest["files_sha256"][name] = hashlib.sha256(
