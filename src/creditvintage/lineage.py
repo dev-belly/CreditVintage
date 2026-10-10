@@ -165,7 +165,9 @@ def _csv(path: Path, rows: list[dict[str, Any]], columns: tuple[str, ...]) -> No
 
 def _json(path: Path, value: dict[str, Any]) -> None:
     path.write_text(
-        json.dumps(value, sort_keys=True, indent=2, allow_nan=False) + "\n", encoding="utf-8"
+        json.dumps(value, sort_keys=True, indent=2, allow_nan=False) + "\n",
+        encoding="utf-8",
+        newline="",
     )
 
 
@@ -328,7 +330,7 @@ def write_demo(destination: Path, seed: int = 20260927, per_vintage: int = 20) -
     }
     _json(destination / "summary.json", summary)
     (destination / "index.html").write_text(
-        render_lineage(summary, lineage, result), encoding="utf-8"
+        render_lineage(summary, lineage, result), encoding="utf-8", newline=""
     )
     _json(
         destination / "manifest.json",

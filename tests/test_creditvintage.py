@@ -270,6 +270,8 @@ def test_cli_run_verify_and_partial_input_failure(tmp_path, capsys) -> None:
     assert main(["run", "--seed", "7", "--per-vintage", "25", "--out", str(output)]) == 0
     capsys.readouterr()
     assert (output / "index.html").exists()
+    for artifact in output.iterdir():
+        assert b"\r\n" not in artifact.read_bytes(), artifact.name
     assert main(["verify", str(output)]) == 0
     assert json.loads(capsys.readouterr().out)["loans"] == 150
     assert main(["run", "--applications", "only-one.csv"]) == 2
@@ -308,7 +310,7 @@ def test_supplied_csv_path_matches_same_synthetic_events(tmp_path, capsys) -> No
     expected_sha = evaluate(*generated, Config(seed=7)).input_sha256
     assert verify_result(output)["input_sha256"] == expected_sha
     assert json.loads((output / "summary.json").read_text())["data_kind"] == "user_supplied"
-    assert "User-supplied data" in (output / "index.html").read_text()
+    assert "User-supplied data" in (output / "index.html").read_text(encoding="utf-8")
 
 
 def test_early_monitor_uses_no_current_outcomes_or_future_applications() -> None:
@@ -401,6 +403,8 @@ def test_cli_monitor_and_committed_sample(tmp_path, capsys) -> None:
     )
     capsys.readouterr()
     assert (out / "index.html").exists()
+    for artifact in out.iterdir():
+        assert b"\r\n" not in artifact.read_bytes(), artifact.name
     assert main(["verify-monitor", str(out)]) == 0
     assert json.loads(capsys.readouterr().out)["loans"] == 75
     assert verify_monitor(Path("docs/monitor"))["loans"] == 320
