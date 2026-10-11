@@ -49,10 +49,15 @@ def read_json_object(path: Path) -> dict[str, Any]:
 
 def read_csv_rows(path: Path, columns: tuple[str, ...]) -> list[dict[str, str]]:
     with path.open(newline="", encoding="utf-8") as handle:
-        reader = csv.DictReader(handle)
-        if reader.fieldnames != list(columns):
-            raise DataContractError(f"Unexpected CSV columns: {path.name}")
-        rows = list(reader)
+        reader = csv.DictReader(handle, strict=True)
+        try:
+            if reader.fieldnames != list(columns):
+                raise DataContractError(f"Unexpected CSV columns: {path.name}")
+            rows = list(reader)
+        except csv.Error as exc:
+            raise DataContractError(
+                f"Malformed CSV quoting in {path.name} at line {reader.reader.line_num}: {exc}"
+            ) from exc
     if any(
         set(row) != set(columns) or any(value is None for value in row.values()) for row in rows
     ):
