@@ -183,14 +183,19 @@ def load_csv_bundle(
 
     def read(path: Path, columns: set[str]) -> list[dict[str, str]]:
         with path.open(newline="", encoding="utf-8") as handle:
-            reader = csv.DictReader(handle)
-            if (
-                reader.fieldnames is None
-                or len(reader.fieldnames) != len(columns)
-                or set(reader.fieldnames) != columns
-            ):
-                raise DataContractError(f"Unexpected CSV columns: {path.name}")
-            rows = list(reader)
+            reader = csv.DictReader(handle, strict=True)
+            try:
+                if (
+                    reader.fieldnames is None
+                    or len(reader.fieldnames) != len(columns)
+                    or set(reader.fieldnames) != columns
+                ):
+                    raise DataContractError(f"Unexpected CSV columns: {path.name}")
+                rows = list(reader)
+            except csv.Error as exc:
+                raise DataContractError(
+                    f"Malformed CSV quoting in {path.name} at line {reader.reader.line_num}: {exc}"
+                ) from exc
             if any(
                 set(row) != columns or any(value is None for value in row.values()) for row in rows
             ):
