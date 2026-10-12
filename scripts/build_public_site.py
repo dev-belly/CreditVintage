@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from creditvintage.artifacts import verify_result
+from creditvintage.business import verify_analysis, write_analysis
 from creditvintage.lineage import verify_lineage, write_demo
 from creditvintage.monitoring import verify_monitor
 
@@ -21,11 +22,13 @@ def build(destination: Path) -> dict[str, Any]:
     (destination / ".nojekyll").touch()
     verify_result(destination / "demo")
     verify_monitor(destination / "monitor")
+    write_analysis(destination / "demo", destination / "analysis")
+    analysis = verify_analysis(destination / "analysis")
     summary = write_demo(destination / "lineage")
     checked = verify_lineage(destination / "lineage")
     if not (destination / "index.html").is_file():
         raise ValueError("Site entry page is missing")
-    return {"summary": summary, "verification": checked}
+    return {"summary": summary, "verification": checked, "analysis": analysis}
 
 
 if __name__ == "__main__":

@@ -6,6 +6,8 @@ banking or risk analytics team should ask about before trusting a score.
 
 [Live synthetic report](https://dev-belly.github.io/CreditVintage/demo/) ·
 [Early score monitor](https://dev-belly.github.io/CreditVintage/monitor/) ·
+[SQL business analysis](https://dev-belly.github.io/CreditVintage/analysis/) ·
+[中文业务案例](docs/BUSINESS_CASE.md) ·
 [Published report files](docs/demo/index.html) ·
 [Test predictions](docs/demo/predictions.csv) ·
 [Run summary](docs/demo/summary.json) ·
@@ -63,6 +65,37 @@ distribution shift. The fixed 10% review group contains 48 loans and captures
 23.4% of test defaults. All rounded headline numbers come from committed
 [summary.json](docs/demo/summary.json); [predictions.csv](docs/demo/predictions.csv)
 contains every test label, raw score, calibrated score, and review flag.
+
+## From model output to business analysis
+
+The `analyze` command verifies an existing mature evaluation report before
+running SQLite cohort queries. It exports portfolio, customer-segment,
+origination-vintage and vintage × segment views, plus the original fixed-capacity
+review queue **without future outcome labels**. Every group is checked against
+independent Python counts and sums. No database server or new dependency is needed.
+
+```bash
+creditvintage analyze docs/demo --out outputs/business-case
+creditvintage verify-analysis outputs/business-case
+```
+
+Choose an output directory that does not yet exist. Open its `index.html`; the
+folder contains 21 group rows, 48 queue rows, the actual SQL, a complete frozen
+source-report copy and a digest manifest. Verification reconstructs the CSV,
+summary, queue, SQL and page from the embedded source, so moving the folder does
+not break replay. Invalid source evidence fails before the output is created.
+Pages generates and verifies the [public analysis](https://dev-belly.github.io/CreditVintage/analysis/)
+from the original committed report during publication.
+
+The synthetic source has 107 research events in 480 mature applications. The
+48-application review group contains 25 events: precision is **25/48 = 52.08%**,
+while event capture is **25/107 = 23.36%**. Overall calibrated mean PD is 18.78%;
+principal-weighted PD is 18.49%. The preset 10% capacity is global, not a separate
+10% quota for every month or segment. Zero denominators remain null; comparisons
+use the previous observed vintage in the same segment. These are descriptive
+historical measures, not evidence that an intervention reduced losses. See the
+[Chinese business walkthrough](docs/BUSINESS_CASE.md) for denominator checks,
+customer-segment interpretation, a minimal SQL query and interview follow-ups.
 
 ## Before outcomes mature: score monitoring
 

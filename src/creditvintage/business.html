@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CreditVintage | Credit cohort analysis</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#111319;color:#f1f0e9}
+*{box-sizing:border-box}body{margin:0;line-height:1.6}main{max-width:1250px;margin:auto;padding:3rem 1.5rem}
+a{color:#d7fa73;text-underline-offset:.2em}header{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.eyebrow{color:#d7fa73;font:.8rem ui-monospace,monospace;letter-spacing:.08em}
+h1{font-size:clamp(2.6rem,6vw,4.6rem);line-height:1.08;letter-spacing:-.04em;margin:2.5rem 0 1rem}
+h2{font-size:1.5rem;margin-top:2.5rem}p{color:#acb6c1;max-width:850px}.lead{font-size:1.15rem}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin:2rem 0}
+.card{background:#1b1e25;border:1px solid #353c45;padding:1.25rem;border-radius:8px}
+.card strong{display:block;font-size:2.4rem;line-height:1.3;color:#d7fa73}.card small{color:#acb6c1}
+.controls{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin:1rem 0}
+select{font:inherit;background:#1b1e25;color:#f1f0e9;border:1px solid #657284;border-radius:5px;padding:.55rem}
+.table-wrap{overflow-x:auto;border:1px solid #353c45;border-radius:8px}table{border-collapse:collapse;width:100%;font-size:.87rem;white-space:nowrap}
+th,td{text-align:right;padding:.8rem;border-bottom:1px solid #353c45}th{color:#d7fa73;background:#1b1e25}
+th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}tr[hidden]{display:none}
+.note{border-left:2px solid #ffb994;padding:0 1rem}footer{border-top:1px solid #353c45;padding-top:1.5rem;margin-top:3rem}
+a:focus-visible,select:focus-visible{outline:2px solid #d7fa73;outline-offset:4px}
+</style>
+</head>
+<body><main>
+<header><span class="eyebrow">CREDITVINTAGE / @@SOURCE@@</span><a href="https://github.com/dev-belly/CreditVintage">Source &amp; methodology ↗</a></header>
+<h1>Find the cohort.<br>Check the denominator.</h1>
+<p class="lead">Which origination vintages and customer segments need a closer look? Inspect mature 180-day outcomes, predicted probabilities and the same fixed review capacity in one reproducible analysis.</p>
+<p>Evaluation cutoff: <strong>@@CUTOFF@@</strong>. Event: 90+ days past due within 180 days; this is the research label used by the source report.</p>
+<section class="cards" aria-label="Portfolio measures">
+<div class="card"><small>Mature test applications</small><strong>@@LOANS@@</strong><small>@@EVENTS@@ observed research events</small></div>
+<div class="card"><small>Observed event rate</small><strong>@@EVENT_RATE@@</strong><small>Events / all mature test applications</small></div>
+<div class="card"><small>Mean calibrated probability</small><strong>@@MEAN_PD@@</strong><small>Loan count weighted; not exposure weighted</small></div>
+<div class="card"><small>Event capture in review group</small><strong>@@CAPTURE@@</strong><small>@@REVIEWED_EVENTS@@ / @@EVENTS@@ events; @@REVIEWED@@ applications reviewed</small></div>
+</section>
+<h2>Compare like with like</h2>
+<div class="controls"><label for="scope">Aggregation</label><select id="scope"><option value="vintage">Origination vintage</option><option value="segment">Customer segment</option><option value="vintage_segment">Vintage × segment</option><option value="portfolio">Entire portfolio</option></select><a href="groups.csv" download>Download every group as CSV</a></div>
+<noscript><p>The origination-vintage view is shown. Download the CSV for all four aggregation scopes, or enable JavaScript to switch views.</p></noscript>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Cohort comparison; scroll horizontally for all columns">
+<table><thead><tr><th>Vintage</th><th>Segment</th><th>Loans</th><th>Events</th><th>Event rate</th><th>Mean PD</th><th>Rate − PD</th><th>Previous vintage Δ</th><th>Reviewed / loans</th><th>Review precision</th><th>Event capture</th><th>Principal</th></tr></thead><tbody>@@ROWS@@</tbody></table></div>
+<p>“Previous vintage Δ” compares the previous <em>observed</em> origination month in the same segment. A gap in months is not filled in. All outcomes use the same mature horizon. Blank denominators produce “—”, rather than a misleading 0%.</p>
+<h2>A fixed review queue</h2>
+<p>The source evaluation ranks calibrated probabilities, breaks ties by application ID and selects the preset capacity. Its historical review group has <strong>@@PRECISION@@ precision</strong>. The <a href="review_queue.csv" download>@@REVIEWED@@-application queue</a> contains scores and application details; future outcome labels are absent. This retrospective example does not establish the effect of an intervention.</p>
+<h2>Follow the calculations</h2>
+<p><a href="business_schema.sql">Table schema</a> · <a href="business_groups.sql">Cohort SQL</a> · <a href="business_queue.sql">Queue SQL</a> · <a href="summary.json">Computed summary</a> · <a href="source/index.html">Embedded source report</a> · <a href="manifest.json">File digests</a></p>
+<p>The SQL outputs are checked against separate Python counts and sums. The embedded source report makes the downloaded folder portable: <code>creditvintage verify-analysis DIRECTORY</code> reconstructs the analysis and this page from its verified source evidence.</p>
+<p class="note">Synthetic examples demonstrate data controls and calculation methods. Segment differences and month-to-month changes are descriptive; they do not establish causes, significance or real borrower risk. Loss figures in the CSV use principal × probability/event × the recorded LGD assumption, not realized recoveries or accounting provisions. Keep private borrower exports private.</p>
+<footer><a href="https://github.com/dev-belly/CreditVintage/blob/main/docs/BUSINESS_CASE.md">中文业务案例与面试讲述</a> · <a href="https://github.com/dev-belly/CreditVintage">Run instructions</a></footer>
+</main>
+<script>
+const scope=document.getElementById('scope');
+function showScope(){for(const row of document.querySelectorAll('tbody tr'))row.hidden=row.dataset.scope!==scope.value;}
+scope.addEventListener('change',showScope);showScope();
+</script>
+</body></html>

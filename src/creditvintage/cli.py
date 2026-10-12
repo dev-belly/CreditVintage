@@ -9,6 +9,7 @@ from datetime import date
 from pathlib import Path
 
 from creditvintage.artifacts import verify_result, write_result
+from creditvintage.business import verify_analysis, write_analysis
 from creditvintage.core import DataContractError, load_csv_bundle
 from creditvintage.lineage import verify_lineage, write_demo
 from creditvintage.model import Config, evaluate
@@ -41,6 +42,11 @@ def main(argv: list[str] | None = None) -> int:
         "verify-monitor", help="Check score-monitoring digests and recompute PSI"
     )
     check_monitor.add_argument("directory", type=Path)
+    business = commands.add_parser("analyze", help="Run verified SQL cohort and review analysis")
+    business.add_argument("report", type=Path)
+    business.add_argument("--out", type=Path, default=Path("outputs/analysis"))
+    check_business = commands.add_parser("verify-analysis", help="Replay a portable SQL analysis")
+    check_business.add_argument("directory", type=Path)
     lineage = commands.add_parser(
         "lineage-demo", help="Connect PITBridge sources to credit evaluation"
     )
@@ -53,6 +59,12 @@ def main(argv: list[str] | None = None) -> int:
     check_lineage.add_argument("directory", type=Path)
     args = parser.parse_args(argv)
     try:
+        if args.command == "analyze":
+            print(json.dumps(write_analysis(args.report, args.out), indent=2))
+            return 0
+        if args.command == "verify-analysis":
+            print(json.dumps(verify_analysis(args.directory), indent=2))
+            return 0
         if args.command == "lineage-demo":
             print(json.dumps(write_demo(args.out, args.seed, args.per_vintage), indent=2))
             return 0
