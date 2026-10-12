@@ -8,6 +8,7 @@ __pycache__/
 build/
 dist/
 outputs/
+_site/
 
 .pitbridge/
 docs/lineage/
