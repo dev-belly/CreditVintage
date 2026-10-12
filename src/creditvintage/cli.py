@@ -14,6 +14,7 @@ from creditvintage.core import DataContractError, load_csv_bundle
 from creditvintage.lineage import verify_lineage, write_demo
 from creditvintage.model import Config, evaluate
 from creditvintage.monitoring import monitor, verify_monitor, write_monitor
+from creditvintage.reviews import initialize_reviews, record_review, review_status
 from creditvintage.sample import generate
 
 
@@ -47,6 +48,21 @@ def main(argv: list[str] | None = None) -> int:
     business.add_argument("--out", type=Path, default=Path("outputs/analysis"))
     check_business = commands.add_parser("verify-analysis", help="Replay a portable SQL analysis")
     check_business.add_argument("directory", type=Path)
+    review_init = commands.add_parser("review-init", help="Create a label-free review workspace")
+    review_init.add_argument("analysis", type=Path)
+    review_init.add_argument("--db", type=Path, required=True)
+    review_event = commands.add_parser("review", help="Record one transactional review action")
+    review_event.add_argument("database", type=Path)
+    review_event.add_argument("application_id")
+    review_event.add_argument("action", choices=("claim", "release", "resolve", "reopen"))
+    review_event.add_argument("--actor", required=True)
+    review_event.add_argument("--version", type=int, required=True)
+    review_event.add_argument("--request-id", required=True)
+    review_event.add_argument("--note", default="")
+    review_event.add_argument("--evidence", default="")
+    review_event.add_argument("--outcome", default="")
+    review_check = commands.add_parser("review-status", help="Replay review events and count work")
+    review_check.add_argument("database", type=Path)
     lineage = commands.add_parser(
         "lineage-demo", help="Connect PITBridge sources to credit evaluation"
     )
@@ -59,6 +75,30 @@ def main(argv: list[str] | None = None) -> int:
     check_lineage.add_argument("directory", type=Path)
     args = parser.parse_args(argv)
     try:
+        if args.command == "review-init":
+            print(json.dumps(initialize_reviews(args.analysis, args.db), indent=2))
+            return 0
+        if args.command == "review":
+            print(
+                json.dumps(
+                    record_review(
+                        args.database,
+                        args.application_id,
+                        args.action,
+                        args.actor,
+                        args.version,
+                        args.request_id,
+                        note=args.note,
+                        evidence=args.evidence,
+                        outcome=args.outcome,
+                    ),
+                    indent=2,
+                )
+            )
+            return 0
+        if args.command == "review-status":
+            print(json.dumps(review_status(args.database), indent=2))
+            return 0
         if args.command == "analyze":
             print(json.dumps(write_analysis(args.report, args.out), indent=2))
             return 0

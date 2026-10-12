@@ -8,6 +8,7 @@ banking or risk analytics team should ask about before trusting a score.
 [Early score monitor](https://dev-belly.github.io/CreditVintage/monitor/) ·
 [SQL business analysis](https://dev-belly.github.io/CreditVintage/analysis/) ·
 [中文业务案例](docs/BUSINESS_CASE.md) ·
+[Review workflow / 复核闭环](docs/REVIEW_WORKFLOW.md) ·
 [Published report files](docs/demo/index.html) ·
 [Test predictions](docs/demo/predictions.csv) ·
 [Run summary](docs/demo/summary.json) ·
@@ -96,6 +97,26 @@ use the previous observed vintage in the same segment. These are descriptive
 historical measures, not evidence that an intervention reduced losses. See the
 [Chinese business walkthrough](docs/BUSINESS_CASE.md) for denominator checks,
 customer-segment interpretation, a minimal SQL query and interview follow-ups.
+
+## A durable human review workflow
+
+Move the verified, label-free queue into a SQLite workspace with claim, release,
+resolve and reopen actions. Each conclusion requires a reason and evidence reference.
+Concurrent claims are serialized in one transaction and checked against a case version;
+identical request retries return the original event. Review history is append-only,
+and current state is reconstructed from the frozen queue and events.
+
+```bash
+creditvintage review-init outputs/business-case --db outputs/reviews.sqlite
+creditvintage review-status outputs/reviews.sqlite
+```
+
+The [five-minute walkthrough](docs/REVIEW_WORKFLOW.md) includes complete PowerShell
+commands, competing-reviewer and retry examples, design choices and interview prompts.
+The workspace stores no future performance labels. Its completion rate counts resolved
+work, not captured credit events or prevented loss. This is a trusted local CLI workspace:
+actor names are declarations, evidence references are not authenticated documents,
+and a hosted multi-user service would need identity, authorization and attachment controls.
 
 ## Before outcomes mature: score monitoring
 

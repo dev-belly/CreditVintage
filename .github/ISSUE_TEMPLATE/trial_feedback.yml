@@ -1,0 +1,41 @@
+name: Business case trial feedback
+description: Report a reproducible result from SQL analysis or the review workflow.
+title: "[Trial] "
+body:
+  - type: markdown
+    attributes:
+      value: "Use synthetic or fully de-identified examples. Do not attach borrower data, private documents or credentials."
+  - type: dropdown
+    id: workflow
+    attributes:
+      label: Which workflow did you try?
+      options:
+        - SQL cohort analysis
+        - Human review workspace
+        - Source-to-prediction lineage
+        - Evaluation or early monitoring
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Exact command and environment
+      description: Include operating system, Python version and the command with private paths removed.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Expected and actual result
+      description: State the business rule you expected and the output or error you observed.
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Minimal synthetic reproduction
+      description: A small example or steps using the committed demo are sufficient.
+  - type: textarea
+    id: use
+    attributes:
+      label: What would make this useful for your work?
