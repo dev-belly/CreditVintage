@@ -10,6 +10,7 @@ from typing import Any
 
 from creditvintage.core import DataContractError
 from creditvintage.reviews import _connection, _load, _replay, _status
+from creditvintage.validation import parse_json
 
 FORMAT = "creditvintage.review-evidence.v1"
 FILES = ("source.json", "review_queue.csv", "events.json", "status.json")
@@ -78,15 +79,15 @@ def verify_review_bundle(directory: Path, *, expected_sha256: str | None = None)
                 or expected_sha256 != digest
             ):
                 raise DataContractError("Review evidence checkpoint mismatch")
-        manifest = json.loads(captured["manifest.json"])
+        manifest = parse_json(captured["manifest.json"], "manifest.json")
         expected = {
             "format": FORMAT,
             "files": {name: hashlib.sha256(captured[name]).hexdigest() for name in FILES},
         }
         if manifest != expected:
             raise DataContractError("Review evidence manifest or digest mismatch")
-        source = json.loads(captured["source.json"])
-        events = json.loads(captured["events.json"])
+        source = parse_json(captured["source.json"], "source.json")
+        events = parse_json(captured["events.json"], "events.json")
         if not isinstance(source, dict) or not isinstance(events, list):
             raise DataContractError("Invalid review evidence objects")
         if any(not isinstance(event, dict) for event in events):

@@ -222,3 +222,32 @@ def test_cli_checkpoint_and_missing_database(
     assert main(["review-export", str(missing), "--out", str(tmp_path / "absent")]) == 2
     assert not missing.exists()
     assert not (tmp_path / "absent").exists()
+
+
+@pytest.mark.parametrize(
+    "name, old, ambiguous",
+    [
+        ("source.json", '"id": 1', '"id": 0, "id": 1'),
+        ("events.json", '"actor": "alice"', '"actor": "bob", "actor": "alice"'),
+        (
+            "manifest.json",
+            '"format": "creditvintage.review-evidence.v1"',
+            '"format": "unknown", "format": "creditvintage.review-evidence.v1"',
+        ),
+    ],
+)
+def test_duplicate_keys_rejected_even_with_matching_payload_hash(
+    delivery: tuple[Path, Path, str], name: str, old: str, ambiguous: str
+) -> None:
+    _, directory, _ = delivery
+    path = directory / name
+    original = path.read_text(encoding="utf-8")
+    assert old in original
+    path.write_text(original.replace(old, ambiguous, 1), encoding="utf-8")
+    if name != "manifest.json":
+        manifest_path = directory / "manifest.json"
+        manifest = json.loads(manifest_path.read_bytes())
+        manifest["files"][name] = hashlib.sha256(path.read_bytes()).hexdigest()
+        manifest_path.write_bytes(review_bundle._json(manifest))
+    with pytest.raises(DataContractError, match="Duplicate JSON key"):
+        verify_review_bundle(directory)
