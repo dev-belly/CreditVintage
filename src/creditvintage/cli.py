@@ -9,6 +9,7 @@ from datetime import date
 from pathlib import Path
 
 from creditvintage.artifacts import verify_result, write_result
+from creditvintage.benchmark import benchmark, verify_benchmark, write_benchmark
 from creditvintage.business import verify_analysis, write_analysis
 from creditvintage.core import DataContractError, load_csv_bundle
 from creditvintage.lineage import verify_lineage, write_demo
@@ -32,6 +33,14 @@ def main(argv: list[str] | None = None) -> int:
 
     run = commands.add_parser("run", help="Run a fixed synthetic or supplied event experiment")
     data_arguments(run, "outputs/latest")
+    compare = commands.add_parser(
+        "benchmark", help="Compare frozen policies at equal review budgets"
+    )
+    data_arguments(compare, "outputs/benchmark")
+    compare.add_argument("--capacities", type=float, nargs="+", default=[0.05, 0.10, 0.20])
+    compare.add_argument("--review-cost-usd", type=float, default=5.0)
+    check_benchmark = commands.add_parser("verify-benchmark", help="Recompute comparison evidence")
+    check_benchmark.add_argument("directory", type=Path)
     early = commands.add_parser("monitor", help="Monitor score drift before current labels mature")
     data_arguments(early, "outputs/monitor")
     early.add_argument("--as-of", type=date.fromisoformat, required=True)
@@ -75,6 +84,9 @@ def main(argv: list[str] | None = None) -> int:
     check_lineage.add_argument("directory", type=Path)
     args = parser.parse_args(argv)
     try:
+        if args.command == "verify-benchmark":
+            print(json.dumps(verify_benchmark(args.directory), indent=2))
+            return 0
         if args.command == "review-init":
             print(json.dumps(initialize_reviews(args.analysis, args.db), indent=2))
             return 0
@@ -128,7 +140,19 @@ def main(argv: list[str] | None = None) -> int:
         else:
             applications, features, performance = generate(args.seed, args.per_vintage)
             data_kind = "synthetic"
-        if args.command == "monitor":
+        if args.command == "benchmark":
+            compared = benchmark(
+                applications,
+                features,
+                performance,
+                Config(seed=args.seed),
+                data_kind=data_kind,
+                capacities=tuple(args.capacities),
+                review_cost_usd=args.review_cost_usd,
+            )
+            write_benchmark(compared, args.out)
+            print(json.dumps({"out": str(args.out), **compared.summary["test_metrics"]}, indent=2))
+        elif args.command == "monitor":
             monitored = monitor(
                 applications,
                 features,

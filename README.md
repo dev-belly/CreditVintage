@@ -22,6 +22,14 @@ banking or risk analytics team should ask about before trusting a score.
 
 ## What is actually evaluated
 
+New: [same-budget policy comparison](https://dev-belly.github.io/CreditVintage/benchmark/)
+compares a fixed business rule, raw/calibrated logistic regression, a training-only
+WOE scorecard and histogram gradient boosting at 5%, 10% and 20% review capacity.
+It exports monthly/segment outcomes, paired month-bootstrap intervals and
+label-free raw-model explanations. [Protocol and limitations](docs/BENCHMARK.md).
+Run `creditvintage benchmark --out outputs/benchmark`, then
+`creditvintage verify-benchmark outputs/benchmark`. The public experiment remains synthetic.
+
 Each loan has a decision date, a principal amount, an application-time feature
 history, and dated performance reports. The model predicts an **operational
 180-day 90+ days-past-due event**. This is an explicit research label, not a
