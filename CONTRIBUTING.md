@@ -10,6 +10,14 @@ then `ruff check src tests`, `ruff format --check src tests` and `mypy src`.
 The optional lineage path additionally requires the PITBridge revision pinned
 in README and CI. CI exercises the complete suite on Linux and Windows.
 
+Changes to packaging, resource files or CLI commands must also pass the
+[installed-distribution replay](README.md#check-the-package-a-new-user-actually-installs).
+It installs built wheels in a clean environment outside the source directories,
+then runs the public report and review commands. The core paths must work before
+the optional PITBridge wheel is installed. Check the script with
+`ruff check scripts/check_distribution.py` and
+`ruff format --check scripts/check_distribution.py`.
+
 Useful contributions preserve an explicit business contract: same-ID retry,
 competing review requests, source availability, label maturity, missing data,
 or a denominator with no qualifying observations. Include a small regression

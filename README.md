@@ -1,5 +1,7 @@
 # CreditVintage
 
+[![CI](https://github.com/dev-belly/CreditVintage/actions/workflows/ci.yml/badge.svg)](https://github.com/dev-belly/CreditVintage/actions/workflows/ci.yml)
+
 **A point-in-time credit cohort evaluation, from application records to a
 reviewable risk report.** It is designed to demonstrate the data controls a
 banking or risk analytics team should ask about before trusting a score.
@@ -193,6 +195,33 @@ committed evidence bytes even with Git's `core.autocrlf=true`. Regenerate older
 Windows exports with the updated package before verifying them. CI checks
 generated and committed reports, the lineage download and its replay on Linux
 Python 3.12/3.13 and Windows Python 3.12.
+
+### Check the package a new user actually installs
+
+The separate **Installed distributions** CI jobs build a source archive, build
+its wheel, and install that wheel in a clean virtual environment. All commands
+run outside both repositories, so an editable checkout cannot hide a missing
+SQL file, HTML template or command entry point. They exercise evaluation,
+monitoring, SQL analysis and a 48-case review workspace, including an identical
+retry and a competing stale-version claim. The core paths run before PITBridge
+is installed; missing integration fails cleanly without creating an output.
+The pinned PITBridge wheel is then installed and the full lineage bundle replayed.
+
+To run the same check locally, first clone the pinned PITBridge reference as
+shown in [Source-to-prediction lineage](#source-to-prediction-lineage), then:
+
+```bash
+python -m pip install build
+python -m build --outdir dist
+python -m build --wheel --outdir dist ../PITBridge
+python scripts/check_distribution.py dist
+```
+
+Use the virtual environment's `python.exe` on Windows, as above. The replay
+script creates and removes its own isolated environment and temporary synthetic
+reports. Runtime dependencies may be downloaded during wheel installation;
+it does not publish reports or change an existing review workspace. Its explicit
+summary distinguishes package installation from numerical or business validity.
 
 The command creates a standalone `index.html`, CSV tables, `summary.json`,
 and a manifest of SHA-256 output digests plus an input-event digest. `verify`
