@@ -56,6 +56,8 @@ jobs:
       - run: creditvintage verify-analysis outputs/ci-analysis
       - run: creditvintage review-init outputs/ci-analysis --db outputs/ci-reviews.sqlite
       - run: creditvintage review-status outputs/ci-reviews.sqlite
+      - run: creditvintage review-export outputs/ci-reviews.sqlite --out outputs/ci-review-evidence
+      - run: creditvintage verify-reviews outputs/ci-review-evidence
       - run: creditvintage verify-monitor docs/monitor
       - run: creditvintage lineage-demo --out outputs/ci-lineage
       - run: creditvintage verify-lineage outputs/ci-lineage

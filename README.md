@@ -123,6 +123,11 @@ creditvintage review-status outputs/reviews.sqlite
 
 The [five-minute walkthrough](docs/REVIEW_WORKFLOW.md) includes complete PowerShell
 commands, competing-reviewer and retry examples, design choices and interview prompts.
+After review, `creditvintage review-export outputs/reviews.sqlite --out outputs/review-evidence`
+delivers a portable CSV/JSON evidence bundle. `creditvintage verify-reviews outputs/review-evidence`
+replays all cases without the database. The [delivery walkthrough](docs/REVIEW_DELIVERY.md)
+shows how a separately saved `--expected-sha256` checkpoint also detects a consistent rewrite;
+internal hashes alone do not authenticate the author or evidence.
 The workspace stores no future performance labels. Its completion rate counts resolved
 work, not captured credit events or prevented loss. This is a trusted local CLI workspace:
 actor names are declarations, evidence references are not authenticated documents,

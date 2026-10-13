@@ -15,6 +15,7 @@ from creditvintage.core import DataContractError, load_csv_bundle
 from creditvintage.lineage import verify_lineage, write_demo
 from creditvintage.model import Config, evaluate
 from creditvintage.monitoring import monitor, verify_monitor, write_monitor
+from creditvintage.review_bundle import export_reviews, verify_review_bundle
 from creditvintage.reviews import initialize_reviews, record_review, review_status
 from creditvintage.sample import generate
 
@@ -72,6 +73,12 @@ def main(argv: list[str] | None = None) -> int:
     review_event.add_argument("--outcome", default="")
     review_check = commands.add_parser("review-status", help="Replay review events and count work")
     review_check.add_argument("database", type=Path)
+    review_export = commands.add_parser("review-export", help="Deliver portable review evidence")
+    review_export.add_argument("database", type=Path)
+    review_export.add_argument("--out", type=Path, required=True)
+    review_verify = commands.add_parser("verify-reviews", help="Replay portable review evidence")
+    review_verify.add_argument("directory", type=Path)
+    review_verify.add_argument("--expected-sha256", help="Trusted digest saved outside this bundle")
     lineage = commands.add_parser(
         "lineage-demo", help="Connect PITBridge sources to credit evaluation"
     )
@@ -84,6 +91,17 @@ def main(argv: list[str] | None = None) -> int:
     check_lineage.add_argument("directory", type=Path)
     args = parser.parse_args(argv)
     try:
+        if args.command == "review-export":
+            print(json.dumps(export_reviews(args.database, args.out), indent=2))
+            return 0
+        if args.command == "verify-reviews":
+            print(
+                json.dumps(
+                    verify_review_bundle(args.directory, expected_sha256=args.expected_sha256),
+                    indent=2,
+                )
+            )
+            return 0
         if args.command == "verify-benchmark":
             print(json.dumps(verify_benchmark(args.directory), indent=2))
             return 0
