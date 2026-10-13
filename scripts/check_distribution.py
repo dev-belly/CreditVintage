@@ -75,6 +75,8 @@ def check(directory: Path) -> dict[str, Any]:
         run(str(python), "-I", "-m", "creditvintage", "--help")
         command("run", "--out", "evaluation")
         evaluation = command("verify", "evaluation")
+        command("benchmark", "--out", "benchmark")
+        comparison = command("verify-benchmark", "benchmark")
         command("monitor", "--as-of", "2024-10-01", "--out", "monitor")
         command("verify-monitor", "monitor")
         command("analyze", "evaluation", "--out", "analysis")
@@ -162,6 +164,7 @@ def check(directory: Path) -> dict[str, Any]:
             "installation": "non-editable wheels; clean venv; cwd outside both source trees",
             "core_without_pitbridge": True,
             "evaluation": evaluation,
+            "benchmark": comparison,
             "analysis": analysis,
             "selected_review_cases": selected,
             "accepted_review_events": final["events"],
