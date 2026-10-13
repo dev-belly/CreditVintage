@@ -24,24 +24,30 @@ def finite_number(value: Any, label: str) -> float:
     return number
 
 
-def read_json_object(path: Path) -> dict[str, Any]:
+def parse_json(content: bytes | str, label: str) -> Any:
+    """Parse captured evidence without ambiguous keys or non-finite JSON numbers."""
+
     def parse_number(value: str) -> float:
-        return finite_number(value, f"{path.name} JSON number")
+        return finite_number(value, f"{label} JSON number")
 
     def unique_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
         result: dict[str, Any] = {}
         for key, value in pairs:
             if key in result:
-                raise DataContractError(f"Duplicate JSON key in {path.name}: {key}")
+                raise DataContractError(f"Duplicate JSON key in {label}: {key}")
             result[key] = value
         return result
 
-    document = json.loads(
-        path.read_text(encoding="utf-8"),
+    return json.loads(
+        content,
         parse_float=parse_number,
         parse_constant=parse_number,
         object_pairs_hook=unique_keys,
     )
+
+
+def read_json_object(path: Path) -> dict[str, Any]:
+    document = parse_json(path.read_text(encoding="utf-8"), path.name)
     if not isinstance(document, dict):
         raise DataContractError(f"Expected a JSON object: {path.name}")
     return document
