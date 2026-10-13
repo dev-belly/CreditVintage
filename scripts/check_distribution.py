@@ -146,6 +146,16 @@ def check(directory: Path) -> dict[str, Any]:
             or any("label" in case for case in final["cases"])
         ):
             raise ValueError("Installed review workflow violated counts, retry or label separation")
+        delivery = command("review-export", "reviews.sqlite", "--out", "review-evidence")
+        replayed = command(
+            "verify-reviews", "review-evidence", "--expected-sha256", delivery["bundle_sha256"]
+        )
+        if (
+            replayed["counts"] != final["counts"]
+            or replayed["events"] != final["events"]
+            or replayed["checkpoint_matched"] is not True
+        ):
+            raise ValueError("Installed review evidence did not replay its delivery snapshot")
         missing = command("lineage-demo", "--out", "missing-integration", expected=2)
         if (
             "Install PITBridge first" not in missing["stderr"]
@@ -169,6 +179,7 @@ def check(directory: Path) -> dict[str, Any]:
             "selected_review_cases": selected,
             "accepted_review_events": final["events"],
             "retry_and_stale_version": "verified",
+            "portable_review_evidence": "replayed with external checkpoint",
             "optional_lineage": lineage,
         }
 

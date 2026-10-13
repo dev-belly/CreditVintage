@@ -210,6 +210,23 @@ def _load(
         raise DataContractError("Unsupported review workspace source")
     source = dict(sources[0])
     queue = source.pop("queue_csv")
+    events = [dict(row) for row in connection.execute("SELECT * FROM events ORDER BY sequence")]
+    states = _replay(source, queue, events)
+    return source, events, states
+
+
+def _replay(
+    source: dict[str, Any], queue: bytes, events: list[dict[str, Any]]
+) -> dict[str, dict[str, Any]]:
+    """Validate the same evidence contract for databases and portable review bundles."""
+    if set(source) != {"id", "schema_version", "analysis_sha256", "queue_sha256", "data_kind"}:
+        raise DataContractError("Invalid review source fields")
+    if type(source["id"]) is not int or source["id"] != 1:
+        raise DataContractError("Invalid review source identity")
+    if type(source["schema_version"]) is not int or source["schema_version"] != 1:
+        raise DataContractError("Unsupported review workspace source")
+    if source["data_kind"] not in {"synthetic", "user_supplied"}:
+        raise DataContractError("Invalid review source data kind")
     if not isinstance(queue, bytes) or hashlib.sha256(queue).hexdigest() != source["queue_sha256"]:
         raise DataContractError("Frozen review queue digest mismatch")
     for field in ("analysis_sha256", "queue_sha256"):
@@ -230,10 +247,16 @@ def _load(
         if identity in states or row["review_rank"] != str(rank):
             raise DataContractError("Invalid review queue identities or rank")
         states[identity] = {**row, "status": "queued", "owner": None, "outcome": None, "version": 0}
-    events = [dict(row) for row in connection.execute("SELECT * FROM events ORDER BY sequence")]
     seen = set()
     for sequence, event in enumerate(events, 1):
-        if event["sequence"] != sequence or event["request_id"] in seen:
+        if set(event) != {"sequence", "occurred_at", *EVENT_FIELDS}:
+            raise DataContractError("Invalid review event fields")
+        _validate_command(event)
+        if (
+            type(event["sequence"]) is not int
+            or event["sequence"] != sequence
+            or event["request_id"] in seen
+        ):
             raise DataContractError("Invalid review journal sequence or request identity")
         seen.add(event["request_id"])
         identity = event["application_id"]
@@ -244,7 +267,7 @@ def _load(
         if instant.tzinfo is None or instant.utcoffset() != UTC.utcoffset(instant):
             raise DataContractError("Review event time must be UTC")
         _apply(states[identity], event)
-    return source, events, states
+    return states
 
 
 def record_review(
@@ -307,6 +330,14 @@ def review_status(database: Path) -> dict[str, Any]:
             source, events, states = _load(connection)
     except (sqlite3.Error, OSError, ValueError, TypeError, KeyError) as exc:
         raise DataContractError(f"Cannot replay reviews: {exc}") from exc
+    return _status(source, events, states)
+
+
+def _status(
+    source: dict[str, Any],
+    events: list[dict[str, Any]],
+    states: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
     cases = list(states.values())
     counts = {
         status: sum(case["status"] == status for case in cases)
