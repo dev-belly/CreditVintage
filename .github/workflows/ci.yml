@@ -112,7 +112,14 @@ jobs:
         env:
           PYTHONUTF8: "0"
         shell: bash
-        run: python scripts/check_distribution.py dist > installed-check.json
+        run: python scripts/check_distribution.py dist --card-evidence portable-card/evidence.zip > installed-check.json
+      - name: Retain Linux Python 3.12 card evidence for other runtimes
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: card-replay-evidence
+          path: portable-card/evidence.zip
+          if-no-files-found: error
       - name: Prepare exact checked release assets
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         env:
@@ -127,3 +134,51 @@ jobs:
           path: release/*
           if-no-files-found: error
           retention-days: 30
+  portable-card:
+    name: Cross-runtime card replay (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    needs: distribution
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python-version: "3.13"
+          - os: windows-latest
+            python-version: "3.12"
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: checked-distributions
+          path: checked-release
+      - uses: actions/download-artifact@v4
+        with:
+          name: card-replay-evidence
+          path: portable-card
+      - name: Install the checked Linux-built wheel without a source checkout
+        shell: bash
+        run: python -m pip install checked-release/*.whl
+      - name: Refit the same Linux evidence on another OS or Python version
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import tempfile
+          import zipfile
+          from pathlib import Path
+          from creditvintage.card_credit import CARD_FILES, verify_card_benchmark
+
+          archive_bytes = Path("portable-card/evidence.zip").read_bytes()
+          with tempfile.TemporaryDirectory() as temporary:
+              directory = Path(temporary)
+              with zipfile.ZipFile("portable-card/evidence.zip") as archive:
+                  if archive.namelist() != [*CARD_FILES, "manifest.json"]:
+                      raise ValueError("Unexpected card evidence file set")
+                  archive.extractall(directory)
+              (directory / "evidence.zip").write_bytes(archive_bytes)
+              print(json.dumps(verify_card_benchmark(directory), indent=2))
+          PY

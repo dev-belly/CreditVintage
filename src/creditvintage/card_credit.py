@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import scipy
 import sklearn
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import HistGradientBoostingClassifier
@@ -288,6 +289,7 @@ def card_experiment(raw: bytes) -> dict[str, Any]:
         "runtime": {
             "python": platform.python_version(),
             "numpy": np.__version__,
+            "scipy": scipy.__version__,
             "scikit_learn": sklearn.__version__,
         },
     }
@@ -349,18 +351,36 @@ def verify_card_benchmark(directory: Path) -> dict[str, Any]:
         name: _hash(directory / name) for name in CARD_FILES
     }:
         raise DataContractError("Card benchmark file digests differ")
-    result = card_experiment((directory / "source.csv.gz").read_bytes())
-    expected_notice = files("creditvintage").joinpath("data/card_credit/SOURCE.md").read_bytes()
-    if (directory / "SOURCE.md").read_bytes() != expected_notice:
-        raise DataContractError("Card benchmark source attribution differs")
     summary = read_json_object(directory / "summary.json")
     runtime = summary.get("runtime")
     if (
         not isinstance(runtime, dict)
-        or set(runtime) != {"python", "numpy", "scikit_learn"}
+        or set(runtime)
+        not in (
+            {"python", "numpy", "scikit_learn"},
+            {"python", "numpy", "scipy", "scikit_learn"},
+        )
         or any(not isinstance(v, str) or not v for v in runtime.values())
     ):
         raise DataContractError("Invalid card benchmark runtime")
+    current = {
+        "numpy": np.__version__,
+        "scipy": scipy.__version__,
+        "scikit_learn": sklearn.__version__,
+    }
+    mismatched = [name for name in current if name in runtime and runtime[name] != current[name]]
+    if mismatched:
+        required = " ".join(
+            f"{name.replace('_', '-')}=={runtime[name]}" for name in current if name in runtime
+        )
+        raise DataContractError(
+            f"Card numerical runtime differs ({', '.join(mismatched)}). "
+            f"Replay requires the recorded versions: {required}"
+        )
+    result = card_experiment((directory / "source.csv.gz").read_bytes())
+    expected_notice = files("creditvintage").joinpath("data/card_credit/SOURCE.md").read_bytes()
+    if (directory / "SOURCE.md").read_bytes() != expected_notice:
+        raise DataContractError("Card benchmark source attribution differs")
     result["summary"]["runtime"] = runtime
     _compare_summary(summary, result["summary"], "card summary")
     for filename, key, columns in TABLES:

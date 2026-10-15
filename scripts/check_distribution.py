@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 import venv
@@ -12,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 
-def check(directory: Path) -> dict[str, Any]:
+def check(directory: Path, card_evidence: Path | None = None) -> dict[str, Any]:
     def wheel(prefix: str) -> Path:
         matches = list(directory.resolve().glob(f"{prefix}-*.whl"))
         if len(matches) != 1:
@@ -99,6 +100,9 @@ def check(directory: Path) -> dict[str, Any]:
         card_credit = command("verify-card", "card-credit")
         if card_credit["records"] != 30000 or card_credit["model_scores"] != 120000:
             raise ValueError("Installed card-data workflow lost source rows or model results")
+        if card_evidence is not None:
+            card_evidence.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(work / "card-credit" / "evidence.zip", card_evidence)
         command("benchmark", "--out", "benchmark")
         comparison = command("verify-benchmark", "benchmark")
         command("monitor", "--as-of", "2024-10-01", "--out", "monitor")
@@ -216,5 +220,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "directory", type=Path, help="Directory with CreditVintage and PITBridge wheels"
     )
+    parser.add_argument("--card-evidence", type=Path, help="Export the verified card evidence ZIP")
     args = parser.parse_args()
-    print(json.dumps(check(args.directory), indent=2))
+    print(json.dumps(check(args.directory, args.card_evidence), indent=2))

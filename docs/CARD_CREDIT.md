@@ -23,6 +23,15 @@ On Windows use `.\.venv\Scripts\creditvintage.exe` for an unactivated virtual
 environment. Choose a new output directory. Both commands run offline; Excel,
 pandas and xlrd are not runtime requirements. Open the resulting `index.html`.
 
+Version 0.2.1 pins NumPy 2.3.5, SciPy 1.17.0 and scikit-learn 1.8.0 in the
+wheel dependencies. The public report uses the same versions. CI transfers one
+Linux/Python 3.12 evidence ZIP and its checked wheel to Linux/Python 3.13 and
+Windows/Python 3.12, where both refit the original scores. Verification checks
+recorded numerical versions before fitting and reports the required versions
+when they differ. No tolerance is relaxed to accept another model result.
+Older evidence retains its recorded environment; install its matching numerical
+versions in a separate environment to refit it.
+
 The original 30,000 rows retain 23,364 native non-events and 6,636 native events.
 The unchanged target column is `default payment next month`. No event dates,
 DPD anchor reports or new labels are manufactured to fit the separate event API.

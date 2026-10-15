@@ -117,6 +117,25 @@ def rehash(path, name):
     file.write_text(json.dumps(manifest), encoding="utf-8")
 
 
+def test_different_numerical_runtime_fails_with_versions_before_fitting(
+    report, tmp_path, monkeypatch
+):
+    path = tmp_path / "different-runtime"
+    shutil.copytree(report, path)
+    file = path / "summary.json"
+    summary = json.loads(file.read_text(encoding="utf-8"))
+    summary["runtime"]["scikit_learn"] = "999.0.0"
+    file.write_text(json.dumps(summary), encoding="utf-8")
+    rehash(path, "summary.json")
+
+    def must_not_fit(*args):
+        raise AssertionError("A mismatched runtime must be detected before fitting")
+
+    monkeypatch.setattr("creditvintage.card_credit.card_experiment", must_not_fit)
+    with pytest.raises(DataContractError, match=r"recorded versions:.*scikit-learn==999\.0\.0"):
+        verify_card_benchmark(path)
+
+
 @pytest.mark.parametrize("corruption", ["score", "metric", "queue", "zip"])
 def test_rehashed_invented_results_or_changed_download_fail_refit(report, tmp_path, corruption):
     path = tmp_path / "copy"
