@@ -2,6 +2,10 @@
 
 [Open the public experiment](https://dev-belly.github.io/CreditVintage/public-credit/).
 
+For a separate three-model comparison across five shared random splits, see
+[the repeated public-data protocol](PUBLIC_CREDIT_COMPARISON.md). It reuses this
+source and feature contract, with different split sizes and a different question.
+
 This experiment adds **observed historical credit records** to the repository.
 It does not replace the synthetic event experiment: each supports a different
 claim, and their targets and splits must not be merged.

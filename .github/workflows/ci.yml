@@ -42,6 +42,8 @@ jobs:
           status=0
           ruff check src tests --output-format concise || status=1
           ruff format --check --diff src tests || status=1
+          ruff check examples/german_credit.py || status=1
+          ruff format --check examples/german_credit.py || status=1
           mypy src || status=1
           pytest -q || status=1
           exit "$status"
@@ -49,6 +51,11 @@ jobs:
       - run: creditvintage preflight --config examples/cohort-config.json
       - run: creditvintage public-benchmark --out outputs/ci-public
       - run: creditvintage verify-public outputs/ci-public
+      - name: Replay the five-split public credit comparison
+        run: |
+          python examples/german_credit.py --out outputs/public-credit-comparison
+          python examples/german_credit.py --verify outputs/public-credit-comparison
+          python examples/german_credit.py --verify docs/public-credit-comparison
       - run: creditvintage verify outputs/ci
       - run: creditvintage benchmark --out outputs/ci-benchmark
       - run: creditvintage verify-benchmark outputs/ci-benchmark

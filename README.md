@@ -8,6 +8,7 @@ banking or risk analytics team should ask about before trusting a score.
 
 [Live synthetic report](https://dev-belly.github.io/CreditVintage/demo/) ·
 [Observed public credit benchmark](https://dev-belly.github.io/CreditVintage/public-credit/) ·
+[Five-split public comparison](https://dev-belly.github.io/CreditVintage/public-credit-comparison/) ·
 [Early score monitor](https://dev-belly.github.io/CreditVintage/monitor/) ·
 [SQL business analysis](https://dev-belly.github.io/CreditVintage/analysis/) ·
 [中文业务案例](docs/BUSINESS_CASE.md) ·
@@ -38,6 +39,40 @@ split membership, original attributed bytes and a label-free 20-record queue
 are exported. Verification refits from those bytes instead of trusting hashes
 alone. [Protocol, provenance and limits](docs/PUBLIC_CREDIT.md).
 
+## Compare fixed models across five public-data splits
+
+The separate [repeated comparison](https://dev-belly.github.io/CreditVintage/public-credit-comparison/)
+reuses the packaged UCI source, native labels and the same 17-feature contract.
+A constant baseline, logistic regression and histogram gradient boosting share
+five fixed stratified 800/200 train/test splits. All 15 results, 3,000 test scores
+and every split assignment are saved. Preprocessing is fitted on training rows
+only; model settings are fixed. [Protocol and interpretation](docs/PUBLIC_CREDIT_COMPARISON.md).
+
+| Method | Mean ROC-AUC | Observed AUC range | Mean Brier ↓ | Mean top-10% precision |
+| --- | ---: | ---: | ---: | ---: |
+| Constant | 0.500 | 0.500–0.500 | 0.2100 | 0.230 |
+| Logistic | 0.767 | 0.732–0.822 | 0.1714 | **0.740** |
+| Histogram gradient boosting | **0.771** | 0.728–0.844 | **0.1692** | 0.730 |
+
+Each test set has 60 bad labels and each method receives 20 inspection slots.
+The constant method's top-20 subset is an arbitrary source-row tie break.
+The tree does not win every metric. These five overlapping splits provide
+descriptive means and observed ranges, not independent trials or confidence
+intervals. This comparison uses different splits from the calibration experiment
+above; their metrics must not be directly combined.
+
+From the source checkout after installing the project:
+
+```bash
+python examples/german_credit.py --out outputs/public-credit-comparison
+python examples/german_credit.py --verify outputs/public-credit-comparison
+```
+
+Data loads from the installed package, so there is no second dataset copy or
+network fetch. Saved-score verification checks source labels, held-out membership,
+metrics and inspection flags without refitting. The package's separate
+`verify-public` command refits its original calibration experiment.
+
 ## What is actually evaluated
 
 New: [same-budget policy comparison](https://dev-belly.github.io/CreditVintage/benchmark/)
@@ -46,7 +81,7 @@ WOE scorecard and histogram gradient boosting at 5%, 10% and 20% review capacity
 It exports monthly/segment outcomes, paired month-bootstrap intervals and
 label-free raw-model explanations. [Protocol and limitations](docs/BENCHMARK.md).
 Run `creditvintage benchmark --out outputs/benchmark`, then
-`creditvintage verify-benchmark outputs/benchmark`. The public experiment remains synthetic.
+`creditvintage verify-benchmark outputs/benchmark`. This dated-event policy experiment remains synthetic.
 
 Each loan has a decision date, a principal amount, an application-time feature
 history, and dated performance reports. The model predicts an **operational
