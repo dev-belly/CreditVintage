@@ -135,7 +135,7 @@ def fit_card_scores(
     test_x: np.ndarray,
     seed: int,
     *,
-    legacy_calibration: bool = False,
+    legacy_protocol: bool = False,
 ) -> dict[str, np.ndarray]:
     """The scoring API accepts no test outcomes; every transformation fits on train."""
 
@@ -154,15 +154,22 @@ def fit_card_scores(
 
     with threadpool_limits(limits=1):
         logistic = make_pipeline(
-            transform(), LogisticRegression(C=1.0, max_iter=2000, solver="lbfgs", random_state=seed)
+            transform(),
+            LogisticRegression(
+                C=1.0,
+                max_iter=2000 if legacy_protocol else 100,
+                solver="lbfgs" if legacy_protocol else "newton-cholesky",
+                tol=1e-4 if legacy_protocol else 1e-10,
+                random_state=seed,
+            ),
         )
         logistic.fit(train_x, train_y)
         raw = logistic.predict_proba(test_x)[:, 1]
         calibration_scores = logistic.predict_proba(calibration_x)[:, 1]
         # Isotonic interpolation can amplify platform-level BLAS tail differences.
         # This fixed six-decimal input grid is part of the v2 model protocol.
-        calibration_input = raw if legacy_calibration else np.round(raw, 6)
-        if not legacy_calibration:
+        calibration_input = raw if legacy_protocol else np.round(raw, 6)
+        if not legacy_protocol:
             calibration_scores = np.round(calibration_scores, 6)
         calibrator = IsotonicRegression(out_of_bounds="clip")
         calibrator.fit(calibration_scores, calibration_y)
@@ -188,7 +195,7 @@ def fit_card_scores(
         }
 
 
-def card_experiment(raw: bytes, *, legacy_calibration: bool = False) -> dict[str, Any]:
+def card_experiment(raw: bytes, *, legacy_protocol: bool = False) -> dict[str, Any]:
     x, y = load_card_data(raw)
     assignments: list[dict[str, Any]] = []
     predictions: list[dict[str, Any]] = []
@@ -206,7 +213,7 @@ def card_experiment(raw: bytes, *, legacy_calibration: bool = False) -> dict[str
             y[calibration],
             x[test],
             seed,
-            legacy_calibration=legacy_calibration,
+            legacy_protocol=legacy_protocol,
         )
         counts[str(seed)] = {
             name: {"records": len(indices), "events": int(sum(y[indices]))}
@@ -256,7 +263,7 @@ def card_experiment(raw: bytes, *, legacy_calibration: bool = False) -> dict[str
             )
     summary = {
         "schema": "creditvintage-card-credit-v1"
-        if legacy_calibration
+        if legacy_protocol
         else "creditvintage-card-credit-v2",
         "data_kind": "public_observed_static",
         "source": {
@@ -275,10 +282,14 @@ def card_experiment(raw: bytes, *, legacy_calibration: bool = False) -> dict[str
             "label": "Unchanged native 'default payment next month': 0/1",
             "history": "April–September 2005 repayment, bill and payment history in source records",
             "preprocessing": "train-only numeric scaling and repayment-status one-hot encoding",
-            "logistic": "C=1; lbfgs; max_iter=2000; no class weighting",
+            "logistic": (
+                "C=1; lbfgs; max_iter=2000; no class weighting"
+                if legacy_protocol
+                else "C=1; newton-cholesky; tol=1e-10; max_iter=100; no class weighting"
+            ),
             "tree": "learning_rate=.05; 100 iterations; depth=3; 15 leaves; min_leaf=20; L2=1",
             "calibration": "isotonic fitted only on the separate calibration partition",
-            **({} if legacy_calibration else {"isotonic_input_decimals": 6}),
+            **({} if legacy_protocol else {"isotonic_input_decimals": 6}),
             "tuning": "none; all frozen seeds retained; no model selected from test results",
             "review": "ceil(capacity*n_test), descending score then original source ID",
             "limits": [
@@ -414,7 +425,7 @@ def verify_card_benchmark(directory: Path) -> dict[str, Any]:
         raise DataContractError("Unsupported card benchmark model protocol")
     result = card_experiment(
         (directory / "source.csv.gz").read_bytes(),
-        legacy_calibration=schema == "creditvintage-card-credit-v1",
+        legacy_protocol=schema == "creditvintage-card-credit-v1",
     )
     expected_notice = files("creditvintage").joinpath("data/card_credit/SOURCE.md").read_bytes()
     if (directory / "SOURCE.md").read_bytes() != expected_notice:

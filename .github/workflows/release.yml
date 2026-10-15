@@ -57,7 +57,7 @@ jobs:
 
           Numerical dependency versions are pinned for replay. CI also transfers the same Linux Python 3.12 evidence and wheel to Python 3.13 and Windows for independent refitting. A mismatched numerical runtime reports the recorded versions before fitting; score and metric tolerances remain unchanged.
 
-          The v2 card protocol uses a fixed six-decimal input grid for isotonic calibration to prevent amplification of platform-dependent logistic tail differences; raw logistic scores are retained. Older v1 evidence keeps its original calibration protocol.
+          The v2 card protocol uses Newton-Cholesky logistic fitting with a fixed 1e-10 convergence tolerance and a six-decimal input grid for isotonic calibration to prevent amplification of platform-dependent logistic tail differences; raw logistic scores are retained. Older v1 evidence keeps its original calibration protocol.
 
           These are random partitions of one historical cohort, not future-period or point-in-time validation. The native subsequent-default target remains distinct from the synthetic 180-day DPD target.
 

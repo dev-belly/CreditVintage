@@ -29,10 +29,12 @@ Linux/Python 3.12 evidence ZIP and its checked wheel to Linux/Python 3.13 and
 Windows/Python 3.12, where both refit the original scores. Verification checks
 recorded numerical versions before fitting and reports the required versions
 when they differ. No tolerance is relaxed to accept another model result.
-The v2 protocol rounds the isotonic model's input probabilities to six decimals
+The v2 protocol uses Newton-Cholesky logistic fitting with a fixed 1e-10 convergence
+tolerance to avoid platform-dependent early stopping. It rounds the isotonic
+model's input probabilities to six decimals
 at fitting and prediction. This prevents interpolation from amplifying tiny
 platform-dependent logistic score differences; raw logistic scores remain
-unchanged. Legacy v1 evidence uses its original unrounded calibration protocol.
+unchanged. Legacy v1 evidence retains its original lbfgs fit and unrounded calibration protocol.
 Older evidence retains its recorded environment; install its matching numerical
 versions in a separate environment to refit it.
 
@@ -51,7 +53,7 @@ occurrences are not 30,000 distinct independently held-out customers.
 | Method | Fitting |
 | --- | --- |
 | Constant | Training event frequency |
-| Logistic | Fixed C=1, lbfgs, max_iter=2000, no class weighting |
+| Logistic | Fixed C=1, newton-cholesky, tol=1e-10, max_iter=100, no class weighting |
 | Logistic + isotonic | Same training model; calibration labels used only by isotonic |
 | Histogram gradient boosting | Fixed 100 iterations, rate .05, depth 3, 15 leaves, min leaf 20, L2=1; no early stopping |
 
@@ -67,9 +69,9 @@ split. Scores descend, with original ID resolving ties. Review queues omit
 outcomes. All 60 method/seed/budget rows are available; no intervention, loss
 reduction or deployment is inferred from captured historical events.
 
-The five-split mean ROC-AUC is 0.770626 for logistic and 0.780984 for the tree;
-mean Brier is 0.136172 and 0.134666 respectively. Isotonic mean Brier is
-0.136054, with its complete per-split results retained. These are descriptive
+The five-split mean ROC-AUC is 0.770672 for logistic and 0.780984 for the tree;
+mean Brier is 0.136169 and 0.134666 respectively. Isotonic mean Brier is
+0.136001, with its complete per-split results retained. These are descriptive
 fixed-protocol results, not independent confidence estimates or a model-selection
 claim. The report includes observed ranges and all 20 model/split rows.
 
