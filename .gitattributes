@@ -2,3 +2,4 @@
 * text=auto eol=lf
 # Keep the attributed UCI originals byte-for-byte, including codebook whitespace.
 src/creditvintage/data/german_credit/german.* -text -whitespace
+src/creditvintage/data/card_credit/*.gz -text

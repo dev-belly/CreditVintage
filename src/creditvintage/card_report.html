@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CreditVintage | 30,000 observed card accounts</title>
+<style>
+body{margin:0;background:#111319;color:#eee;font:17px/1.6 system-ui,sans-serif}
+main{max-width:1050px;margin:auto;padding:48px 24px}h1{font-size:clamp(2rem,6vw,4rem);line-height:1.1}
+a,.tag{color:#d7fa73}p,li,small{color:#bac3cd}.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;margin:24px 0}th,td{text-align:left;padding:12px;border-bottom:1px solid #38404b}
+small{display:block}.note{border-left:3px solid #eeb888;padding-left:18px}code{overflow-wrap:anywhere}
+a:focus-visible{outline:2px solid #d7fa73}
+</style></head><body><main>
+<a href="../">CreditVintage</a><p class="tag">OBSERVED UCI DATA / FIVE FROZEN SPLITS</p>
+<h1>30,000 card accounts.<br>Every split retained.</h1>
+<p>23,364 non-events and 6,636 native default labels. Each seed uses 18,000 training,
+6,000 calibration and 6,000 test records. Scaling and categories fit only on training;
+isotonic calibration uses a separate partition. No tuning or best-seed selection.</p>
+<p class="note">The source describes one historical Taiwan cohort and April–September 2005
+repayment, bill and payment history. These random customer splits cannot establish
+future-period performance or reconstruct original information availability.</p>
+<h2>Test metrics: mean and observed range</h2>
+<div class="scroll"><table><thead><tr><th>Method</th><th>ROC-AUC</th><th>Average precision</th><th>Brier ↓</th></tr></thead>
+<tbody>@@ROWS@@</tbody></table></div>
+<p>Ranges describe five overlapping random splits, and are not confidence intervals.
+The native subsequent-default target differs from the separate synthetic 180-day 90+ DPD experiment.</p>
+<h2>Compare the same review capacity</h2>
+<p>Every method receives 300, 600 or 1,200 test records at 5%, 10% or 20% capacity.
+Scores rank descending; original source ID resolves ties. Inspect all 60 method/seed/budget
+rows in <a href="policy_metrics.csv">policy metrics</a>. The <a href="review_queue.csv">10% queues</a>
+omit outcome labels. This measures historical ranking, without an observed intervention or loss saving.</p>
+<h2>Run from the installed package</h2>
+<p><code>creditvintage card-benchmark --out outputs/card-credit</code><br>
+<code>creditvintage verify-card outputs/card-credit</code></p>
+<p>The package includes the frozen attributed table. Run and verification need no network.
+Verification refits every model and checks source bytes, split membership, probabilities,
+review ranking, summaries, page and evidence ZIP.</p>
+<p><a href="evidence.zip">Download complete evidence</a> · <a href="summary.json">Protocol and all results</a> ·
+<a href="metrics.csv">20 model/split rows</a> · <a href="splits.csv">150,000 assignments</a> ·
+<a href="predictions.csv">30,000 held-out rows / 120,000 model scores</a> ·
+<a href="source.csv.gz">Frozen source table</a> · <a href="SOURCE.md">Source and conversion notice</a> ·
+<a href="manifest.json">File digests</a></p>
+<h2>Validation boundaries</h2><ul>@@LIMITS@@</ul>
+<p>Source: Yeh (2009), <a href="https://doi.org/10.24432/C55S3H">Default of Credit Card Clients</a>,
+UCI Machine Learning Repository, CC BY 4.0. Original values and row order retained; the Excel
+table was converted to integer CSV and compressed. IDs and four demographic fields are excluded
+from model fitting. Native repayment-status codes, including -2 and 0, are retained as categories.</p>
+</main></body></html>

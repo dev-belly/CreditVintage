@@ -10,6 +10,7 @@ from typing import Any
 from creditvintage.artifacts import verify_result
 from creditvintage.benchmark import benchmark, verify_benchmark, write_benchmark
 from creditvintage.business import verify_analysis, write_analysis
+from creditvintage.card_credit import verify_card_benchmark, write_card_benchmark
 from creditvintage.lineage import verify_lineage, write_demo
 from creditvintage.monitoring import verify_monitor
 from creditvintage.public_credit import verify_public_benchmark, write_public_benchmark
@@ -33,6 +34,8 @@ def build(destination: Path) -> dict[str, Any]:
     comparison = verify_benchmark(destination / "benchmark")
     write_public_benchmark(destination / "public-credit")
     public_credit = verify_public_benchmark(destination / "public-credit")
+    write_card_benchmark(destination / "card-credit")
+    card_credit = verify_card_benchmark(destination / "card-credit")
     if not (destination / "index.html").is_file():
         raise ValueError("Site entry page is missing")
     return {
@@ -41,6 +44,7 @@ def build(destination: Path) -> dict[str, Any]:
         "analysis": analysis,
         "benchmark": comparison,
         "public_credit": public_credit,
+        "card_credit": card_credit,
     }
 
 

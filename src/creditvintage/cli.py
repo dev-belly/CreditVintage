@@ -11,6 +11,7 @@ from pathlib import Path
 from creditvintage.artifacts import verify_result, write_result
 from creditvintage.benchmark import benchmark, verify_benchmark, write_benchmark
 from creditvintage.business import verify_analysis, write_analysis
+from creditvintage.card_credit import verify_card_benchmark, write_card_benchmark
 from creditvintage.configuration import load_config, preflight
 from creditvintage.core import DataContractError, load_csv_bundle
 from creditvintage.lineage import verify_lineage, write_demo
@@ -48,6 +49,14 @@ def main(argv: list[str] | None = None) -> int:
     public.add_argument("--out", type=Path, default=Path("outputs/public-credit"))
     verify_public = commands.add_parser("verify-public", help="Refit the UCI experiment offline")
     verify_public.add_argument("directory", type=Path)
+    card = commands.add_parser(
+        "card-benchmark", help="Compare models on 30,000 observed UCI accounts"
+    )
+    card.add_argument("--out", type=Path, default=Path("outputs/card-credit"))
+    verify_card = commands.add_parser(
+        "verify-card", help="Refit and replay all five card-data splits"
+    )
+    verify_card.add_argument("directory", type=Path)
     compare = commands.add_parser(
         "benchmark", help="Compare frozen policies at equal review budgets"
     )
@@ -105,6 +114,13 @@ def main(argv: list[str] | None = None) -> int:
     check_lineage.add_argument("directory", type=Path)
     args = parser.parse_args(argv)
     try:
+        if args.command == "card-benchmark":
+            summary = write_card_benchmark(args.out)
+            print(json.dumps({"out": str(args.out), "results": summary["results"]}, indent=2))
+            return 0
+        if args.command == "verify-card":
+            print(json.dumps(verify_card_benchmark(args.directory), indent=2))
+            return 0
         if args.command == "public-benchmark":
             summary = write_public_benchmark(args.out)
             print(json.dumps({"out": str(args.out), **summary["test_metrics"]}, indent=2))

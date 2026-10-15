@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "creditvintage-research"
-version = "0.1.0"
+version = "0.2.0"
 description = "Point-in-time credit vintage evaluation and auditable risk reporting"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -17,6 +17,7 @@ Issues = "https://github.com/dev-belly/CreditVintage/issues"
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.9", "mypy>=1.10"]
+source = ["pandas>=2.2,<4", "xlrd>=2,<3"]
 
 [project.scripts]
 creditvintage = "creditvintage.cli:main"
@@ -25,7 +26,7 @@ creditvintage = "creditvintage.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-creditvintage = ["*.html", "*.sql", "data/german_credit/*"]
+creditvintage = ["*.html", "*.sql", "data/german_credit/*", "data/card_credit/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

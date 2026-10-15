@@ -7,6 +7,7 @@ reviewable risk report.** It is designed to demonstrate the data controls a
 banking or risk analytics team should ask about before trusting a score.
 
 [Live synthetic report](https://dev-belly.github.io/CreditVintage/demo/) ·
+[30,000-account card benchmark](https://dev-belly.github.io/CreditVintage/card-credit/) ·
 [Observed public credit benchmark](https://dev-belly.github.io/CreditVintage/public-credit/) ·
 [Five-split public comparison](https://dev-belly.github.io/CreditVintage/public-credit-comparison/) ·
 [Early score monitor](https://dev-belly.github.io/CreditVintage/monitor/) ·
@@ -24,6 +25,21 @@ banking or risk analytics team should ask about before trusting a score.
 > the event pipeline's time controls or a deployable credit policy.
 
 ## Try observed public data
+
+The larger [UCI credit-card experiment](docs/CARD_CREDIT.md) uses **30,000
+observed records**, five frozen 18,000/6,000/6,000 train/calibration/test splits,
+and four fixed methods. It retains every split, all 120,000 model scores and
+60 equal-capacity policy comparisons. Numeric scaling and categorical encoding
+fit on train; isotonic calibration fits only on its separate partition.
+
+```bash
+creditvintage card-benchmark --out outputs/card-credit
+creditvintage verify-card outputs/card-credit
+```
+
+Its native subsequent-default label and single historical cohort do not
+establish future-period performance. The independent German credit experiment
+below uses a different source and native good/bad target.
 
 ```bash
 creditvintage public-benchmark --out outputs/public-credit
@@ -223,6 +239,14 @@ complete reports; the current window may have none. Keep borrower-level
 monitor files private.
 
 ## Run and verify
+
+Version **0.2.0** distributions are published under [GitHub Releases](https://github.com/dev-belly/CreditVintage/releases)
+only after all main CI jobs pass. The downloadable wheel is the same artifact
+that passed clean installation and complete offline refitting. Each release
+includes its source archive, installed-check evidence, commit/version manifest
+and SHA-256 checksums. Existing version tags are preserved; changes require a
+version bump. Install the wheel into a Python 3.12+ virtual environment, then
+use the commands above without cloning this repository.
 
 Python 3.12+, from the repository root. On Linux or macOS:
 
