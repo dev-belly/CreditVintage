@@ -1,0 +1,347 @@
+{
+  "bad_labels": 300,
+  "bad_test_labels_per_split": 60,
+  "data_kind": "public_historical_static",
+  "data_sha256": "b21f3d81db8071257d5ff1deaeba1fd4303b62712e6fcc9715c7a86202cb5871",
+  "dataset": "UCI Statlog German Credit (144)",
+  "doi": "https://doi.org/10.24432/C5NC77",
+  "environment": {
+    "numpy": "2.3.5",
+    "python": "3.12.14",
+    "scikit_learn": "1.8.0"
+  },
+  "features": 20,
+  "good_labels": 700,
+  "inspection_rows_per_model_split": 20,
+  "model_parameters": {
+    "23": {
+      "constant": {
+        "constant": null,
+        "random_state": null,
+        "strategy": "prior"
+      },
+      "hist_gradient_boosting": {
+        "categorical_features": "from_dtype",
+        "class_weight": null,
+        "early_stopping": false,
+        "interaction_cst": null,
+        "l2_regularization": 1.0,
+        "learning_rate": 0.05,
+        "loss": "log_loss",
+        "max_bins": 255,
+        "max_depth": 3,
+        "max_features": 1.0,
+        "max_iter": 100,
+        "max_leaf_nodes": 15,
+        "min_samples_leaf": 20,
+        "monotonic_cst": null,
+        "n_iter_no_change": 10,
+        "random_state": 23,
+        "scoring": "loss",
+        "tol": 1e-07,
+        "validation_fraction": 0.1,
+        "verbose": 0,
+        "warm_start": false
+      },
+      "logistic": {
+        "C": 1.0,
+        "class_weight": null,
+        "dual": false,
+        "fit_intercept": true,
+        "intercept_scaling": 1,
+        "l1_ratio": 0.0,
+        "max_iter": 2000,
+        "n_jobs": null,
+        "penalty": "deprecated",
+        "random_state": 23,
+        "solver": "lbfgs",
+        "tol": 0.0001,
+        "verbose": 0,
+        "warm_start": false
+      }
+    },
+    "41": {
+      "constant": {
+        "constant": null,
+        "random_state": null,
+        "strategy": "prior"
+      },
+      "hist_gradient_boosting": {
+        "categorical_features": "from_dtype",
+        "class_weight": null,
+        "early_stopping": false,
+        "interaction_cst": null,
+        "l2_regularization": 1.0,
+        "learning_rate": 0.05,
+        "loss": "log_loss",
+        "max_bins": 255,
+        "max_depth": 3,
+        "max_features": 1.0,
+        "max_iter": 100,
+        "max_leaf_nodes": 15,
+        "min_samples_leaf": 20,
+        "monotonic_cst": null,
+        "n_iter_no_change": 10,
+        "random_state": 41,
+        "scoring": "loss",
+        "tol": 1e-07,
+        "validation_fraction": 0.1,
+        "verbose": 0,
+        "warm_start": false
+      },
+      "logistic": {
+        "C": 1.0,
+        "class_weight": null,
+        "dual": false,
+        "fit_intercept": true,
+        "intercept_scaling": 1,
+        "l1_ratio": 0.0,
+        "max_iter": 2000,
+        "n_jobs": null,
+        "penalty": "deprecated",
+        "random_state": 41,
+        "solver": "lbfgs",
+        "tol": 0.0001,
+        "verbose": 0,
+        "warm_start": false
+      }
+    },
+    "59": {
+      "constant": {
+        "constant": null,
+        "random_state": null,
+        "strategy": "prior"
+      },
+      "hist_gradient_boosting": {
+        "categorical_features": "from_dtype",
+        "class_weight": null,
+        "early_stopping": false,
+        "interaction_cst": null,
+        "l2_regularization": 1.0,
+        "learning_rate": 0.05,
+        "loss": "log_loss",
+        "max_bins": 255,
+        "max_depth": 3,
+        "max_features": 1.0,
+        "max_iter": 100,
+        "max_leaf_nodes": 15,
+        "min_samples_leaf": 20,
+        "monotonic_cst": null,
+        "n_iter_no_change": 10,
+        "random_state": 59,
+        "scoring": "loss",
+        "tol": 1e-07,
+        "validation_fraction": 0.1,
+        "verbose": 0,
+        "warm_start": false
+      },
+      "logistic": {
+        "C": 1.0,
+        "class_weight": null,
+        "dual": false,
+        "fit_intercept": true,
+        "intercept_scaling": 1,
+        "l1_ratio": 0.0,
+        "max_iter": 2000,
+        "n_jobs": null,
+        "penalty": "deprecated",
+        "random_state": 59,
+        "solver": "lbfgs",
+        "tol": 0.0001,
+        "verbose": 0,
+        "warm_start": false
+      }
+    },
+    "7": {
+      "constant": {
+        "constant": null,
+        "random_state": null,
+        "strategy": "prior"
+      },
+      "hist_gradient_boosting": {
+        "categorical_features": "from_dtype",
+        "class_weight": null,
+        "early_stopping": false,
+        "interaction_cst": null,
+        "l2_regularization": 1.0,
+        "learning_rate": 0.05,
+        "loss": "log_loss",
+        "max_bins": 255,
+        "max_depth": 3,
+        "max_features": 1.0,
+        "max_iter": 100,
+        "max_leaf_nodes": 15,
+        "min_samples_leaf": 20,
+        "monotonic_cst": null,
+        "n_iter_no_change": 10,
+        "random_state": 7,
+        "scoring": "loss",
+        "tol": 1e-07,
+        "validation_fraction": 0.1,
+        "verbose": 0,
+        "warm_start": false
+      },
+      "logistic": {
+        "C": 1.0,
+        "class_weight": null,
+        "dual": false,
+        "fit_intercept": true,
+        "intercept_scaling": 1,
+        "l1_ratio": 0.0,
+        "max_iter": 2000,
+        "n_jobs": null,
+        "penalty": "deprecated",
+        "random_state": 7,
+        "solver": "lbfgs",
+        "tol": 0.0001,
+        "verbose": 0,
+        "warm_start": false
+      }
+    },
+    "83": {
+      "constant": {
+        "constant": null,
+        "random_state": null,
+        "strategy": "prior"
+      },
+      "hist_gradient_boosting": {
+        "categorical_features": "from_dtype",
+        "class_weight": null,
+        "early_stopping": false,
+        "interaction_cst": null,
+        "l2_regularization": 1.0,
+        "learning_rate": 0.05,
+        "loss": "log_loss",
+        "max_bins": 255,
+        "max_depth": 3,
+        "max_features": 1.0,
+        "max_iter": 100,
+        "max_leaf_nodes": 15,
+        "min_samples_leaf": 20,
+        "monotonic_cst": null,
+        "n_iter_no_change": 10,
+        "random_state": 83,
+        "scoring": "loss",
+        "tol": 1e-07,
+        "validation_fraction": 0.1,
+        "verbose": 0,
+        "warm_start": false
+      },
+      "logistic": {
+        "C": 1.0,
+        "class_weight": null,
+        "dual": false,
+        "fit_intercept": true,
+        "intercept_scaling": 1,
+        "l1_ratio": 0.0,
+        "max_iter": 2000,
+        "n_jobs": null,
+        "penalty": "deprecated",
+        "random_state": 83,
+        "solver": "lbfgs",
+        "tol": 0.0001,
+        "verbose": 0,
+        "warm_start": false
+      }
+    }
+  },
+  "positive_label": "2=bad credit risk, mapped to 1",
+  "preprocessing": "train-only StandardScaler on 7 numeric and one-hot on 13 categorical columns",
+  "results": {
+    "constant": {
+      "average_precision": {
+        "max": 0.3,
+        "mean": 0.3,
+        "min": 0.3
+      },
+      "brier": {
+        "max": 0.20999999999999996,
+        "mean": 0.20999999999999996,
+        "min": 0.20999999999999994
+      },
+      "capture_at_10pct": {
+        "max": 0.1,
+        "mean": 0.07666666666666667,
+        "min": 0.05
+      },
+      "precision_at_10pct": {
+        "max": 0.3,
+        "mean": 0.23000000000000004,
+        "min": 0.15
+      },
+      "roc_auc": {
+        "max": 0.5,
+        "mean": 0.5,
+        "min": 0.5
+      }
+    },
+    "hist_gradient_boosting": {
+      "average_precision": {
+        "max": 0.7289039109031111,
+        "mean": 0.620763184558378,
+        "min": 0.5438566750072669
+      },
+      "brier": {
+        "max": 0.1824260729909087,
+        "mean": 0.16855777912352604,
+        "min": 0.1470572454905133
+      },
+      "capture_at_10pct": {
+        "max": 0.3,
+        "mean": 0.25,
+        "min": 0.21666666666666667
+      },
+      "precision_at_10pct": {
+        "max": 0.9,
+        "mean": 0.7499999999999999,
+        "min": 0.65
+      },
+      "roc_auc": {
+        "max": 0.8452380952380952,
+        "mean": 0.7743214285714286,
+        "min": 0.7298809523809524
+      }
+    },
+    "logistic": {
+      "average_precision": {
+        "max": 0.7273224226167871,
+        "mean": 0.6139620878745441,
+        "min": 0.549565436560825
+      },
+      "brier": {
+        "max": 0.18499531359839247,
+        "mean": 0.16886843925349337,
+        "min": 0.14539108294274602
+      },
+      "capture_at_10pct": {
+        "max": 0.2833333333333333,
+        "mean": 0.23666666666666666,
+        "min": 0.2
+      },
+      "precision_at_10pct": {
+        "max": 0.85,
+        "mean": 0.71,
+        "min": 0.6
+      },
+      "roc_auc": {
+        "max": 0.8289285714285715,
+        "mean": 0.7778333333333334,
+        "min": 0.7458333333333333
+      }
+    }
+  },
+  "rows": 1000,
+  "seeds": [
+    7,
+    23,
+    41,
+    59,
+    83
+  ],
+  "selection": "ceil(0.10 * n_test), descending score then ascending source row number",
+  "split": "five repeated stratified 80/20 random splits; not temporal",
+  "test_rows_per_split": 200,
+  "train_rows_per_split": 800,
+  "tuning": "none; fixed model settings and split seeds; all results retained",
+  "uncertainty": "mean and observed min/max only; overlapping splits are not independent"
+}

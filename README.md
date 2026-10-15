@@ -9,6 +9,7 @@ banking or risk analytics team should ask about before trusting a score.
 [Live synthetic report](https://dev-belly.github.io/CreditVintage/demo/) ·
 [Early score monitor](https://dev-belly.github.io/CreditVintage/monitor/) ·
 [SQL business analysis](https://dev-belly.github.io/CreditVintage/analysis/) ·
+[Real public credit comparison](https://dev-belly.github.io/CreditVintage/public-credit/) ·
 [中文业务案例](docs/BUSINESS_CASE.md) ·
 [Review workflow / 复核闭环](docs/REVIEW_WORKFLOW.md) ·
 [Published report files](docs/demo/index.html) ·
@@ -16,9 +17,43 @@ banking or risk analytics team should ask about before trusting a score.
 [Run summary](docs/demo/summary.json) ·
 [Artifact hashes](docs/demo/manifest.json)
 
-> **Data status:** The published experiment is entirely synthetic. Its ROC-AUC,
-> default rates, and loss scenario do not describe borrowers, a bank portfolio,
-> or a deployable credit policy.
+> **Data status:** The temporal evaluation, policy comparison and workflow
+> demonstrations use synthetic events. A separate [real public-data comparison](docs/PUBLIC_CREDIT.md)
+> uses 1,000 historical UCI credit records with static good/bad-risk labels.
+> Those records have no event timestamps; the two experiments answer different questions.
+
+## Real public data: does a learned score beat a constant baseline?
+
+The [public benchmark](https://dev-belly.github.io/CreditVintage/public-credit/)
+compares a constant training-frequency baseline, logistic regression and histogram
+gradient boosting on five identical stratified 800/200 train/test splits of UCI
+Statlog German Credit. Scaling and encoding are fitted on training rows only;
+no model settings are tuned against the test sets. All 15 results and all 3,000
+test scores are saved, including [split membership](docs/public-credit/splits.csv).
+
+| Method | Mean ROC-AUC | Observed AUC range | Mean Brier ↓ | Mean top-10% precision |
+| --- | ---: | ---: | ---: | ---: |
+| Constant | 0.500 | 0.500–0.500 | 0.2100 | 0.230 |
+| Logistic | **0.778** | 0.746–0.829 | 0.1689 | 0.710 |
+| Histogram gradient boosting | 0.774 | 0.730–0.845 | **0.1686** | **0.750** |
+
+The tree model does not win every metric. These means describe five overlapping
+random splits, not independent trials or confidence intervals. Each test set has
+60 bad labels; each method receives 20 inspection slots. The constant method's
+top-20 subset is determined by a source-row tie break, not learned ranking.
+This static experiment cannot establish future-vintage performance or 180-day
+default prediction. [Protocol, source/license and interpretation](docs/PUBLIC_CREDIT.md).
+
+After installing from this source checkout, run:
+
+```bash
+python examples/german_credit.py --out outputs/public-credit
+python examples/german_credit.py --verify outputs/public-credit
+```
+
+The data is committed with attribution, so running requires no data download.
+Verification checks saved labels, split membership, metrics and inspection flags;
+it does not retrain the models. Continue below for the separate synthetic temporal experiment.
 
 ## What is actually evaluated
 

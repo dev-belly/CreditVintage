@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CreditVintage | Public credit benchmark</title><style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#111319;color:#f1f0e9}
+*{box-sizing:border-box}body{margin:0;line-height:1.65}main{max-width:1180px;margin:auto;padding:48px 24px}
+h1{font-size:clamp(2rem,6vw,4rem);line-height:1.1}p{max-width:850px;color:#bdc7d1}a{color:#d7fa73}
+.tag{font:0.8rem ui-monospace,monospace;letter-spacing:.1em;color:#d7fa73}.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;margin:28px 0}th,td{text-align:left;padding:16px;border-bottom:1px solid #3b424b}
+td{font-variant-numeric:tabular-nums;white-space:nowrap}small{display:block;color:#9ba8b6}
+.note{border-left:2px solid #ffb994;padding-left:18px}code{color:#d7fa73}nav{display:flex;flex-wrap:wrap;gap:18px}
+a:focus-visible{outline:2px solid #d7fa73;outline-offset:4px}
+</style></head><body><main><span class="tag">CREDITVINTAGE / REAL PUBLIC DATA / STATIC CLASSIFICATION</span>
+<h1>Does a learned score<br>beat a constant baseline?</h1>
+<p>UCI Statlog German Credit: 1,000 historical records, 20 attributes, 700 good and 300 bad credit-risk labels.
+Three fixed models share five stratified 800/200 train/test splits. All five splits and all 3,000 test scores are retained.</p>
+<p>Cells show the mean and observed minimum–maximum across the five splits. Brier is lower-is-better;
+the other columns are higher-is-better. The ranges are descriptive, not confidence intervals.</p>
+<div class="scroll"><table><thead><tr><th scope="col">Model</th><th scope="col">ROC-AUC</th>
+<th scope="col">Average precision</th><th scope="col">Brier ↓</th><th scope="col">Top-10% precision</th>
+<th scope="col">Bad-label capture</th></tr></thead><tbody>{{ROWS}}</tbody></table></div>
+<p>Each test set contains 200 rows and 60 bad labels. Every method receives exactly 20 inspection slots;
+score ties use the original source row number. The constant model's top-20 subset is an arbitrary tie break, not a learned ranking.</p>
+<nav aria-label="Saved evidence"><a href="predictions.csv">All test scores</a><a href="splits.csv">Every train/test assignment</a>
+<a href="metrics.csv">All 15 model/split results</a><a href="summary.json">Protocol &amp; environment</a>
+<a href="manifest.json">File hashes</a></nav>
+<h2>Run it and check it</h2><p>From the source checkout after installing the project:</p>
+<pre><code>python examples/german_credit.py --out outputs/public-credit
+python examples/german_credit.py --verify outputs/public-credit</code></pre>
+<p>Preprocessing is fitted on training rows only. Verification recomputes metrics and the top-20 selections
+from saved scores, checks labels against the frozen source and checks every split. It does not retrain models or authenticate authorship.</p>
+<p class="note">This dataset has no decision or outcome-availability timestamps. This experiment cannot test
+point-in-time safety, 180-day 90+ DPD prediction, future-vintage performance or intervention benefits.
+It is separate from the synthetic temporal and policy experiments.</p>
+<p>Source: Hans Hofmann (1994), <a href="https://doi.org/10.24432/C5NC77">Statlog (German Credit Data)</a>,
+UCI Machine Learning Repository, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>.
+Original data bytes and codebook are preserved; label 2 is mapped to positive class 1 for evaluation.</p>
+<nav><a href="../">All CreditVintage reports</a>
+<a href="https://github.com/dev-belly/CreditVintage/blob/main/docs/PUBLIC_CREDIT.md">Protocol and interpretation</a>
+<a href="https://github.com/dev-belly/CreditVintage/blob/main/examples/german_credit.py">Source code</a></nav>
+</main></body></html>
