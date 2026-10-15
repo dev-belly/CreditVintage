@@ -4,11 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "creditvintage-research"
-version = "0.2.0"
+version = "0.2.1"
 description = "Point-in-time credit vintage evaluation and auditable risk reporting"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["numpy>=2,<3", "scikit-learn>=1.5,<2"]
+# Exact numerical versions keep installed-package replay aligned with published evidence.
+dependencies = ["numpy==2.3.5", "scipy==1.17.0", "scikit-learn==1.8.0"]
 
 [project.urls]
 Repository = "https://github.com/dev-belly/CreditVintage"

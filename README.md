@@ -332,8 +332,10 @@ the verified evidence, rejecting a rehashed webpage with invented claims. These 
 the output hashes have been updated to match edited files; the regression
 suite covers those inconsistent reports alongside the original published
 examples. The summary records Python, NumPy and
-scikit-learn versions; exact floating-point output across environments is not
-promised. The hashes detect accidental edits, not an
+scikit-learn versions; exact floating-point output across arbitrary environments is not
+promised. The card experiment's v0.2.1 wheel pins NumPy, SciPy and scikit-learn;
+CI refits the same evidence across Linux/Python 3.12–3.13 and Windows/Python 3.12.
+Its verifier reports a mismatched numerical runtime before fitting. The hashes detect accidental edits, not an
 adversary who can rewrite files and manifest together.
 
 To use privately held event data, supply **all three** UTF-8 CSV paths:

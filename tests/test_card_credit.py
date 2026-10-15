@@ -9,6 +9,7 @@ import zipfile
 
 import numpy as np
 import pytest
+from sklearn.linear_model import LogisticRegression
 
 from creditvintage.card_credit import (
     CATEGORICAL,
@@ -76,6 +77,23 @@ def test_changed_source_is_rejected():
         load_card_data(gzip.compress(raw, mtime=0))
 
 
+def test_isotonic_predictions_resist_tiny_platform_score_drift(data, monkeypatch):
+    x, y = data
+    arguments = (x[:1200], y[:1200], x[1200:1600], y[1200:1600], x[1600:1630], 7)
+    baseline = fit_card_scores(*arguments)
+    original = LogisticRegression.predict_proba
+
+    def drift(self, values):
+        result = original(self, values)
+        result[:, 1] += 1e-12
+        result[:, 0] -= 1e-12
+        return result
+
+    monkeypatch.setattr(LogisticRegression, "predict_proba", drift)
+    perturbed = fit_card_scores(*arguments)
+    np.testing.assert_array_equal(baseline["isotonic"], perturbed["isotonic"])
+
+
 def test_complete_output_refits_with_equal_budgets_and_label_free_queues(report):
     assert verify_card_benchmark(report) == {
         "status": "verified",
@@ -115,6 +133,25 @@ def rehash(path, name):
     manifest = json.loads(file.read_text(encoding="utf-8"))
     manifest[name] = hashlib.sha256((path / name).read_bytes()).hexdigest()
     file.write_text(json.dumps(manifest), encoding="utf-8")
+
+
+def test_different_numerical_runtime_fails_with_versions_before_fitting(
+    report, tmp_path, monkeypatch
+):
+    path = tmp_path / "different-runtime"
+    shutil.copytree(report, path)
+    file = path / "summary.json"
+    summary = json.loads(file.read_text(encoding="utf-8"))
+    summary["runtime"]["scikit_learn"] = "999.0.0"
+    file.write_text(json.dumps(summary), encoding="utf-8")
+    rehash(path, "summary.json")
+
+    def must_not_fit(*args):
+        raise AssertionError("A mismatched runtime must be detected before fitting")
+
+    monkeypatch.setattr("creditvintage.card_credit.card_experiment", must_not_fit)
+    with pytest.raises(DataContractError, match=r"recorded versions:.*scikit-learn==999\.0\.0"):
+        verify_card_benchmark(path)
 
 
 @pytest.mark.parametrize("corruption", ["score", "metric", "queue", "zip"])
