@@ -95,6 +95,10 @@ def check(directory: Path) -> dict[str, Any]:
             raise ValueError(
                 "Installed public data/experiment did not refit from bundled resources"
             )
+        command("card-benchmark", "--out", "card-credit")
+        card_credit = command("verify-card", "card-credit")
+        if card_credit["records"] != 30000 or card_credit["model_scores"] != 120000:
+            raise ValueError("Installed card-data workflow lost source rows or model results")
         command("benchmark", "--out", "benchmark")
         comparison = command("verify-benchmark", "benchmark")
         command("monitor", "--as-of", "2024-10-01", "--out", "monitor")
@@ -196,6 +200,7 @@ def check(directory: Path) -> dict[str, Any]:
             "evaluation": evaluation,
             "custom_config_and_preflight": "verified without model fitting in preflight",
             "public_credit": public_credit,
+            "card_credit": card_credit,
             "benchmark": comparison,
             "analysis": analysis,
             "selected_review_cases": selected,
