@@ -10,7 +10,12 @@
     "python": "3.12.14",
     "scikit_learn": "1.8.0"
   },
-  "features": 20,
+  "excluded_fields": [
+    "personal_status_and_sex",
+    "age",
+    "foreign_worker"
+  ],
+  "features": 17,
   "good_labels": 700,
   "inspection_rows_per_model_split": 20,
   "model_parameters": {
@@ -246,7 +251,7 @@
     }
   },
   "positive_label": "2=bad credit risk, mapped to 1",
-  "preprocessing": "train-only StandardScaler on 7 numeric and one-hot on 13 categorical columns",
+  "preprocessing": "train-only StandardScaler on 6 numeric and one-hot on 11 categorical columns",
   "results": {
     "constant": {
       "average_precision": {
@@ -277,56 +282,56 @@
     },
     "hist_gradient_boosting": {
       "average_precision": {
-        "max": 0.7289039109031111,
-        "mean": 0.620763184558378,
-        "min": 0.5438566750072669
+        "max": 0.728601889079319,
+        "mean": 0.6135497502943499,
+        "min": 0.5454004501571269
       },
       "brier": {
-        "max": 0.1824260729909087,
-        "mean": 0.16855777912352604,
-        "min": 0.1470572454905133
+        "max": 0.1816464648130347,
+        "mean": 0.16915218941803167,
+        "min": 0.14649222401092188
       },
       "capture_at_10pct": {
-        "max": 0.3,
-        "mean": 0.25,
+        "max": 0.2833333333333333,
+        "mean": 0.24333333333333335,
         "min": 0.21666666666666667
       },
       "precision_at_10pct": {
-        "max": 0.9,
-        "mean": 0.7499999999999999,
+        "max": 0.85,
+        "mean": 0.73,
         "min": 0.65
       },
       "roc_auc": {
-        "max": 0.8452380952380952,
-        "mean": 0.7743214285714286,
-        "min": 0.7298809523809524
+        "max": 0.8435714285714286,
+        "mean": 0.7713571428571429,
+        "min": 0.7276190476190476
       }
     },
     "logistic": {
       "average_precision": {
-        "max": 0.7273224226167871,
-        "mean": 0.6139620878745441,
-        "min": 0.549565436560825
+        "max": 0.7194365504372657,
+        "mean": 0.6111475918489795,
+        "min": 0.5532528638051474
       },
       "brier": {
-        "max": 0.18499531359839247,
-        "mean": 0.16886843925349337,
-        "min": 0.14539108294274602
+        "max": 0.1864411522171174,
+        "mean": 0.17136708342172596,
+        "min": 0.14674637994866338
       },
       "capture_at_10pct": {
         "max": 0.2833333333333333,
-        "mean": 0.23666666666666666,
-        "min": 0.2
+        "mean": 0.24666666666666667,
+        "min": 0.21666666666666667
       },
       "precision_at_10pct": {
         "max": 0.85,
-        "mean": 0.71,
-        "min": 0.6
+        "mean": 0.74,
+        "min": 0.65
       },
       "roc_auc": {
-        "max": 0.8289285714285715,
-        "mean": 0.7778333333333334,
-        "min": 0.7458333333333333
+        "max": 0.8216666666666667,
+        "mean": 0.7671904761904761,
+        "min": 0.7317857142857143
       }
     }
   },
@@ -339,6 +344,7 @@
     83
   ],
   "selection": "ceil(0.10 * n_test), descending score then ascending source row number",
+  "source_features": 20,
   "split": "five repeated stratified 80/20 random splits; not temporal",
   "test_rows_per_split": 200,
   "train_rows_per_split": 800,

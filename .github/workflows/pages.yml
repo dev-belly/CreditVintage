@@ -7,7 +7,6 @@ on:
       - "src/**"
       - "docs/**"
       - "examples/german_credit.*"
-      - "data/german-credit/**"
       - "scripts/build_public_site.py"
       - "pyproject.toml"
       - ".github/workflows/pages.yml"
@@ -16,7 +15,6 @@ on:
       - "src/**"
       - "docs/**"
       - "examples/german_credit.*"
-      - "data/german-credit/**"
       - "scripts/build_public_site.py"
       - "pyproject.toml"
       - ".github/workflows/pages.yml"
@@ -51,7 +49,7 @@ jobs:
           mypy scripts/build_public_site.py
       - name: Build and verify public evidence
         run: |
-          python examples/german_credit.py --verify docs/public-credit
+          python examples/german_credit.py --verify docs/public-credit-comparison
           python scripts/build_public_site.py
       - name: Upload verified site
         uses: actions/upload-pages-artifact@v4

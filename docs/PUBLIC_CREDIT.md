@@ -1,101 +1,97 @@
-# 真实公开信贷数据对照 / Real public credit comparison
+# Observed credit data, with a different validation question
 
-[在线报告](https://dev-belly.github.io/CreditVintage/public-credit/) ·
-[运行代码](../examples/german_credit.py) · [源数据与许可](../data/german-credit/README.md) ·
-[全部结果](public-credit/metrics.csv) · [全部预测](public-credit/predictions.csv)
+[Open the public experiment](https://dev-belly.github.io/CreditVintage/public-credit/).
 
-这份实验回答一个有限但可核验的问题：**在同一份真实公开的静态信贷数据上，
-学习得到的分数比固定坏样本比例多提供了多少区分信息？**
-它与本项目原有的合成时序实验独立，不拼接指标、不补造申请或表现日期。
+For a separate three-model comparison across five shared random splits, see
+[the repeated public-data protocol](PUBLIC_CREDIT_COMPARISON.md). It reuses this
+source and feature contract, with different split sizes and a different question.
 
-## 数据与标签
+This experiment adds **observed historical credit records** to the repository.
+It does not replace the synthetic event experiment: each supports a different
+claim, and their targets and splits must not be merged.
 
-来源为 Hans Hofmann (1994), *Statlog (German Credit Data)*，UCI Machine
-Learning Repository，DOI [10.24432/C5NC77](https://doi.org/10.24432/C5NC77)，
-CC BY 4.0。原始 `german.data` 和 `german.doc` 按下载字节保留，并记录 SHA-256。
-数据有 1,000 行、20 个属性，700 个 good、300 个 bad credit-risk 标签。
-计算时将原始 `1=good / 2=bad` 映射为 `0 / 1`；正类是 **bad-risk 标签**。
+| Evidence | What it supports | What it cannot establish |
+| --- | --- | --- |
+| Synthetic dated applications and revisions | Executable tests of availability, outcome maturity, lineage and cohort accounting | Predictive quality on actual borrowers |
+| UCI German credit observations | A reproducible native good/bad classification comparison on a fixed held-out split | Decision-time availability, future-period performance, modern Chinese lending or 180-day 90+ DPD prediction |
 
-没有申请日期、信息公开/入库日期、表现报告日期，也没有统一的 180 天 90+ DPD
-定义。原始行号只是定位来源，不代表经过核验的独立借款人 ID。
-这是年代较早的小样本数据，原始编码及其局限由来源继承；本实验没有核实
-原始调查记录或样本代表性。20 个属性全部使用，类别与数值口径见原始 codebook。
+## Source and frozen protocol
 
-## 固定评估协议
+Hans Hofmann (1994), *Statlog (German Credit Data)*, UCI Machine Learning
+Repository, [DOI 10.24432/C5NC77](https://doi.org/10.24432/C5NC77).
+The [official dataset page](https://archive.ics.uci.edu/dataset/144/statlog+german+credit+data)
+licenses it under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+The [source notice](../src/creditvintage/data/german_credit/SOURCE.md) records
+the download, retrieval date, license and original file digests.
 
-| 设置 | 本次口径 |
-| --- | --- |
-| 五个划分种子 | `7, 23, 41, 59, 83`，全部保留 |
-| 每次划分 | 按标签分层，800 行训练、200 行测试；测试集 60 个 bad 标签 |
-| 基线 | 训练集 bad 标签比例，固定为 0.30 |
-| 逻辑回归 | `C=1, solver=lbfgs, max_iter=2000` |
-| 梯度提升树 | histogram boosting，100 次迭代、学习率 0.05、深度 3、最多 15 叶、最小叶 20、L2=1，关闭提前停止 |
-| 预处理 | 7 个数值属性标准化，13 个类别属性 one-hot；两者只在当次训练集拟合 |
-| 参数选择 | 固定设置，没有搜索、测试集选参或按结果挑选种子 |
-| 相同查看名额 | 每个方法、每次测试均取分数最高的 20 行；同分按原始行号升序 |
-| 指标 | ROC-AUC、average precision、Brier、20 行中的 bad 比例、60 个 bad 中被选中的比例 |
-| 区间 | 只报告五次的均值与观察到的最小–最大值，不称置信区间 |
+The package contains the unchanged 1,000-row `german.data` and original codebook.
+SHA-256: `b21f3d81db8071257d5ff1deaeba1fd4303b62712e6fcc9715c7a86202cb5871`.
+Commands and CI never fetch a changing dataset from the network.
 
-数据划分由标签分层，这不等于模型拿到测试标签。模型拟合只接收训练特征与
-训练标签；类别编码器和数值缩放器都放在训练 pipeline 内。测试标签仅用于
-划分和最终评价。未建立独立校准集，因此这里没有校准模型或校准改善的主张。
+- Native class 1 (good) becomes 0; native class 2 (bad) becomes 1. There are
+  700 good and 300 bad records. No DPD horizon or decision date is invented.
+- Seed **20261015** fixes a stratified 600/200/200 train/calibration/test split.
+  The two split calls use that seed and seed + 1; every original row assignment
+  is exported. The stages contain 180/60/60 bad records respectively.
+- Six numeric fields use training-only standardization; 11 categorical fields
+  use training-only one-hot encoding with unknown categories ignored. Personal
+  status/sex, age and foreign-worker status are omitted from the model. This
+  omission does not establish fairness or eliminate proxies.
+- Logistic regression uses fixed `C=1`, `lbfgs`, `max_iter=1000`, no class
+  weighting and no hyperparameter search. A separate isotonic calibrator uses
+  only the 200 calibration records. Test labels never fit either stage.
+- The constant training class rate is the reference. Policies get the same
+  5%, 10% and 20% test review capacity. Score ties use original row order.
+  A constant-score policy's row-order result is not an optimized business rule.
 
-全部模型参数按种子记录在 [summary.json](public-credit/summary.json)，包括
-环境版本。单线程模型拟合减少机器线程数的影响；跨库版本、操作系统和硬件
-仍不保证浮点字节完全一致。五次测试样本有重叠，不能把 3,000 个模型预测
-当成 3,000 个独立客户，也不能把种子间范围当成未来表现区间。
+## Retained results
 
-## 本次结果怎么读
+The initial run used Python 3.12.14, NumPy 2.3.5 and scikit-learn 1.8.0.
 
-| 方法 | AUC 均值（观察范围） | AP 均值 | Brier 均值 | Top-20 精确率均值 | Bad 标签捕获率均值 |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| 常数基线 | 0.500（0.500–0.500） | 0.300 | 0.2100 | 0.230 | 0.0767 |
-| 逻辑回归 | 0.778（0.746–0.829） | 0.614 | 0.1689 | 0.710 | 0.2367 |
-| 梯度提升树 | 0.774（0.730–0.845） | 0.621 | 0.1686 | 0.750 | 0.2500 |
+| Method | Test ROC-AUC | Average precision | Brier ↓ | Bad labels in 20 reviewed records |
+| --- | ---: | ---: | ---: | ---: |
+| Constant train class rate | 0.500000 | 0.300000 | 0.210000 | 6 |
+| Logistic | 0.774286 | 0.677000 | 0.162263 | 17 |
+| Logistic + isotonic | 0.759643 | 0.605599 | 0.169376 | 17 |
 
-逻辑回归平均 AUC 略高，树模型在这五次划分中的 AP 和 Top-20 平均精确率略高。
-这不足以宣布某模型普遍优越；两种学习方法的 AUC 随划分变化明显。
-常数分数全部同分，Top-20 由原始行号任意打破平局，其 0.230 不能解释为
-学习出的筛选能力，也不能当作随机选取 20 人的理论期望。
+Calibration worsened both Brier and ranking metrics on this split. It remains
+in the comparison. At 10% capacity the logistic queue has **17/20 = 85%** native
+bad-label precision and captures **17/60 = 28.33%** of test bad labels. These
+are small-sample historical ranking results, not prevented defaults or losses.
+The 200-record holdout gives noisy single-split estimates; no confidence or
+stability across future periods is established. Once public results are viewed,
+this holdout is not a fresh validation set for later model selection.
 
-Top-20 是为比较设定的相同查看预算，不是授信拒绝规则。没有干预、回收或
-财务损失数据，不能把命中 bad 标签写成“减少了多少实际损失”。
+## Reproduce offline
 
-## 运行与复核
+After installing CreditVintage (Python 3.12+):
 
-先按仓库 README 从源码安装，在仓库根目录运行。需要 Python 3.12+ 和项目
-已有的 NumPy / scikit-learn 依赖，数据已随仓库保存，无需在线下载。
-
-```bash
-python examples/german_credit.py --out outputs/public-credit
-python examples/german_credit.py --verify outputs/public-credit
-python examples/german_credit.py --verify docs/public-credit
+```text
+creditvintage public-benchmark --out outputs/public-credit
+creditvintage verify-public outputs/public-credit
 ```
 
-Windows PowerShell 使用 `.\.venv\Scripts\python.exe` 替代 `python`。
-输出目录必须尚不存在，避免覆盖已有实验。打开其 `index.html`。
+Use a new output directory. On Windows an unactivated environment can use
+`.\.venv\Scripts\creditvintage.exe`. Open the resulting `index.html`.
 
-| 文件 | 可复核内容 |
-| --- | --- |
-| `splits.csv` | 五次各 1,000 行的训练/测试归属，源行号可定位原始记录 |
-| `predictions.csv` | 五次 × 三模型 × 200 测试行，共 3,000 条分数、标签及 Top-20 标记 |
-| `metrics.csv` | 15 组模型/划分指标，不只展示最好一次 |
-| `summary.json` | 来源摘要、固定协议、参数、环境、均值与观察范围 |
-| `manifest.json` | 输出文件摘要，检测意外改动 |
+The bundle includes original source bytes, `split.csv`, all 200 test labels and
+scores, all nine policy/budget rows, a label-free 20-record logistic review
+queue, `summary.json`, HTML and a digest manifest. Verification validates the
+frozen original source digest, recomputes the split, refits models, compares
+probabilities, metrics and queue, and rebuilds the page from verified claims.
+It detects rehashed changes to scores, assignments, metrics or page text;
+internal consistency still does not authenticate a publisher.
 
-`--verify` 不重新拟合模型。它重新核对源数据、训练/测试归属和测试标签，
-从保存的分数复算全部指标和 Top-20 标记，并检查报告页与汇总的一致性。
-重新训练使用 `--out` 和新的输出目录。核验不能证明训练者身份、原始采集
-事实或业务有效性；一致地替换所有分数和衍生产物不属于来源真实性验证。
-CI 在 Linux 与 Windows 上生成、核验新报告，同时核验已提交结果。
+Recorded package versions identify the generating environment. Probability
+comparisons allow absolute error 1e-8; six-decimal summary metrics allow 1e-6.
+A changed numerical implementation outside those tolerances requires a fresh
+report and an explicit comparison; version ranges do not promise identical
+floating-point calculations forever. The installed-distribution CI checks this
+path outside the source tree on Linux and Windows.
 
-## 面试时可以这样说
-
-“我把两件事分开验证：合成事件用来检验时间边界、标签成熟和数据修订，
-公开历史信贷数据用来比较固定基线与学习模型。我在五组相同分层划分上保留
-全部模型结果和测试分数，逻辑回归平均 AUC 约 0.778。树模型没有赢下所有
-指标，所以没有只报最好结果。公开数据没有时间戳，不能用它声称通过了
-真实未来批次验证。”
-
-下一步需要具备可信决策日期、特征可用日期和成熟表现标签的数据，才能
-推进真实时间外验证；本次公开静态实验没有解决这个缺口。
+The original [source codebook](../src/creditvintage/data/german_credit/german.doc)
+also describes a 5:1 classification cost matrix. This experiment reports
+capacity ranking and probability quality; it does not optimize that matrix,
+infer a monetary cost, estimate recovery losses or propose an approval rule.
+A meaningful next validation needs larger appropriate cohorts with documented
+dates, outcome definitions and observation coverage.

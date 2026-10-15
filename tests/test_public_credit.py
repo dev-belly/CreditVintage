@@ -1,131 +1,148 @@
-"""Regressions for a public-data example kept separate from dated loan events."""
-
 from __future__ import annotations
 
-import importlib.util
+import csv
+import hashlib
 import json
-import shutil
-from pathlib import Path
+from importlib.resources import files
 
 import numpy as np
 import pytest
 
-SCRIPT = Path(__file__).resolve().parents[1] / "examples/german_credit.py"
-SPEC = importlib.util.spec_from_file_location("public_credit_example", SCRIPT)
-assert SPEC is not None and SPEC.loader is not None
-example = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(example)
+from creditvintage.cli import main
+from creditvintage.core import DataContractError
+from creditvintage.public_credit import (
+    CATEGORICAL,
+    NUMERIC,
+    experiment,
+    fit_public_scores,
+    load_public_data,
+    public_splits,
+    verify_public_benchmark,
+    write_public_benchmark,
+)
 
 
 @pytest.fixture(scope="module")
-def public_report(tmp_path_factory):
-    path = tmp_path_factory.mktemp("public-credit") / "report"
-    example.run(path)
-    return path
+def raw():
+    return files("creditvintage").joinpath("data/german_credit/german.data").read_bytes()
 
 
-def rehash(path):
-    example.write_json(
-        path / "manifest.json", {name: example.digest(path / name) for name in example.FILES}
-    )
-
-
-def test_frozen_source_preserves_label_meaning_and_rejects_changed_bytes(tmp_path):
-    _, labels = example.load_data()
-    assert labels[:3].tolist() == [0, 1, 0]
-    assert np.bincount(labels).tolist() == [700, 300]
-    altered = tmp_path / "source.data"
-    altered.write_bytes(example.DATA.read_bytes().replace(b"A11", b"A12", 1))
-    with pytest.raises(ValueError, match="source bytes"):
-        example.load_data(altered)
-
-
-def test_preprocessing_does_not_learn_heldout_values_or_categories():
-    features, labels = example.load_data()
-    train, test = example.split_indices(labels, 7)
-    heldout = features[test].copy()
-    heldout[:, example.NUMERIC[0]] = 1e9
-    heldout[:, example.CATEGORICAL[0]] = "HELDOUT_ONLY"
-    fitted = example.make_model("logistic", 7).fit(features[train], labels[train])
-    preprocess = fitted.named_steps["preprocess"]
-    scaler = preprocess.named_transformers_["numeric"]
-    np.testing.assert_allclose(
-        scaler.mean_, features[train][:, example.NUMERIC].astype(float).mean(axis=0)
-    )
-    encoder = preprocess.named_transformers_["categorical"]
-    assert all("HELDOUT_ONLY" not in values for values in encoder.categories_)
-    # Unknown held-out categories remain scoreable without refitting the encoder.
-    assert np.isfinite(fitted.predict_proba(heldout)).all()
-    assert all("HELDOUT_ONLY" not in values for values in encoder.categories_)
-
-
-def test_inspection_ties_depend_on_source_id_not_outcome_or_input_order():
-    ids = np.arange(1, 21)
-    labels = np.tile([0, 1], 10)
-    _, selected = example.measure(labels, np.full(20, 0.3), ids)
-    _, changed = example.measure(1 - labels, np.full(20, 0.3), ids)
-    assert ids[selected].tolist() == [1, 2]
-    np.testing.assert_array_equal(selected, changed)
-    _, reversed_selection = example.measure(labels[::-1], np.full(20, 0.3), ids[::-1])
-    assert sorted(ids[::-1][reversed_selection].tolist()) == [1, 2]
-
-
-def test_complete_saved_run_verifies_without_retraining(public_report, monkeypatch):
-    def must_not_train(*args, **kwargs):
-        raise AssertionError("Verification must not retrain or overwrite the saved scores")
-
-    monkeypatch.setattr(example, "fit_scores", must_not_train)
-    checked = example.verify(public_report)
-    assert checked == {
-        "verified_splits": 5,
-        "model_split_results": 15,
-        "test_scores": 3000,
-        "data_kind": "public_historical_static",
-        "retrained": False,
+def test_real_table_has_native_labels_disjoint_splits_and_no_invented_dates(raw):
+    x, y = load_public_data(raw)
+    splits = public_splits(y)
+    assert x.shape == (1000, 20)
+    assert sum(y) == 300
+    assert {name: len(indices) for name, indices in splits.items()} == {
+        "train": 600,
+        "calibration": 200,
+        "test": 200,
     }
-    with pytest.raises(FileExistsError):
-        example.run(public_report)
+    assert len(set(np.concatenate(list(splits.values())))) == 1000
+    assert {name: sum(y[indices]) for name, indices in splits.items()} == {
+        "train": 180,
+        "calibration": 60,
+        "test": 60,
+    }
+    assert set(NUMERIC) | set(CATEGORICAL) == set(range(20)) - {8, 12, 19}
+    result = experiment(raw)
+    assert result["summary"]["data_kind"] == "public_observed_static"
+    assert "decision_at" not in result["predictions"][0]
+    assert "native_bad" not in result["queue"][0]
+    assert len(result["queue"]) == 20
+    for capacity in (0.05, 0.10, 0.20):
+        policies = [p for p in result["policies"] if p["capacity"] == capacity]
+        assert len(policies) == 3
+        assert {p["reviewed"] for p in policies} == {round(200 * capacity)}
+        assert {p["total_bad"] for p in policies} == {60}
 
 
-@pytest.mark.parametrize("corruption", ["label", "train_row", "nan", "metric", "split", "page"])
-def test_rehashed_inconsistent_evidence_is_rejected(public_report, tmp_path, corruption):
-    out = tmp_path / "report"
-    shutil.copytree(public_report, out)
-    if corruption in {"label", "train_row", "nan"}:
-        rows = example.read_csv(out / "predictions.csv")
-        if corruption == "label":
-            rows[0]["label_bad_risk"] = str(1 - int(rows[0]["label_bad_risk"]))
-        elif corruption == "train_row":
-            assignments = example.read_csv(out / "splits.csv")
-            rows[0]["row_id"] = next(
-                r["row_id"]
-                for r in assignments
-                if r["seed"] == rows[0]["seed"] and r["partition"] == "train"
-            )
-        else:
-            rows[0]["score"] = "NaN"
-        example.write_csv(out / "predictions.csv", rows)
-    elif corruption == "metric":
-        rows = example.read_csv(out / "metrics.csv")
-        rows[0]["roc_auc"] = "0.99"
-        example.write_csv(out / "metrics.csv", rows)
-    elif corruption == "split":
-        rows = example.read_csv(out / "splits.csv")
-        rows[0]["partition"] = "test"
-        example.write_csv(out / "splits.csv", rows)
+def test_test_labels_do_not_change_scores_and_test_only_categories_do_not_change_training(raw):
+    x, y = load_public_data(raw)
+    splits = public_splits(y)
+    original = fit_public_scores(x, y, splits)
+    changed_labels = y.copy()
+    changed_labels[splits["test"]] = 1 - changed_labels[splits["test"]]
+    other = fit_public_scores(x, changed_labels, splits)
+    for method in original:
+        np.testing.assert_array_equal(original[method], other[method])
+    changed_features = x.copy()
+    changed_features[splits["test"], 0] = "TEST_ONLY_CATEGORY"
+    changed_features[splits["test"], 1] = "10000000"
+    other = fit_public_scores(changed_features, y, splits)
+    for method in original:
+        np.testing.assert_allclose(
+            original[method][splits["train"]], other[method][splits["train"]], atol=1e-12, rtol=0
+        )
+
+
+def test_source_modification_fails_instead_of_becoming_a_new_public_source(raw):
+    with pytest.raises(DataContractError, match="frozen UCI original"):
+        load_public_data(raw.replace(b"A11", b"A12", 1))
+
+
+@pytest.fixture
+def bundle(tmp_path):
+    destination = tmp_path / "public"
+    write_public_benchmark(destination)
+    return destination
+
+
+def rehash(bundle, name):
+    path = bundle / "manifest.json"
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    manifest["files_sha256"][name] = hashlib.sha256((bundle / name).read_bytes()).hexdigest()
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+
+
+def test_public_bundle_refits_and_existing_output_is_preserved(bundle):
+    assert verify_public_benchmark(bundle)["refitted"] is True
+    before = (bundle / "summary.json").read_bytes()
+    with pytest.raises(DataContractError, match="new public benchmark output"):
+        write_public_benchmark(bundle)
+    assert (bundle / "summary.json").read_bytes() == before
+
+
+@pytest.mark.parametrize("filename", ["predictions.csv", "split.csv", "review_queue.csv"])
+def test_rehashed_changed_scores_assignments_and_queue_fail_refit(bundle, filename):
+    path = bundle / filename
+    with path.open(newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        columns, rows = reader.fieldnames, list(reader)
+    if filename == "predictions.csv":
+        rows[0]["logistic"] = "0.99999"
+    elif filename == "split.csv":
+        rows[0]["split"] = "test" if rows[0]["split"] != "test" else "train"
     else:
-        (out / "index.html").write_text("Invented best-model claim", encoding="utf-8")
-    rehash(out)
-    with pytest.raises(ValueError):
-        example.verify(out)
+        rows[0]["record_id"] = rows[1]["record_id"]
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=columns)
+        writer.writeheader()
+        writer.writerows(rows)
+    rehash(bundle, filename)
+    with pytest.raises(DataContractError, match="replay disagrees"):
+        verify_public_benchmark(bundle)
 
 
-def test_summary_cannot_change_the_data_kind_to_temporal(public_report, tmp_path):
-    out = tmp_path / "report"
-    shutil.copytree(public_report, out)
-    summary = json.loads((out / "summary.json").read_text())
-    summary["data_kind"] = "real_temporal_validation"
-    example.write_json(out / "summary.json", summary)
-    rehash(out)
-    with pytest.raises(ValueError, match="protocol"):
-        example.verify(out)
+def test_rehashed_invented_metric_and_webpage_fail(bundle):
+    path = bundle / "summary.json"
+    original = path.read_bytes()
+    summary = json.loads(original)
+    summary["test_metrics"]["logistic"]["roc_auc"] = 0.999
+    path.write_text(json.dumps(summary), encoding="utf-8")
+    rehash(bundle, path.name)
+    with pytest.raises(DataContractError, match="summary disagrees"):
+        verify_public_benchmark(bundle)
+    path.write_bytes(original)
+    rehash(bundle, path.name)
+    page = bundle / "index.html"
+    page.write_text(page.read_text(encoding="utf-8") + "Invented result", encoding="utf-8")
+    rehash(bundle, page.name)
+    with pytest.raises(DataContractError, match="page disagrees"):
+        verify_public_benchmark(bundle)
+
+
+def test_installed_cli_public_commands(tmp_path, capsys):
+    destination = tmp_path / "public"
+    assert main(["public-benchmark", "--out", str(destination)]) == 0
+    assert main(["verify-public", str(destination)]) == 0
+    assert "public_observed_static" in capsys.readouterr().out

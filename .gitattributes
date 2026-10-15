@@ -1,4 +1,4 @@
 # Preserve committed evidence hashes on Windows checkouts.
 * text=auto eol=lf
-# Keep the attributed UCI codebook byte-for-byte, including source whitespace.
-data/german-credit/german.doc -whitespace
+# Keep the attributed UCI originals byte-for-byte, including codebook whitespace.
+src/creditvintage/data/german_credit/german.* -text -whitespace

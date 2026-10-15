@@ -48,14 +48,17 @@ jobs:
           pytest -q || status=1
           exit "$status"
       - run: creditvintage run --out outputs/ci
+      - run: creditvintage preflight --config examples/cohort-config.json
+      - run: creditvintage public-benchmark --out outputs/ci-public
+      - run: creditvintage verify-public outputs/ci-public
+      - name: Replay the five-split public credit comparison
+        run: |
+          python examples/german_credit.py --out outputs/public-credit-comparison
+          python examples/german_credit.py --verify outputs/public-credit-comparison
+          python examples/german_credit.py --verify docs/public-credit-comparison
       - run: creditvintage verify outputs/ci
       - run: creditvintage benchmark --out outputs/ci-benchmark
       - run: creditvintage verify-benchmark outputs/ci-benchmark
-      - name: Replay the separate real public credit benchmark
-        run: |
-          python examples/german_credit.py --out outputs/public-credit
-          python examples/german_credit.py --verify outputs/public-credit
-          python examples/german_credit.py --verify docs/public-credit
       - run: creditvintage monitor --as-of 2024-10-01 --out outputs/ci-monitor
       - run: creditvintage verify-monitor outputs/ci-monitor
       - run: creditvintage verify docs/demo

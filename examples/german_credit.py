@@ -8,6 +8,7 @@ import hashlib
 import json
 import math
 import platform
+from importlib.resources import files
 from pathlib import Path
 
 import numpy as np
@@ -22,13 +23,11 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from threadpoolctl import threadpool_limits
 
-ROOT = Path(__file__).resolve().parents[1]
-DATA = ROOT / "data/german-credit/german.data"
-DATA_SHA256 = "b21f3d81db8071257d5ff1deaeba1fd4303b62712e6fcc9715c7a86202cb5871"
+from creditvintage.public_credit import CATEGORICAL, DATA_SHA256, NUMERIC, load_public_data
+
+DATA = files("creditvintage").joinpath("data/german_credit/german.data")
 SEEDS = (7, 23, 41, 59, 83)
 MODELS = ("constant", "logistic", "hist_gradient_boosting")
-NUMERIC = (1, 4, 7, 10, 12, 15, 17)  # Zero-based columns in the UCI codebook.
-CATEGORICAL = tuple(i for i in range(20) if i not in NUMERIC)
 METRICS = ("roc_auc", "average_precision", "brier", "precision_at_10pct", "capture_at_10pct")
 FILES = ("predictions.csv", "splits.csv", "metrics.csv", "summary.json", "index.html")
 
@@ -38,16 +37,7 @@ def digest(path):
 
 
 def load_data(path=DATA):
-    if digest(path) != DATA_SHA256:
-        raise ValueError("UCI source bytes differ from the attributed frozen dataset")
-    rows = [line.split() for line in path.read_text(encoding="ascii").splitlines()]
-    if len(rows) != 1000 or any(len(row) != 21 for row in rows):
-        raise ValueError("Expected the original 1,000-row, 20-feature UCI dataset")
-    features = np.asarray([row[:20] for row in rows], dtype=object)
-    labels = np.asarray([int(row[20]) - 1 for row in rows], dtype=int)
-    if np.bincount(labels).tolist() != [700, 300]:
-        raise ValueError("Expected 1=good (700) and 2=bad (300), mapped to 0 and 1")
-    return features, labels
+    return load_public_data(path.read_bytes())
 
 
 def make_model(name, seed):
@@ -204,7 +194,8 @@ def run(out):
         "data_kind": "public_historical_static",
         "positive_label": "2=bad credit risk, mapped to 1",
         "rows": 1000,
-        "features": 20,
+        "source_features": 20,
+        "features": 17,
         "good_labels": 700,
         "bad_labels": 300,
         "split": "five repeated stratified 80/20 random splits; not temporal",
@@ -214,8 +205,9 @@ def run(out):
         "bad_test_labels_per_split": 60,
         "inspection_rows_per_model_split": 20,
         "preprocessing": (
-            "train-only StandardScaler on 7 numeric and one-hot on 13 categorical columns"
+            "train-only StandardScaler on 6 numeric and one-hot on 11 categorical columns"
         ),
+        "excluded_fields": ["personal_status_and_sex", "age", "foreign_worker"],
         "selection": "ceil(0.10 * n_test), descending score then ascending source row number",
         "model_parameters": {
             str(seed): {
@@ -255,7 +247,8 @@ def verify(out):
         "data_sha256": DATA_SHA256,
         "seeds": list(SEEDS),
         "rows": 1000,
-        "features": 20,
+        "source_features": 20,
+        "features": 17,
         "train_rows_per_split": 800,
         "test_rows_per_split": 200,
         "bad_test_labels_per_split": 60,

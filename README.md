@@ -7,9 +7,10 @@ reviewable risk report.** It is designed to demonstrate the data controls a
 banking or risk analytics team should ask about before trusting a score.
 
 [Live synthetic report](https://dev-belly.github.io/CreditVintage/demo/) ·
+[Observed public credit benchmark](https://dev-belly.github.io/CreditVintage/public-credit/) ·
+[Five-split public comparison](https://dev-belly.github.io/CreditVintage/public-credit-comparison/) ·
 [Early score monitor](https://dev-belly.github.io/CreditVintage/monitor/) ·
 [SQL business analysis](https://dev-belly.github.io/CreditVintage/analysis/) ·
-[Real public credit comparison](https://dev-belly.github.io/CreditVintage/public-credit/) ·
 [中文业务案例](docs/BUSINESS_CASE.md) ·
 [Review workflow / 复核闭环](docs/REVIEW_WORKFLOW.md) ·
 [Published report files](docs/demo/index.html) ·
@@ -17,43 +18,60 @@ banking or risk analytics team should ask about before trusting a score.
 [Run summary](docs/demo/summary.json) ·
 [Artifact hashes](docs/demo/manifest.json)
 
-> **Data status:** The temporal evaluation, policy comparison and workflow
-> demonstrations use synthetic events. A separate [real public-data comparison](docs/PUBLIC_CREDIT.md)
-> uses 1,000 historical UCI credit records with static good/bad-risk labels.
-> Those records have no event timestamps; the two experiments answer different questions.
+> **Data status:** The point-in-time event experiment is synthetic. A separate
+> [UCI German credit experiment](docs/PUBLIC_CREDIT.md) uses 1,000 historical
+> observed records. Its native good/bad target and random split cannot validate
+> the event pipeline's time controls or a deployable credit policy.
 
-## Real public data: does a learned score beat a constant baseline?
+## Try observed public data
 
-The [public benchmark](https://dev-belly.github.io/CreditVintage/public-credit/)
-compares a constant training-frequency baseline, logistic regression and histogram
-gradient boosting on five identical stratified 800/200 train/test splits of UCI
-Statlog German Credit. Scaling and encoding are fitted on training rows only;
-no model settings are tuned against the test sets. All 15 results and all 3,000
-test scores are saved, including [split membership](docs/public-credit/splits.csv).
+```bash
+creditvintage public-benchmark --out outputs/public-credit
+creditvintage verify-public outputs/public-credit
+```
+
+After installing the package as below, these commands work offline. The frozen
+600/200/200 stratified split compares a constant baseline, logistic regression
+and independent isotonic calibration. Preprocessing fits only on train. On the
+200 held-out records, logistic ROC-AUC is **0.774**, Brier **0.162**; calibration
+worsens Brier to **0.169**, and that result stays visible. Test predictions,
+split membership, original attributed bytes and a label-free 20-record queue
+are exported. Verification refits from those bytes instead of trusting hashes
+alone. [Protocol, provenance and limits](docs/PUBLIC_CREDIT.md).
+
+## Compare fixed models across five public-data splits
+
+The separate [repeated comparison](https://dev-belly.github.io/CreditVintage/public-credit-comparison/)
+reuses the packaged UCI source, native labels and the same 17-feature contract.
+A constant baseline, logistic regression and histogram gradient boosting share
+five fixed stratified 800/200 train/test splits. All 15 results, 3,000 test scores
+and every split assignment are saved. Preprocessing is fitted on training rows
+only; model settings are fixed. [Protocol and interpretation](docs/PUBLIC_CREDIT_COMPARISON.md).
 
 | Method | Mean ROC-AUC | Observed AUC range | Mean Brier ↓ | Mean top-10% precision |
 | --- | ---: | ---: | ---: | ---: |
 | Constant | 0.500 | 0.500–0.500 | 0.2100 | 0.230 |
-| Logistic | **0.778** | 0.746–0.829 | 0.1689 | 0.710 |
-| Histogram gradient boosting | 0.774 | 0.730–0.845 | **0.1686** | **0.750** |
+| Logistic | 0.767 | 0.732–0.822 | 0.1714 | **0.740** |
+| Histogram gradient boosting | **0.771** | 0.728–0.844 | **0.1692** | 0.730 |
 
-The tree model does not win every metric. These means describe five overlapping
-random splits, not independent trials or confidence intervals. Each test set has
-60 bad labels; each method receives 20 inspection slots. The constant method's
-top-20 subset is determined by a source-row tie break, not learned ranking.
-This static experiment cannot establish future-vintage performance or 180-day
-default prediction. [Protocol, source/license and interpretation](docs/PUBLIC_CREDIT.md).
+Each test set has 60 bad labels and each method receives 20 inspection slots.
+The constant method's top-20 subset is an arbitrary source-row tie break.
+The tree does not win every metric. These five overlapping splits provide
+descriptive means and observed ranges, not independent trials or confidence
+intervals. This comparison uses different splits from the calibration experiment
+above; their metrics must not be directly combined.
 
-After installing from this source checkout, run:
+From the source checkout after installing the project:
 
 ```bash
-python examples/german_credit.py --out outputs/public-credit
-python examples/german_credit.py --verify outputs/public-credit
+python examples/german_credit.py --out outputs/public-credit-comparison
+python examples/german_credit.py --verify outputs/public-credit-comparison
 ```
 
-The data is committed with attribution, so running requires no data download.
-Verification checks saved labels, split membership, metrics and inspection flags;
-it does not retrain the models. Continue below for the separate synthetic temporal experiment.
+Data loads from the installed package, so there is no second dataset copy or
+network fetch. Saved-score verification checks source labels, held-out membership,
+metrics and inspection flags without refitting. The package's separate
+`verify-public` command refits its original calibration experiment.
 
 ## What is actually evaluated
 
@@ -63,7 +81,7 @@ WOE scorecard and histogram gradient boosting at 5%, 10% and 20% review capacity
 It exports monthly/segment outcomes, paired month-bootstrap intervals and
 label-free raw-model explanations. [Protocol and limitations](docs/BENCHMARK.md).
 Run `creditvintage benchmark --out outputs/benchmark`, then
-`creditvintage verify-benchmark outputs/benchmark`. The public experiment remains synthetic.
+`creditvintage verify-benchmark outputs/benchmark`. This dated-event policy experiment remains synthetic.
 
 Each loan has a decision date, a principal amount, an application-time feature
 history, and dated performance reports. The model predicts an **operational
@@ -309,13 +327,31 @@ creditvintage run --applications applications.csv \
 
 Dates are `YYYY-MM-DD`. Segments are `retail` or `small_business`; feature
 names are `utilization`, `debt_to_income`, `prior_delinquencies`.
-`principal_cents` is a positive integer USD-cent amount. The fixed vintage
-windows above remain in force for supplied data; the Python `Config` API can
-define other mature, nonoverlapping windows. Keep borrower-level files private.
+`principal_cents` is a positive integer USD-cent amount. The default vintage
+windows above apply when `--config` is omitted. Supply a strict JSON
+configuration to `run`, `benchmark`, `monitor` or `preflight` to use your own
+dates, LGD scenario and review fraction. The file must give all seven calendar
+dates; unknown keys, duplicate keys, non-finite numbers and shortened maturity
+gaps fail explicitly. An explicit `--seed` overrides the JSON seed.
+
+```bash
+creditvintage preflight --applications applications.csv --features features.csv \
+  --performance performance.csv --config examples/cohort-config.json
+creditvintage run --applications applications.csv --features features.csv \
+  --performance performance.csv --config examples/cohort-config.json --out outputs/private
+```
+
+`preflight` checks the mature train/calibration/test cohorts without fitting or
+writing a report. It counts excluded applications so an incorrect date range
+cannot look like complete coverage. It checks input consistency, not source
+authenticity or model quality. For immature current cohorts use `monitor`;
+preflight intentionally requires mature evaluation outcomes. The synthetic
+generator still uses its documented fixed dates. [Custom-input walkthrough](docs/CUSTOM_INPUTS.md).
+Keep borrower-level files private.
 
 ## Design limits
 
-- The public labels are generated from the same synthetic risk drivers used as
+- The event-demo labels are generated from the same synthetic risk drivers used as
   model inputs. Stronger-than-chance metrics validate the **pipeline**, not
   real-world default prediction.
 - Six exact 30-day reporting anchors simplify coverage. Actual servicing feeds
