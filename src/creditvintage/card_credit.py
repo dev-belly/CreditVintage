@@ -134,6 +134,8 @@ def fit_card_scores(
     calibration_y: np.ndarray,
     test_x: np.ndarray,
     seed: int,
+    *,
+    legacy_calibration: bool = False,
 ) -> dict[str, np.ndarray]:
     """The scoring API accepts no test outcomes; every transformation fits on train."""
 
@@ -156,8 +158,14 @@ def fit_card_scores(
         )
         logistic.fit(train_x, train_y)
         raw = logistic.predict_proba(test_x)[:, 1]
+        calibration_scores = logistic.predict_proba(calibration_x)[:, 1]
+        # Isotonic interpolation can amplify platform-level BLAS tail differences.
+        # This fixed six-decimal input grid is part of the v2 model protocol.
+        calibration_input = raw if legacy_calibration else np.round(raw, 6)
+        if not legacy_calibration:
+            calibration_scores = np.round(calibration_scores, 6)
         calibrator = IsotonicRegression(out_of_bounds="clip")
-        calibrator.fit(logistic.predict_proba(calibration_x)[:, 1], calibration_y)
+        calibrator.fit(calibration_scores, calibration_y)
         tree = make_pipeline(
             transform(),
             HistGradientBoostingClassifier(
@@ -175,12 +183,12 @@ def fit_card_scores(
         return {
             "constant": np.full(len(test_x), float(np.mean(train_y))),
             "logistic": raw,
-            "isotonic": calibrator.predict(raw),
+            "isotonic": calibrator.predict(calibration_input),
             "hist_gradient_boosting": tree.predict_proba(test_x)[:, 1],
         }
 
 
-def card_experiment(raw: bytes) -> dict[str, Any]:
+def card_experiment(raw: bytes, *, legacy_calibration: bool = False) -> dict[str, Any]:
     x, y = load_card_data(raw)
     assignments: list[dict[str, Any]] = []
     predictions: list[dict[str, Any]] = []
@@ -191,7 +199,15 @@ def card_experiment(raw: bytes) -> dict[str, Any]:
     for seed in SEEDS:
         parts = card_splits(y, seed)
         train, calibration, test = (parts[name] for name in ("train", "calibration", "test"))
-        scores = fit_card_scores(x[train], y[train], x[calibration], y[calibration], x[test], seed)
+        scores = fit_card_scores(
+            x[train],
+            y[train],
+            x[calibration],
+            y[calibration],
+            x[test],
+            seed,
+            legacy_calibration=legacy_calibration,
+        )
         counts[str(seed)] = {
             name: {"records": len(indices), "events": int(sum(y[indices]))}
             for name, indices in parts.items()
@@ -239,7 +255,9 @@ def card_experiment(raw: bytes) -> dict[str, Any]:
                 for rank, j in enumerate(ranks[: math.ceil(len(test) * 0.1)], 1)
             )
     summary = {
-        "schema": "creditvintage-card-credit-v1",
+        "schema": "creditvintage-card-credit-v1"
+        if legacy_calibration
+        else "creditvintage-card-credit-v2",
         "data_kind": "public_observed_static",
         "source": {
             "name": "Yeh (2009), Default of Credit Card Clients, UCI 350",
@@ -260,6 +278,7 @@ def card_experiment(raw: bytes) -> dict[str, Any]:
             "logistic": "C=1; lbfgs; max_iter=2000; no class weighting",
             "tree": "learning_rate=.05; 100 iterations; depth=3; 15 leaves; min_leaf=20; L2=1",
             "calibration": "isotonic fitted only on the separate calibration partition",
+            **({} if legacy_calibration else {"isotonic_input_decimals": 6}),
             "tuning": "none; all frozen seeds retained; no model selected from test results",
             "review": "ceil(capacity*n_test), descending score then original source ID",
             "limits": [
@@ -317,7 +336,20 @@ def render_card_report(summary: dict[str, Any]) -> str:
     )
     limits = "".join(f"<li>{html.escape(s)}</li>" for s in summary["protocol"]["limits"])
     template = files("creditvintage").joinpath("card_report.html").read_text(encoding="utf-8")
-    return template.replace("@@ROWS@@", rows).replace("@@LIMITS@@", limits)
+    calibration = (
+        "isotonic calibration uses a separate partition"
+        + (
+            " and a fixed six-decimal score input grid"
+            if summary["schema"] == "creditvintage-card-credit-v2"
+            else ""
+        )
+        + ". No tuning or best-seed selection."
+    )
+    return (
+        template.replace("@@ROWS@@", rows)
+        .replace("@@LIMITS@@", limits)
+        .replace("@@CALIBRATION@@", calibration)
+    )
 
 
 def write_card_benchmark(destination: Path) -> dict[str, Any]:
@@ -377,7 +409,13 @@ def verify_card_benchmark(directory: Path) -> dict[str, Any]:
             f"Card numerical runtime differs ({', '.join(mismatched)}). "
             f"Replay requires the recorded versions: {required}"
         )
-    result = card_experiment((directory / "source.csv.gz").read_bytes())
+    schema = summary.get("schema")
+    if schema not in {"creditvintage-card-credit-v1", "creditvintage-card-credit-v2"}:
+        raise DataContractError("Unsupported card benchmark model protocol")
+    result = card_experiment(
+        (directory / "source.csv.gz").read_bytes(),
+        legacy_calibration=schema == "creditvintage-card-credit-v1",
+    )
     expected_notice = files("creditvintage").joinpath("data/card_credit/SOURCE.md").read_bytes()
     if (directory / "SOURCE.md").read_bytes() != expected_notice:
         raise DataContractError("Card benchmark source attribution differs")
@@ -395,7 +433,10 @@ def verify_card_benchmark(directory: Path) -> dict[str, Any]:
                     else actual[name] == str(value)
                 )
                 if not agrees:
-                    raise DataContractError(f"Card model replay differs: {filename}:{name}")
+                    raise DataContractError(
+                        f"Card model replay differs: {filename}:{name}; "
+                        f"stored={actual[name]}, refitted={value}"
+                    )
     if (directory / "index.html").read_text(encoding="utf-8") != render_card_report(summary):
         raise DataContractError("Card report page differs from verified evidence")
     try:

@@ -9,6 +9,7 @@ import zipfile
 
 import numpy as np
 import pytest
+from sklearn.linear_model import LogisticRegression
 
 from creditvintage.card_credit import (
     CATEGORICAL,
@@ -74,6 +75,23 @@ def test_changed_source_is_rejected():
     raw = gzip.decompress(source_bytes()).replace(b"20000", b"20001", 1)
     with pytest.raises(DataContractError, match="source digest"):
         load_card_data(gzip.compress(raw, mtime=0))
+
+
+def test_isotonic_predictions_resist_tiny_platform_score_drift(data, monkeypatch):
+    x, y = data
+    arguments = (x[:1200], y[:1200], x[1200:1600], y[1200:1600], x[1600:1630], 7)
+    baseline = fit_card_scores(*arguments)
+    original = LogisticRegression.predict_proba
+
+    def drift(self, values):
+        result = original(self, values)
+        result[:, 1] += 1e-12
+        result[:, 0] -= 1e-12
+        return result
+
+    monkeypatch.setattr(LogisticRegression, "predict_proba", drift)
+    perturbed = fit_card_scores(*arguments)
+    np.testing.assert_array_equal(baseline["isotonic"], perturbed["isotonic"])
 
 
 def test_complete_output_refits_with_equal_budgets_and_label_free_queues(report):

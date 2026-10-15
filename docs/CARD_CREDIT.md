@@ -29,6 +29,10 @@ Linux/Python 3.12 evidence ZIP and its checked wheel to Linux/Python 3.13 and
 Windows/Python 3.12, where both refit the original scores. Verification checks
 recorded numerical versions before fitting and reports the required versions
 when they differ. No tolerance is relaxed to accept another model result.
+The v2 protocol rounds the isotonic model's input probabilities to six decimals
+at fitting and prediction. This prevents interpolation from amplifying tiny
+platform-dependent logistic score differences; raw logistic scores remain
+unchanged. Legacy v1 evidence uses its original unrounded calibration protocol.
 Older evidence retains its recorded environment; install its matching numerical
 versions in a separate environment to refit it.
 
