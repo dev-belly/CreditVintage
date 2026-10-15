@@ -7,6 +7,7 @@ reviewable risk report.** It is designed to demonstrate the data controls a
 banking or risk analytics team should ask about before trusting a score.
 
 [Live synthetic report](https://dev-belly.github.io/CreditVintage/demo/) ·
+[Observed public credit benchmark](https://dev-belly.github.io/CreditVintage/public-credit/) ·
 [Early score monitor](https://dev-belly.github.io/CreditVintage/monitor/) ·
 [SQL business analysis](https://dev-belly.github.io/CreditVintage/analysis/) ·
 [中文业务案例](docs/BUSINESS_CASE.md) ·
@@ -16,9 +17,26 @@ banking or risk analytics team should ask about before trusting a score.
 [Run summary](docs/demo/summary.json) ·
 [Artifact hashes](docs/demo/manifest.json)
 
-> **Data status:** The published experiment is entirely synthetic. Its ROC-AUC,
-> default rates, and loss scenario do not describe borrowers, a bank portfolio,
-> or a deployable credit policy.
+> **Data status:** The point-in-time event experiment is synthetic. A separate
+> [UCI German credit experiment](docs/PUBLIC_CREDIT.md) uses 1,000 historical
+> observed records. Its native good/bad target and random split cannot validate
+> the event pipeline's time controls or a deployable credit policy.
+
+## Try observed public data
+
+```bash
+creditvintage public-benchmark --out outputs/public-credit
+creditvintage verify-public outputs/public-credit
+```
+
+After installing the package as below, these commands work offline. The frozen
+600/200/200 stratified split compares a constant baseline, logistic regression
+and independent isotonic calibration. Preprocessing fits only on train. On the
+200 held-out records, logistic ROC-AUC is **0.774**, Brier **0.162**; calibration
+worsens Brier to **0.169**, and that result stays visible. Test predictions,
+split membership, original attributed bytes and a label-free 20-record queue
+are exported. Verification refits from those bytes instead of trusting hashes
+alone. [Protocol, provenance and limits](docs/PUBLIC_CREDIT.md).
 
 ## What is actually evaluated
 
@@ -274,13 +292,31 @@ creditvintage run --applications applications.csv \
 
 Dates are `YYYY-MM-DD`. Segments are `retail` or `small_business`; feature
 names are `utilization`, `debt_to_income`, `prior_delinquencies`.
-`principal_cents` is a positive integer USD-cent amount. The fixed vintage
-windows above remain in force for supplied data; the Python `Config` API can
-define other mature, nonoverlapping windows. Keep borrower-level files private.
+`principal_cents` is a positive integer USD-cent amount. The default vintage
+windows above apply when `--config` is omitted. Supply a strict JSON
+configuration to `run`, `benchmark`, `monitor` or `preflight` to use your own
+dates, LGD scenario and review fraction. The file must give all seven calendar
+dates; unknown keys, duplicate keys, non-finite numbers and shortened maturity
+gaps fail explicitly. An explicit `--seed` overrides the JSON seed.
+
+```bash
+creditvintage preflight --applications applications.csv --features features.csv \
+  --performance performance.csv --config examples/cohort-config.json
+creditvintage run --applications applications.csv --features features.csv \
+  --performance performance.csv --config examples/cohort-config.json --out outputs/private
+```
+
+`preflight` checks the mature train/calibration/test cohorts without fitting or
+writing a report. It counts excluded applications so an incorrect date range
+cannot look like complete coverage. It checks input consistency, not source
+authenticity or model quality. For immature current cohorts use `monitor`;
+preflight intentionally requires mature evaluation outcomes. The synthetic
+generator still uses its documented fixed dates. [Custom-input walkthrough](docs/CUSTOM_INPUTS.md).
+Keep borrower-level files private.
 
 ## Design limits
 
-- The public labels are generated from the same synthetic risk drivers used as
+- The event-demo labels are generated from the same synthetic risk drivers used as
   model inputs. Stronger-than-chance metrics validate the **pipeline**, not
   real-world default prediction.
 - Six exact 30-day reporting anchors simplify coverage. Actual servicing feeds

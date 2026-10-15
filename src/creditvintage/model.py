@@ -46,16 +46,33 @@ class Config:
     def __post_init__(self) -> None:
         if type(self.seed) is not int or not 0 <= self.seed < 2**32:
             raise DataContractError("seed must be a uint32 integer")
-        lag = timedelta(days=HORIZON_DAYS + REPORT_LAG_DAYS)
-        if not (
-            self.train_start <= self.train_end
-            and self.train_end + lag <= self.calibration_start <= self.calibration_end
-            and self.calibration_end + lag <= self.test_start <= self.test_end
-            and self.test_end + lag <= self.evaluation_as_of
+        for name in (
+            "train_start",
+            "train_end",
+            "calibration_start",
+            "calibration_end",
+            "test_start",
+            "test_end",
+            "evaluation_as_of",
         ):
+            if type(getattr(self, name)) is not date:
+                raise DataContractError(f"{name} must be a calendar date")
+        for name in ("scenario_lgd", "review_fraction"):
+            value = getattr(self, name)
+            if type(value) not in (int, float) or not math.isfinite(value) or not 0 < value <= 1:
+                raise DataContractError(f"{name} must be a finite number within (0, 1]")
+        lag = timedelta(days=HORIZON_DAYS + REPORT_LAG_DAYS)
+        try:
+            valid = (
+                self.train_start <= self.train_end
+                and self.train_end + lag <= self.calibration_start <= self.calibration_end
+                and self.calibration_end + lag <= self.test_start <= self.test_end
+                and self.test_end + lag <= self.evaluation_as_of
+            )
+        except OverflowError as exc:
+            raise DataContractError("Vintage windows exceed the supported calendar") from exc
+        if not valid:
             raise DataContractError("Vintage windows must include full outcome-maturation gaps")
-        if not 0 < self.scenario_lgd <= 1 or not 0 < self.review_fraction <= 1:
-            raise DataContractError("LGD and review fraction must be within (0, 1]")
 
 
 @dataclass(frozen=True)

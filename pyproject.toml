@@ -25,7 +25,7 @@ creditvintage = "creditvintage.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-creditvintage = ["*.html", "*.sql"]
+creditvintage = ["*.html", "*.sql", "data/german_credit/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

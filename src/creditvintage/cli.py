@@ -11,10 +11,12 @@ from pathlib import Path
 from creditvintage.artifacts import verify_result, write_result
 from creditvintage.benchmark import benchmark, verify_benchmark, write_benchmark
 from creditvintage.business import verify_analysis, write_analysis
+from creditvintage.configuration import load_config, preflight
 from creditvintage.core import DataContractError, load_csv_bundle
 from creditvintage.lineage import verify_lineage, write_demo
-from creditvintage.model import Config, evaluate
+from creditvintage.model import evaluate
 from creditvintage.monitoring import monitor, verify_monitor, write_monitor
+from creditvintage.public_credit import verify_public_benchmark, write_public_benchmark
 from creditvintage.review_bundle import export_reviews, verify_review_bundle
 from creditvintage.reviews import initialize_reviews, record_review, review_status
 from creditvintage.sample import generate
@@ -24,9 +26,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="creditvintage")
     commands = parser.add_subparsers(dest="command", required=True)
 
-    def data_arguments(command: argparse.ArgumentParser, default_out: str) -> None:
-        command.add_argument("--out", type=Path, default=Path(default_out))
-        command.add_argument("--seed", type=int, default=20260927)
+    def data_arguments(command: argparse.ArgumentParser, default_out: str | None) -> None:
+        if default_out is not None:
+            command.add_argument("--out", type=Path, default=Path(default_out))
+        command.add_argument("--config", type=Path, help="JSON with all seven calendar dates")
+        command.add_argument("--seed", type=int, help="Override the config's random seed")
         command.add_argument("--per-vintage", type=int, default=80)
         command.add_argument("--applications", type=Path)
         command.add_argument("--features", type=Path)
@@ -34,6 +38,16 @@ def main(argv: list[str] | None = None) -> int:
 
     run = commands.add_parser("run", help="Run a fixed synthetic or supplied event experiment")
     data_arguments(run, "outputs/latest")
+    inspect = commands.add_parser(
+        "preflight", help="Check inputs and mature evaluation windows without fitting or writing"
+    )
+    data_arguments(inspect, None)
+    public = commands.add_parser(
+        "public-benchmark", help="Run the separate frozen UCI static credit experiment"
+    )
+    public.add_argument("--out", type=Path, default=Path("outputs/public-credit"))
+    verify_public = commands.add_parser("verify-public", help="Refit the UCI experiment offline")
+    verify_public.add_argument("directory", type=Path)
     compare = commands.add_parser(
         "benchmark", help="Compare frozen policies at equal review budgets"
     )
@@ -91,6 +105,13 @@ def main(argv: list[str] | None = None) -> int:
     check_lineage.add_argument("directory", type=Path)
     args = parser.parse_args(argv)
     try:
+        if args.command == "public-benchmark":
+            summary = write_public_benchmark(args.out)
+            print(json.dumps({"out": str(args.out), **summary["test_metrics"]}, indent=2))
+            return 0
+        if args.command == "verify-public":
+            print(json.dumps(verify_public_benchmark(args.directory), indent=2))
+            return 0
         if args.command == "review-export":
             print(json.dumps(export_reviews(args.database, args.out), indent=2))
             return 0
@@ -147,6 +168,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "verify-monitor":
             print(json.dumps(verify_monitor(args.directory), indent=2))
             return 0
+        config = load_config(args.config, seed=args.seed)
         inputs = (args.applications, args.features, args.performance)
         if any(path is not None for path in inputs) and not all(
             path is not None for path in inputs
@@ -156,14 +178,22 @@ def main(argv: list[str] | None = None) -> int:
             applications, features, performance = load_csv_bundle(*inputs)
             data_kind = "user_supplied"
         else:
-            applications, features, performance = generate(args.seed, args.per_vintage)
+            applications, features, performance = generate(config.seed, args.per_vintage)
             data_kind = "synthetic"
+        if args.command == "preflight":
+            print(
+                json.dumps(
+                    preflight(applications, features, performance, config, data_kind=data_kind),
+                    indent=2,
+                )
+            )
+            return 0
         if args.command == "benchmark":
             compared = benchmark(
                 applications,
                 features,
                 performance,
-                Config(seed=args.seed),
+                config,
                 data_kind=data_kind,
                 capacities=tuple(args.capacities),
                 review_cost_usd=args.review_cost_usd,
@@ -176,7 +206,7 @@ def main(argv: list[str] | None = None) -> int:
                 features,
                 performance,
                 args.as_of,
-                Config(seed=args.seed),
+                config,
                 data_kind=data_kind,
             )
             write_monitor(monitored, args.out)
@@ -186,7 +216,7 @@ def main(argv: list[str] | None = None) -> int:
                 applications,
                 features,
                 performance,
-                Config(seed=args.seed),
+                config,
                 data_kind=data_kind,
             )
             write_result(result, args.out)
