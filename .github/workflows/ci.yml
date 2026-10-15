@@ -46,6 +46,9 @@ jobs:
           pytest -q || status=1
           exit "$status"
       - run: creditvintage run --out outputs/ci
+      - run: creditvintage preflight --config examples/cohort-config.json
+      - run: creditvintage public-benchmark --out outputs/ci-public
+      - run: creditvintage verify-public outputs/ci-public
       - run: creditvintage verify outputs/ci
       - run: creditvintage benchmark --out outputs/ci-benchmark
       - run: creditvintage verify-benchmark outputs/ci-benchmark

@@ -75,6 +75,26 @@ def check(directory: Path) -> dict[str, Any]:
         run(str(python), "-I", "-m", "creditvintage", "--help")
         command("run", "--out", "evaluation")
         evaluation = command("verify", "evaluation")
+        configuration = json.loads(
+            (work / "evaluation" / "summary.json").read_text(encoding="utf-8")
+        )["config"]
+        configuration["train_start"] = "2022-02-01"
+        (work / "cohorts.json").write_text(json.dumps(configuration), encoding="utf-8")
+        preflight = command("preflight", "--config", "cohorts.json")
+        if (
+            preflight["model_fitted"] is not False
+            or preflight["cohorts"]["train"]["applications"] != 880
+            or preflight["applications_outside_windows"] != 80
+        ):
+            raise ValueError("Installed config/preflight did not apply custom calendar windows")
+        command("run", "--config", "cohorts.json", "--out", "configured")
+        command("verify", "configured")
+        command("public-benchmark", "--out", "public-credit")
+        public_credit = command("verify-public", "public-credit")
+        if public_credit["test_records"] != 200 or public_credit["refitted"] is not True:
+            raise ValueError(
+                "Installed public data/experiment did not refit from bundled resources"
+            )
         command("benchmark", "--out", "benchmark")
         comparison = command("verify-benchmark", "benchmark")
         command("monitor", "--as-of", "2024-10-01", "--out", "monitor")
@@ -174,6 +194,8 @@ def check(directory: Path) -> dict[str, Any]:
             "installation": "non-editable wheels; clean venv; cwd outside both source trees",
             "core_without_pitbridge": True,
             "evaluation": evaluation,
+            "custom_config_and_preflight": "verified without model fitting in preflight",
+            "public_credit": public_credit,
             "benchmark": comparison,
             "analysis": analysis,
             "selected_review_cases": selected,

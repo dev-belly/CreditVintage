@@ -12,6 +12,7 @@ from creditvintage.benchmark import benchmark, verify_benchmark, write_benchmark
 from creditvintage.business import verify_analysis, write_analysis
 from creditvintage.lineage import verify_lineage, write_demo
 from creditvintage.monitoring import verify_monitor
+from creditvintage.public_credit import verify_public_benchmark, write_public_benchmark
 from creditvintage.sample import generate
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,6 +31,8 @@ def build(destination: Path) -> dict[str, Any]:
     checked = verify_lineage(destination / "lineage")
     write_benchmark(benchmark(*generate(), data_kind="synthetic"), destination / "benchmark")
     comparison = verify_benchmark(destination / "benchmark")
+    write_public_benchmark(destination / "public-credit")
+    public_credit = verify_public_benchmark(destination / "public-credit")
     if not (destination / "index.html").is_file():
         raise ValueError("Site entry page is missing")
     return {
@@ -37,6 +40,7 @@ def build(destination: Path) -> dict[str, Any]:
         "verification": checked,
         "analysis": analysis,
         "benchmark": comparison,
+        "public_credit": public_credit,
     }
 
 
