@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
 import shutil
@@ -74,6 +75,50 @@ def check(directory: Path, card_evidence: Path | None = None) -> dict[str, Any]:
         if location["pitbridge"]:
             raise ValueError("The core wheel unexpectedly installed the optional integration")
         run(str(python), "-I", "-m", "creditvintage", "--help")
+        starter = command("init-inputs", "--out", "editable-inputs")
+        diagnosed = command("check-inputs", "editable-inputs")
+        if (
+            starter["data_kind"] != "synthetic"
+            or diagnosed["status"] != "ready_for_evaluation"
+            or diagnosed["model_fitted"] is not False
+            or diagnosed["preflight"]["input_rows"]["applications"] != 480
+        ):
+            raise ValueError("Installed CSV starter or model-free input check failed")
+        command(
+            "run",
+            "--applications",
+            "editable-inputs/applications.csv",
+            "--features",
+            "editable-inputs/features.csv",
+            "--performance",
+            "editable-inputs/performance.csv",
+            "--config",
+            "editable-inputs/cohorts.json",
+            "--out",
+            "editable-evaluation",
+        )
+        editable_result = command("verify", "editable-evaluation")
+        if editable_result["loans"] != 120:
+            raise ValueError("The actual CSV evaluation did not retain the expected holdout")
+        csv_path = work / "editable-inputs" / "applications.csv"
+        with csv_path.open(encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            columns, input_rows = reader.fieldnames, list(reader)
+        assert columns is not None
+        input_rows[0]["principal_cents"] = "-1"
+        with csv_path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=columns, lineterminator="\n")
+            writer.writeheader()
+            writer.writerows(input_rows)
+        rejected_inputs = json.loads(
+            run(str(cli), "check-inputs", "editable-inputs", expected=2).stdout
+        )
+        if (
+            rejected_inputs["status"] != "invalid_inputs"
+            or rejected_inputs["issues"][0]["file"] != "applications.csv"
+            or rejected_inputs["issues"][0]["line"] != 2
+        ):
+            raise ValueError("Installed diagnostics failed to locate an invalid CSV row")
         command("run", "--out", "evaluation")
         evaluation = command("verify", "evaluation")
         configuration = json.loads(
@@ -201,6 +246,13 @@ def check(directory: Path, card_evidence: Path | None = None) -> dict[str, Any]:
             "status": "verified",
             "installation": "non-editable wheels; clean venv; cwd outside both source trees",
             "core_without_pitbridge": True,
+            "editable_csv_inputs": {
+                "status": "verified",
+                "applications": 480,
+                "verified_test_loans": editable_result["loans"],
+                "invalid_row_located": True,
+                "model_fitted_in_check": False,
+            },
             "evaluation": evaluation,
             "custom_config_and_preflight": "verified without model fitting in preflight",
             "public_credit": public_credit,

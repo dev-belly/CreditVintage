@@ -53,7 +53,11 @@ jobs:
             exit 0
           fi
           cat > release-notes.txt <<'NOTES'
-          Adds an offline benchmark on 30,000 attributed UCI credit-card records, with five frozen train/calibration/test splits, four fixed methods and three equal review budgets. Every score, split, model result, label-free queue and source notice can be downloaded and refitted.
+          Adds init-inputs and check-inputs for editable CSV workflows. The starter writes 480 explicitly synthetic applications, complete feature/performance histories and calendar configuration. Diagnostics locate row errors, duplicate records, unknown references, missing decision-time features and incomplete mature outcomes by file and line, without fitting or modifying the inputs. Invalid data returns structured JSON and exit code 2.
+
+          Clean installed-package checks generate the CSVs, diagnose them, run the actual supplied-file evaluation, verify its 120 held-out applications and confirm that an intentionally invalid principal is reported at the correct file and line. Readiness validates the documented event/evaluation contract, not source authenticity or model quality.
+
+          The existing offline benchmark on 30,000 attributed UCI credit-card records retains five frozen splits, four methods and every model score and equal-budget result.
 
           Numerical dependency versions are pinned for replay. CI also transfers the same Linux Python 3.12 evidence and wheel to Python 3.13 and Windows for independent refitting. A mismatched numerical runtime reports the recorded versions before fitting; score and metric tolerances remain unchanged.
 

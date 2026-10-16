@@ -24,6 +24,27 @@ banking or risk analytics team should ask about before trusting a score.
 > observed records. Its native good/bad target and random split cannot validate
 > the event pipeline's time controls or a deployable credit policy.
 
+## Start with editable CSV inputs
+
+After installing the [checked release](https://github.com/dev-belly/CreditVintage/releases),
+create a complete input case and check it before training:
+
+```text
+creditvintage init-inputs --out inputs/example
+creditvintage check-inputs inputs/example
+creditvintage run --applications inputs/example/applications.csv --features inputs/example/features.csv --performance inputs/example/performance.csv --config inputs/example/cohorts.json --out outputs/csv-example
+creditvintage verify outputs/csv-example
+```
+
+The starter contains **480 explicitly synthetic applications**, all feature and
+performance records, and a complete calendar configuration. Replace the CSVs and
+calendar with data that meets the [documented contract](docs/CUSTOM_INPUTS.md).
+The check collects errors with file names and physical line numbers, including
+duplicates, missing decision-time features and incomplete mature outcomes.
+It neither fits models nor changes the input files. Invalid input returns JSON
+and exit code 2; readiness means the input/evaluation contract passed, without
+establishing source authenticity or model quality.
+
 ## Try observed public data
 
 The larger [UCI credit-card experiment](docs/CARD_CREDIT.md) uses **30,000
