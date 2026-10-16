@@ -14,6 +14,7 @@ from creditvintage.business import verify_analysis, write_analysis
 from creditvintage.card_credit import verify_card_benchmark, write_card_benchmark
 from creditvintage.configuration import load_config, preflight
 from creditvintage.core import DataContractError, load_csv_bundle
+from creditvintage.inputs import check_inputs, initialize_inputs
 from creditvintage.lineage import verify_lineage, write_demo
 from creditvintage.model import evaluate
 from creditvintage.monitoring import monitor, verify_monitor, write_monitor
@@ -26,6 +27,14 @@ from creditvintage.sample import generate
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="creditvintage")
     commands = parser.add_subparsers(dest="command", required=True)
+
+    starter = commands.add_parser("init-inputs", help="Create an editable synthetic CSV input case")
+    starter.add_argument("--out", type=Path, required=True)
+    diagnose = commands.add_parser(
+        "check-inputs", help="Locate input errors by file and line without fitting"
+    )
+    diagnose.add_argument("directory", type=Path)
+    diagnose.add_argument("--max-issues", type=int, default=100)
 
     def data_arguments(command: argparse.ArgumentParser, default_out: str | None) -> None:
         if default_out is not None:
@@ -114,6 +123,13 @@ def main(argv: list[str] | None = None) -> int:
     check_lineage.add_argument("directory", type=Path)
     args = parser.parse_args(argv)
     try:
+        if args.command == "init-inputs":
+            print(json.dumps(initialize_inputs(args.out), indent=2))
+            return 0
+        if args.command == "check-inputs":
+            diagnosis = check_inputs(args.directory, max_issues=args.max_issues)
+            print(json.dumps(diagnosis, indent=2))
+            return 0 if diagnosis["status"] == "ready_for_evaluation" else 2
         if args.command == "card-benchmark":
             summary = write_card_benchmark(args.out)
             print(json.dumps({"out": str(args.out), "results": summary["results"]}, indent=2))

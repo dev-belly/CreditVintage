@@ -6,6 +6,57 @@ USD cents, one of the two documented segments, and actual dated DPD reports.
 Changing cohort dates does not turn an unrelated table into this event contract.
 Do not invent dates, segments or DPD anchors to force a public dataset into it.
 
+## 0. Start from complete CSVs
+
+Version 0.3.0 creates a complete, editable example from an installed package:
+
+```text
+creditvintage init-inputs --out inputs/example
+creditvintage check-inputs inputs/example
+```
+
+Choose a new directory: an existing file or folder is never overwritten. The
+example has 480 synthetic applications, 1,584 feature records and 2,880
+performance records, with 240/120/120 training/calibration/test applications.
+It writes `applications.csv`, `features.csv`, `performance.csv`, `cohorts.json`
+and `case.json`. The last file records the original synthetic example and file
+hashes; it does not authenticate replacement inputs. Keep its synthetic origin
+clear when sharing the generated case. The evaluator describes CSV ingestion as
+`user_supplied`; that describes how inputs arrived, not whether they are observed.
+
+Replace all three CSVs and edit the seven dates for your own compatible event
+records. The checker reads these four named input files from the supplied
+directory and reuses the actual record types, snapshot logic and evaluation
+gates. It first collects row/header/type failures across all files. When rows
+are valid, it checks duplicate IDs/revisions, orphan references, report dates
+and missing decision-time features. When those checks and configuration pass,
+it locates incomplete outcomes across all three cohorts and checks minimum
+size and both outcomes. Later checks are marked `blocked` when earlier failures
+prevent a trustworthy evaluation; they are not silently reported as passed.
+
+JSON always includes `model_fitted: false`, input row counts, completed/blocked
+checks, issue codes, file names and physical CSV line numbers. A line identifies
+the end of a CSV record, including multi-line records; configuration and cohort
+errors and unreadable files/encodings can have a null line. Valid input returns exit code 0 and the actual
+`preflight` result. Invalid data returns exit code 2 and JSON on stdout. Argument
+syntax errors still use the normal CLI error path.
+
+`--max-issues 20` limits displayed issues, not the reported total; the default
+is 100 and the allowed range is 1–1,000. The checker does not repair, fill,
+drop or rewrite input records. It performs no fitting or filesystem writes.
+Domain validation can report the first violated rule within an individual row;
+the tool is not a complete data-quality or source-authenticity audit.
+
+Run and verify the same files after a successful check:
+
+```text
+creditvintage run --applications inputs/example/applications.csv --features inputs/example/features.csv --performance inputs/example/performance.csv --config inputs/example/cohorts.json --out outputs/csv-example
+creditvintage verify outputs/csv-example
+```
+
+For intentionally unlabelled current cohorts, use the monitoring workflow below;
+`check-inputs` intentionally checks a complete mature evaluation.
+
 ## 1. Make all dates explicit
 
 Copy [examples/cohort-config.json](../examples/cohort-config.json) and edit all
