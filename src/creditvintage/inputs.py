@@ -102,16 +102,17 @@ def _read_file[R: (Application, FeatureEvent, PerformanceEvent)](
     try:
         with (directory / filename).open(encoding="utf-8", newline="") as handle:
             reader = csv.DictReader(handle, strict=True)
-            if reader.fieldnames and reader.fieldnames[0].startswith("\ufeff"):
+            try:
+                header = reader.fieldnames
+            except csv.Error:
+                issues.add(filename, reader.reader.line_num, "csv_quoting", "Malformed CSV quoting")
+                return records, {"rows": 0, "valid_rows": 0}
+            if header and header[0].startswith("\ufeff"):
                 issues.add(
                     filename, 1, "encoding_bom", "Save the CSV as UTF-8 without a byte-order mark"
                 )
                 return records, {"rows": 0, "valid_rows": 0}
-            if (
-                reader.fieldnames is None
-                or len(reader.fieldnames) != len(columns)
-                or set(reader.fieldnames) != set(columns)
-            ):
+            if header is None or len(header) != len(columns) or set(header) != set(columns):
                 issues.add(filename, 1, "columns", "Expected exactly: " + ", ".join(columns))
                 return records, {"rows": 0, "valid_rows": 0}
             try:
