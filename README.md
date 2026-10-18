@@ -45,6 +45,11 @@ It neither fits models nor changes the input files. Invalid input returns JSON
 and exit code 2; readiness means the input/evaluation contract passed, without
 establishing source authenticity or model quality.
 
+These diagnostics describe `main`. The published `v0.3.0` predates the
+malformed-header fix: an unterminated quote in a CSV header raises a parsing
+error instead of JSON. For that case, use the [source installation below](#run-and-verify).
+The existing `v0.3.0` release assets have not been replaced.
+
 ## Try observed public data
 
 The larger [UCI credit-card experiment](docs/CARD_CREDIT.md) uses **30,000
@@ -261,7 +266,7 @@ monitor files private.
 
 ## Run and verify
 
-Version **0.2.0** distributions are published under [GitHub Releases](https://github.com/dev-belly/CreditVintage/releases)
+Version **0.3.0** distributions are published under [GitHub Releases](https://github.com/dev-belly/CreditVintage/releases)
 only after all main CI jobs pass. The downloadable wheel is the same artifact
 that passed clean installation and complete offline refitting. Each release
 includes its source archive, installed-check evidence, commit/version manifest
@@ -269,7 +274,15 @@ and SHA-256 checksums. Existing version tags are preserved; changes require a
 version bump. Install the wheel into a Python 3.12+ virtual environment, then
 use the commands above without cloning this repository.
 
-Python 3.12+, from the repository root. On Linux or macOS:
+For the current `main` source, use Python 3.12+ and Git. Start in a new parent
+directory and obtain the repository:
+
+```text
+git clone --branch main https://github.com/dev-belly/CreditVintage.git
+cd CreditVintage
+```
+
+Then, from that repository root, on Linux or macOS:
 
 ```bash
 python -m venv .venv
@@ -451,3 +464,4 @@ creditvintage verify-lineage outputs/lineage
 Open `outputs/lineage/index.html` in your browser after local generation. Its download section includes `evidence.zip`, generated alongside the page, containing the 18 evidence artifacts and the root manifest. Alternatively, download and extract the online evidence ZIP, then run `creditvintage verify-lineage lineage` against the extracted folder. `verify-lineage` checks file hashes, replays the original PIT sources, reconstructs every feature and lineage row, independently verifies the evaluation artifacts, and refits the model from saved applications/features/performance. It compares saved predictions using a numerical tolerance. [The integration contract](docs/LINEAGE.md) explains the units, UTC convention, dependency pin and boundaries.
 
 The original `run`, `monitor`, `verify` and `verify-monitor` commands do not need PITBridge installed. CI exercises the integration with a pinned PITBridge checkout on Python 3.12 and 3.13.
+
