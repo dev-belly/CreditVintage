@@ -221,6 +221,30 @@ def test_malformed_csv_and_wrong_width_report_physical_lines(case):
     }
 
 
+@pytest.mark.parametrize("filename", INPUT_FILES[:3])
+def test_malformed_header_returns_cli_diagnostics_and_checks_other_files(case, filename, capsys):
+    (case / filename).write_text('"unclosed header\n', encoding="utf-8")
+    other_filename = next(name for name in INPUT_FILES[:3] if name != filename)
+    with (case / other_filename).open("a", encoding="utf-8", newline="") as handle:
+        handle.write("too,few\n")
+    before = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in case.iterdir()}
+
+    assert main(["check-inputs", str(case)]) == 2
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == "invalid_inputs" and result["model_fitted"] is False
+    assert result["issue_count"] == 2
+    assert {(i["file"], i["code"]) for i in result["issues"]} == {
+        (filename, "csv_quoting"),
+        (other_filename, "row_shape"),
+    }
+    header_issue = next(i for i in result["issues"] if i["file"] == filename)
+    assert header_issue["line"] == 1
+    assert result["input_rows"][filename] == {"rows": 0, "valid_rows": 0}
+    assert result["checks"]["relationships"] == "blocked"
+    assert result["checks"]["evaluation_cohorts"] == "blocked"
+    assert before == {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in case.iterdir()}
+
+
 def test_unreadable_encoding_does_not_invent_a_line_location(case):
     (case / "features.csv").write_bytes(b"\xff\xfe\x00not UTF-8")
     result = check_inputs(case)
