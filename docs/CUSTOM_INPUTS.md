@@ -34,13 +34,13 @@ it locates incomplete outcomes across all three cohorts and checks minimum
 size and both outcomes. Later checks are marked `blocked` when earlier failures
 prevent a trustworthy evaluation; they are not silently reported as passed.
 
-The commands were introduced in `v0.3.0`. The malformed-header fix is currently
-on `main`: an unterminated quote in a CSV header returns `csv_quoting` JSON and
-exit code 2. The published `v0.3.0` instead raises a CSV parsing error for that
-case, and its existing assets have not been replaced. Use the
-[source installation from `main`](../README.md#run-and-verify) for the fixed checker.
+The commands were introduced in `v0.3.0`. Use `v0.3.1` for the malformed-header
+fix: an unterminated quote in a CSV header returns `csv_quoting` JSON and exit
+code 2, and the checker continues inspecting the other files. The older
+`v0.3.0` raises a parsing error for that case; its assets are preserved. See the
+[patch and upgrade notes](releases/v0.3.1.md) for installation and scope.
 
-On `main`, JSON includes `model_fitted: false`, input row counts, completed/blocked
+The `v0.3.1` JSON includes `model_fitted: false`, input row counts, completed/blocked
 checks, issue codes, file names and physical CSV line numbers. A line identifies
 the end of a CSV record, including multi-line records; configuration and cohort
 errors and unreadable files/encodings can have a null line. Valid input returns exit code 0 and the actual

@@ -52,21 +52,11 @@ jobs:
             printf 'Release %s already exists; publish another version after a version bump.\n' "$release_tag"
             exit 0
           fi
-          cat > release-notes.txt <<'NOTES'
-          Adds init-inputs and check-inputs for editable CSV workflows. The starter writes 480 explicitly synthetic applications, complete feature/performance histories and calendar configuration. Diagnostics locate row errors, duplicate records, unknown references, missing decision-time features and incomplete mature outcomes by file and line, without fitting or modifying the inputs. Invalid data returns structured JSON and exit code 2.
-
-          Clean installed-package checks generate the CSVs, diagnose them, run the actual supplied-file evaluation, verify its 120 held-out applications and confirm that an intentionally invalid principal is reported at the correct file and line. Readiness validates the documented event/evaluation contract, not source authenticity or model quality.
-
-          The existing offline benchmark on 30,000 attributed UCI credit-card records retains five frozen splits, four methods and every model score and equal-budget result.
-
-          Numerical dependency versions are pinned for replay. CI also transfers the same Linux Python 3.12 evidence and wheel to Python 3.13 and Windows for independent refitting. A mismatched numerical runtime reports the recorded versions before fitting; score and metric tolerances remain unchanged.
-
-          The v2 card protocol uses Newton-Cholesky logistic fitting with a fixed 1e-10 convergence tolerance and a six-decimal input grid for isotonic calibration to prevent amplification of platform-dependent logistic tail differences; raw logistic scores are retained. Older v1 evidence keeps its original calibration protocol.
-
-          These are random partitions of one historical cohort, not future-period or point-in-time validation. The native subsequent-default target remains distinct from the synthetic 180-day DPD target.
-
-          Assets are the exact wheel and source archive that passed clean installed-package replay in the linked successful main CI run. release-manifest.json records the commit, version and digests; CHECKSUMS.sha256 covers all other assets. Dataset attribution and CC BY 4.0 terms are bundled with the data.
-          NOTES
+          notes_file="docs/releases/${release_tag}.md"
+          if [ ! -s "$notes_file" ]; then
+            printf 'Missing release notes for %s: %s\n' "$release_tag" "$notes_file" >&2
+            exit 1
+          fi
           gh release create "$release_tag" release/*.whl release/*.tar.gz release/*.json release/*.sha256 \
             --repo "$CHECKED_REPOSITORY" --target "$CHECKED_SHA" \
-            --title "CreditVintage $release_tag" --notes-file release-notes.txt
+            --title "CreditVintage $release_tag" --notes-file "$notes_file"
