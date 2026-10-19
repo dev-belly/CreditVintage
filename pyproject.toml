@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,6 +8,8 @@ version = "0.3.0"
 description = "Point-in-time credit vintage evaluation and auditable risk reporting"
 readme = "README.md"
 requires-python = ">=3.12"
+license = "MIT AND CC-BY-4.0"
+license-files = ["LICENSE", "src/creditvintage/data/*/SOURCE.md"]
 # Exact numerical versions keep installed-package replay aligned with published evidence.
 dependencies = ["numpy==2.3.5", "scipy==1.17.0", "scikit-learn==1.8.0"]
 
