@@ -465,3 +465,12 @@ Open `outputs/lineage/index.html` in your browser after local generation. Its do
 
 The original `run`, `monitor`, `verify` and `verify-monitor` commands do not need PITBridge installed. CI exercises the integration with a pinned PITBridge checkout on Python 3.12 and 3.13.
 
+## License
+
+Project code is available under the [MIT License](LICENSE).
+The bundled UCI datasets retain their **CC BY 4.0** terms and attribution;
+see the [German credit source notice](src/creditvintage/data/german_credit/SOURCE.md)
+and [credit-card source notice](src/creditvintage/data/card_credit/SOURCE.md).
+The distribution metadata uses `MIT AND CC-BY-4.0` because the package contains
+both project code and those datasets. This does not relicense the datasets.
+
