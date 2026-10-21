@@ -6,18 +6,9 @@
 reviewable risk report.** It is designed to demonstrate the data controls a
 banking or risk analytics team should ask about before trusting a score.
 
-[Live synthetic report](https://dev-belly.github.io/CreditVintage/demo/) ·
-[30,000-account card benchmark](https://dev-belly.github.io/CreditVintage/card-credit/) ·
-[Observed public credit benchmark](https://dev-belly.github.io/CreditVintage/public-credit/) ·
-[Five-split public comparison](https://dev-belly.github.io/CreditVintage/public-credit-comparison/) ·
-[Early score monitor](https://dev-belly.github.io/CreditVintage/monitor/) ·
-[SQL business analysis](https://dev-belly.github.io/CreditVintage/analysis/) ·
-[中文业务案例](docs/BUSINESS_CASE.md) ·
-[Review workflow / 复核闭环](docs/REVIEW_WORKFLOW.md) ·
-[Published report files](docs/demo/index.html) ·
-[Test predictions](docs/demo/predictions.csv) ·
-[Run summary](docs/demo/summary.json) ·
-[Artifact hashes](docs/demo/manifest.json)
+- **Use your own CSVs:** [Create and validate an editable input case](#start-with-editable-csv-inputs).
+- **Compare models on public credit data:** [Start with the public benchmarks](#try-observed-public-data).
+- **Inspect decision-time data and human review:** [Trace source availability](#source-to-prediction-lineage) and [inspect the review workflow](#a-durable-human-review-workflow).
 
 > **Data status:** The point-in-time event experiment is synthetic. A separate
 > [UCI German credit experiment](docs/PUBLIC_CREDIT.md) uses 1,000 historical
@@ -26,8 +17,12 @@ banking or risk analytics team should ask about before trusting a score.
 
 ## Start with editable CSV inputs
 
-After installing the [checked release](https://github.com/dev-belly/CreditVintage/releases),
-create a complete input case and check it before training:
+Follow [Run and verify](#run-and-verify) to install the
+[checked release](https://github.com/dev-belly/CreditVintage/releases).
+The examples use the installed `creditvintage` command. If the virtual environment
+is not activated, replace `creditvintage` with `.venv/bin/python -m creditvintage`
+on Linux/macOS or `.\.venv\Scripts\python.exe -m creditvintage` on Windows.
+Then create a complete input case and check it before training:
 
 ```text
 creditvintage init-inputs --out inputs/example
@@ -57,6 +52,7 @@ observed records**, five frozen 18,000/6,000/6,000 train/calibration/test splits
 and four fixed methods. It retains every split, all 120,000 model scores and
 60 equal-capacity policy comparisons. Numeric scaling and categorical encoding
 fit on train; isotonic calibration fits only on its separate partition.
+[Open the card benchmark report](https://dev-belly.github.io/CreditVintage/card-credit/).
 
 ```bash
 creditvintage card-benchmark --out outputs/card-credit
@@ -80,6 +76,7 @@ worsens Brier to **0.169**, and that result stays visible. Test predictions,
 split membership, original attributed bytes and a label-free 20-record queue
 are exported. Verification refits from those bytes instead of trusting hashes
 alone. [Protocol, provenance and limits](docs/PUBLIC_CREDIT.md).
+[Open the German credit report](https://dev-belly.github.io/CreditVintage/public-credit/).
 
 ## Compare fixed models across five public-data splits
 
@@ -150,6 +147,10 @@ updates, and report coverage are validated. Incomplete evaluation cohorts fail
 explicitly rather than shrinking the denominator silently.
 
 ## Published run
+
+[Open the live synthetic report](https://dev-belly.github.io/CreditVintage/demo/) or
+inspect the [published report files](docs/demo/index.html) and
+[artifact hashes](docs/demo/manifest.json).
 
 Seed `20260927`, 80 generated loans per origination month. Training: Jan–Dec
 2022 (960 loans); calibration: Jul–Dec 2023 (480); untouched test: Jul–Dec 2024
