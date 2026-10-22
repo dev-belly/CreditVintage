@@ -40,7 +40,7 @@ It neither fits models nor changes the input files. Invalid input returns JSON
 and exit code 2; readiness means the input/evaluation contract passed, without
 establishing source authenticity or model quality.
 
-The `v0.3.1` checker also reports an unterminated quote in a CSV header as
+Since `v0.3.1`, the checker also reports an unterminated quote in a CSV header as
 `csv_quoting` JSON and exit code 2, while continuing to check the other files.
 The older `v0.3.0` raises a parsing error for that case. See the
 [patch and upgrade notes](docs/releases/v0.3.1.md); existing `v0.3.0` assets are preserved.
@@ -267,15 +267,16 @@ monitor files private.
 
 ## Run and verify
 
-Version **0.3.1** distributions are published under [GitHub Releases](https://github.com/dev-belly/CreditVintage/releases/tag/v0.3.1)
+Version **0.3.2** distributions are published under [GitHub Releases](https://github.com/dev-belly/CreditVintage/releases/tag/v0.3.2)
 only after all main CI jobs pass. The downloadable wheel is the same artifact
 that passed clean installation and complete offline refitting. Each release
 includes its source archive, installed-check evidence, commit/version manifest
 and SHA-256 checksums. Existing version tags are preserved; changes require a
 version bump. Install the wheel into a Python 3.12+ virtual environment, then
 use the commands above without cloning this repository. The
-[upgrade notes](docs/releases/v0.3.1.md) give the exact wheel URL and a short
-installation check; no input-schema or model migration is required from 0.3.0.
+[upgrade notes](docs/releases/v0.3.2.md) give the exact wheel URL and a short
+installation check. Commands, fields and models are unchanged; inputs must use
+the documented `YYYY-MM-DD` date format.
 
 For the current `main` source, use Python 3.12+ and Git. Start in a new parent
 directory and obtain the repository:
@@ -389,8 +390,8 @@ creditvintage run --applications applications.csv \
 | `performance.csv` | `application_id,as_of,available_at,days_past_due` |
 
 Dates are exactly `YYYY-MM-DD`, including `monitor --as-of`; compact dates,
-ISO week dates and timestamps are rejected by the source version after v0.3.1.
-The published v0.3.1 wheel predates this stricter CSV/cutoff parsing; see the
+ISO week dates and timestamps are rejected in v0.3.2 and later.
+Earlier wheels predate this stricter CSV/cutoff parsing; see the
 [date input and compatibility notes](docs/CUSTOM_INPUTS.md#1-make-all-dates-explicit).
 Segments are `retail` or `small_business`; feature
 names are `utilization`, `debt_to_income`, `prior_delinquencies`.
