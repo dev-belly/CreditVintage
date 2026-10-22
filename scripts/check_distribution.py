@@ -105,6 +105,7 @@ def check(directory: Path, card_evidence: Path | None = None) -> dict[str, Any]:
             reader = csv.DictReader(handle)
             columns, input_rows = reader.fieldnames, list(reader)
         assert columns is not None
+        original_principal = input_rows[0]["principal_cents"]
         input_rows[0]["principal_cents"] = "-1"
         with csv_path.open("w", encoding="utf-8", newline="") as handle:
             writer = csv.DictWriter(handle, fieldnames=columns, lineterminator="\n")
@@ -119,6 +120,28 @@ def check(directory: Path, card_evidence: Path | None = None) -> dict[str, Any]:
             or rejected_inputs["issues"][0]["line"] != 2
         ):
             raise ValueError("Installed diagnostics failed to locate an invalid CSV row")
+        input_rows[0]["principal_cents"] = original_principal
+        input_rows[0]["decision_at"] = input_rows[0]["decision_at"].replace("-", "")
+        with csv_path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=columns, lineterminator="\n")
+            writer.writeheader()
+            writer.writerows(input_rows)
+        rejected_date = json.loads(
+            run(str(cli), "check-inputs", "editable-inputs", expected=2).stdout
+        )
+        issue = rejected_date["issues"][0]
+        if (
+            rejected_date["issue_count"] != 1
+            or issue["code"] != "value_type"
+            or issue["column"] != "decision_at"
+            or "YYYY-MM-DD" not in issue["message"]
+        ):
+            raise ValueError("Installed diagnostics accepted an alternate CSV date format")
+        invalid_cutoff = run(
+            str(cli), "monitor", "--as-of", "2024-W40-2", "--out", "invalid-cutoff", expected=2
+        )
+        if "YYYY-MM-DD" not in invalid_cutoff.stderr or (work / "invalid-cutoff").exists():
+            raise ValueError("Installed monitor accepted an alternate cutoff date format")
         command("run", "--out", "evaluation")
         evaluation = command("verify", "evaluation")
         configuration = json.loads(
@@ -251,6 +274,7 @@ def check(directory: Path, card_evidence: Path | None = None) -> dict[str, Any]:
                 "applications": 480,
                 "verified_test_loans": editable_result["loans"],
                 "invalid_row_located": True,
+                "strict_calendar_inputs": "verified",
                 "model_fitted_in_check": False,
             },
             "evaluation": evaluation,

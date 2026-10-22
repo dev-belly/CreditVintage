@@ -151,6 +151,35 @@ def test_original_published_reports_still_verify() -> None:
 
 
 @pytest.mark.parametrize(
+    ("kind", "name", "keys", "value"),
+    [
+        ("demo", "summary.json", ("config", "train_start"), "20220101"),
+        ("demo", "summary.json", ("config", "evaluation_as_of"), "2025-W27-2"),
+        ("monitor", "monitor.json", ("as_of",), "2024-W40-2"),
+        ("monitor", "monitor.json", ("current_window",), ["20240701", "2024-12-31"]),
+        ("monitor", "monitor.json", ("reference_window",), ["2023-07-01", "20231231"]),
+    ],
+)
+def test_rehashed_report_rejects_alternate_calendar_formats(tmp_path, kind, name, keys, value):
+    directory = _report(tmp_path, kind)
+    _edit_json(directory, name, keys, value)
+    verify = verify_result if kind == "demo" else verify_monitor
+    with pytest.raises(DataContractError, match="YYYY-MM-DD"):
+        verify(directory)
+
+
+@pytest.mark.parametrize(
+    ("kind", "name"), [("demo", "predictions.csv"), ("monitor", "monitor_scores.csv")]
+)
+def test_rehashed_prediction_dates_keep_the_csv_calendar_contract(tmp_path, kind, name):
+    directory = _report(tmp_path, kind)
+    _edit_csv(directory, name, "decision_at", "20240701")
+    verify = verify_result if kind == "demo" else verify_monitor
+    with pytest.raises(DataContractError, match="YYYY-MM-DD"):
+        verify(directory)
+
+
+@pytest.mark.parametrize(
     ("key", "value"),
     [
         ("roc_auc_95_interval", [0.99, 1.0]),

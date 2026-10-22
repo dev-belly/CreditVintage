@@ -13,7 +13,7 @@ from creditvintage.benchmark import benchmark, verify_benchmark, write_benchmark
 from creditvintage.business import verify_analysis, write_analysis
 from creditvintage.card_credit import verify_card_benchmark, write_card_benchmark
 from creditvintage.configuration import load_config, preflight
-from creditvintage.core import DataContractError, load_csv_bundle
+from creditvintage.core import DataContractError, load_csv_bundle, parse_calendar_date
 from creditvintage.inputs import check_inputs, initialize_inputs
 from creditvintage.lineage import verify_lineage, write_demo
 from creditvintage.model import evaluate
@@ -22,6 +22,13 @@ from creditvintage.public_credit import verify_public_benchmark, write_public_be
 from creditvintage.review_bundle import export_reviews, verify_review_bundle
 from creditvintage.reviews import initialize_reviews, record_review, review_status
 from creditvintage.sample import generate
+
+
+def _calendar_date_argument(value: str) -> date:
+    try:
+        return parse_calendar_date(value, "--as-of")
+    except DataContractError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -76,7 +83,9 @@ def main(argv: list[str] | None = None) -> int:
     check_benchmark.add_argument("directory", type=Path)
     early = commands.add_parser("monitor", help="Monitor score drift before current labels mature")
     data_arguments(early, "outputs/monitor")
-    early.add_argument("--as-of", type=date.fromisoformat, required=True)
+    early.add_argument(
+        "--as-of", type=_calendar_date_argument, required=True, help="Cutoff in YYYY-MM-DD format"
+    )
     check = commands.add_parser(
         "verify", help="Check output digests and independently recompute metrics"
     )
