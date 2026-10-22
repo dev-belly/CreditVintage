@@ -21,6 +21,7 @@ from creditvintage.core import (
     DataContractError,
     FeatureEvent,
     PerformanceEvent,
+    parse_calendar_date,
     snapshot,
 )
 from creditvintage.model import Config, _digest, _fit_stages, _matrix
@@ -275,10 +276,14 @@ def verify_monitor(destination: Path) -> dict[str, Any]:
             or len({row["application_id"] for row in current_rows}) != len(current_rows)
         ):
             raise DataContractError("Monitor counts or method disagree with score rows")
-        cutoff = date.fromisoformat(summary["as_of"])
-        start, end = (date.fromisoformat(value) for value in summary["current_window"])
+        cutoff = parse_calendar_date(summary["as_of"], "Monitor as_of")
+        start, end = (
+            parse_calendar_date(value, "Monitor current_window")
+            for value in summary["current_window"]
+        )
         reference_start, reference_end = (
-            date.fromisoformat(value) for value in summary["reference_window"]
+            parse_calendar_date(value, "Monitor reference_window")
+            for value in summary["reference_window"]
         )
         if not (
             reference_start <= reference_end
@@ -294,7 +299,7 @@ def verify_monitor(destination: Path) -> dict[str, Any]:
                 "small_business",
             }:
                 raise DataContractError("Monitor application identity or segment is invalid")
-            decision = date.fromisoformat(row["decision_at"])
+            decision = parse_calendar_date(row["decision_at"], "Monitor decision_at")
             if not start <= decision <= min(end, cutoff) or row["vintage"] != decision.strftime(
                 "%Y-%m"
             ):

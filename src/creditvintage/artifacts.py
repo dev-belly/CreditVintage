@@ -7,7 +7,6 @@ import hashlib
 import html
 import json
 import math
-from datetime import date
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
@@ -15,7 +14,7 @@ from typing import Any
 import numpy as np
 from sklearn.metrics import average_precision_score, brier_score_loss, roc_auc_score
 
-from creditvintage.core import _ID, DataContractError
+from creditvintage.core import _ID, DataContractError, parse_calendar_date
 from creditvintage.model import Config, Result
 from creditvintage.validation import finite_number, read_csv_rows, read_json_object
 
@@ -210,13 +209,19 @@ def verify_result(destination: Path) -> dict[str, Any]:
             raise DataContractError("Prediction count or outcomes disagree with summary")
         config = summary["config"]
         checked_config = Config(
-            train_start=date.fromisoformat(config["train_start"]),
-            train_end=date.fromisoformat(config["train_end"]),
-            calibration_start=date.fromisoformat(config["calibration_start"]),
-            calibration_end=date.fromisoformat(config["calibration_end"]),
-            test_start=date.fromisoformat(config["test_start"]),
-            test_end=date.fromisoformat(config["test_end"]),
-            evaluation_as_of=date.fromisoformat(config["evaluation_as_of"]),
+            train_start=parse_calendar_date(config["train_start"], "Config train_start"),
+            train_end=parse_calendar_date(config["train_end"], "Config train_end"),
+            calibration_start=parse_calendar_date(
+                config["calibration_start"], "Config calibration_start"
+            ),
+            calibration_end=parse_calendar_date(
+                config["calibration_end"], "Config calibration_end"
+            ),
+            test_start=parse_calendar_date(config["test_start"], "Config test_start"),
+            test_end=parse_calendar_date(config["test_end"], "Config test_end"),
+            evaluation_as_of=parse_calendar_date(
+                config["evaluation_as_of"], "Config evaluation_as_of"
+            ),
             scenario_lgd=finite_number(config["scenario_lgd"], "scenario LGD"),
             review_fraction=finite_number(config["review_fraction"], "configured review fraction"),
             seed=config["seed"],
@@ -226,7 +231,9 @@ def verify_result(destination: Path) -> dict[str, Any]:
             not _ID.fullmatch(row["application_id"])
             or row["segment"] not in {"retail", "small_business"}
             or int(row["principal_cents"]) <= 0
-            or not start <= (decision := date.fromisoformat(row["decision_at"])) <= end
+            or not start
+            <= (decision := parse_calendar_date(row["decision_at"], "Prediction decision_at"))
+            <= end
             or decision.strftime("%Y-%m") != row["vintage"]
             for row in predictions
         ):

@@ -22,6 +22,18 @@ class DataContractError(ValueError):
     """The input cannot support a trustworthy point-in-time evaluation."""
 
 
+def parse_calendar_date(value: str, label: str = "Date") -> date:
+    """Accept the documented YYYY-MM-DD form without normalizing other ISO forms."""
+    message = f"{label} must be YYYY-MM-DD"
+    try:
+        parsed = date.fromisoformat(value)
+    except (TypeError, ValueError) as exc:
+        raise DataContractError(message) from exc
+    if parsed.isoformat() != value:
+        raise DataContractError(message)
+    return parsed
+
+
 @dataclass(frozen=True)
 class Application:
     application_id: str
@@ -206,7 +218,7 @@ def load_csv_bundle(
         apps = [
             Application(
                 row["application_id"],
-                date.fromisoformat(row["decision_at"]),
+                parse_calendar_date(row["decision_at"], f"{applications_path.name} decision_at"),
                 int(row["principal_cents"]),
                 row["segment"],  # type: ignore[arg-type]
             )
@@ -220,8 +232,8 @@ def load_csv_bundle(
                 row["application_id"],
                 row["name"],
                 float(row["value"]),
-                date.fromisoformat(row["observed_at"]),
-                date.fromisoformat(row["available_at"]),
+                parse_calendar_date(row["observed_at"], f"{features_path.name} observed_at"),
+                parse_calendar_date(row["available_at"], f"{features_path.name} available_at"),
             )
             for row in read(
                 features_path,
@@ -231,8 +243,8 @@ def load_csv_bundle(
         reports = [
             PerformanceEvent(
                 row["application_id"],
-                date.fromisoformat(row["as_of"]),
-                date.fromisoformat(row["available_at"]),
+                parse_calendar_date(row["as_of"], f"{performance_path.name} as_of"),
+                parse_calendar_date(row["available_at"], f"{performance_path.name} available_at"),
                 int(row["days_past_due"]),
             )
             for row in read(

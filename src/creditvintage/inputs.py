@@ -17,6 +17,7 @@ from creditvintage.core import (
     DataContractError,
     FeatureEvent,
     PerformanceEvent,
+    parse_calendar_date,
     snapshot,
 )
 from creditvintage.model import Config, _rows_between
@@ -127,7 +128,7 @@ def _read_file[R: (Application, FeatureEvent, PerformanceEvent)](
                     for name in columns:
                         try:
                             if name in _DATES:
-                                values[name] = date.fromisoformat(row[name])
+                                values[name] = parse_calendar_date(row[name], name)
                             elif name in _INTEGERS:
                                 values[name] = int(row[name])
                             elif name == "value":
@@ -136,7 +137,7 @@ def _read_file[R: (Application, FeatureEvent, PerformanceEvent)](
                                 values[name] = row[name]
                         except ValueError:
                             expected = (
-                                "a calendar date"
+                                "a calendar date in YYYY-MM-DD format"
                                 if name in _DATES
                                 else "an integer"
                                 if name in _INTEGERS

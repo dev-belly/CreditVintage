@@ -114,6 +114,33 @@ def rehash(directory, name):
     manifest_path.write_text(json.dumps(manifest))
 
 
+@pytest.mark.parametrize("target", ["config", "predictions"])
+def test_rehashed_benchmark_rejects_alternate_calendar_formats(compared, tmp_path, target):
+    directory = tmp_path / "benchmark"
+    write_benchmark(compared, directory)
+    if target == "config":
+        path = directory / "summary.json"
+        summary = json.loads(path.read_text())
+        summary["config"]["test_start"] = "20240701"
+        path.write_text(json.dumps(summary))
+    else:
+        path = directory / "predictions.csv"
+        with path.open(encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            columns, rows = reader.fieldnames, list(reader)
+        application_id = rows[0]["application_id"]
+        for row in rows:
+            if row["application_id"] == application_id:
+                row["decision_at"] = row["decision_at"].replace("-", "")
+        with path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=columns)
+            writer.writeheader()
+            writer.writerows(rows)
+    rehash(directory, path.name)
+    with pytest.raises(DataContractError, match="YYYY-MM-DD"):
+        verify_benchmark(directory)
+
+
 def test_verifier_detects_rehashed_policy_tampering(compared, tmp_path):
     write_benchmark(compared, tmp_path)
     assert verify_benchmark(tmp_path)["applications"] == 150

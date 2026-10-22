@@ -29,6 +29,7 @@ from creditvintage.core import (
     DataContractError,
     FeatureEvent,
     PerformanceEvent,
+    parse_calendar_date,
     snapshot,
 )
 from creditvintage.model import Config, _digest, _fit_stages, _labels, _matrix, _rows_between
@@ -520,7 +521,9 @@ def verify_benchmark(destination: Path) -> dict[str, Any]:
             raise DataContractError("Unknown benchmark data kind")
         config = summary["config"]
         config_arguments: dict[str, Any] = {
-            key: date.fromisoformat(value) if key.endswith(("start", "end", "as_of")) else value
+            key: parse_calendar_date(value, f"Config {key}")
+            if key.endswith(("start", "end", "as_of"))
+            else value
             for key, value in config.items()
         }
         Config(**config_arguments)
@@ -546,7 +549,7 @@ def verify_benchmark(destination: Path) -> dict[str, Any]:
                     for key in ("decision_at", "vintage", "segment", "principal_cents", "label")
                 ):
                     raise DataContractError("Benchmark outcomes differ across methods")
-                decision = date.fromisoformat(row["decision_at"])
+                decision = parse_calendar_date(row["decision_at"], "Benchmark decision_at")
                 if (
                     not config["test_start"] <= decision.isoformat() <= config["test_end"]
                     or row["vintage"] != decision.strftime("%Y-%m")
@@ -751,7 +754,7 @@ def verify_benchmark(destination: Path) -> dict[str, Any]:
             CohortRow(
                 Application(
                     row["application_id"],
-                    date.fromisoformat(row["decision_at"]),
+                    parse_calendar_date(row["decision_at"], "Benchmark decision_at"),
                     int(row["principal_cents"]),
                     cast(Literal["retail", "small_business"], row["segment"]),
                 ),

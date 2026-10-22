@@ -388,7 +388,11 @@ creditvintage run --applications applications.csv \
 | `features.csv` | `application_id,name,value,observed_at,available_at` |
 | `performance.csv` | `application_id,as_of,available_at,days_past_due` |
 
-Dates are `YYYY-MM-DD`. Segments are `retail` or `small_business`; feature
+Dates are exactly `YYYY-MM-DD`, including `monitor --as-of`; compact dates,
+ISO week dates and timestamps are rejected by the source version after v0.3.1.
+The published v0.3.1 wheel predates this stricter CSV/cutoff parsing; see the
+[date input and compatibility notes](docs/CUSTOM_INPUTS.md#1-make-all-dates-explicit).
+Segments are `retail` or `small_business`; feature
 names are `utilization`, `debt_to_income`, `prior_delinquencies`.
 `principal_cents` is a positive integer USD-cent amount. The default vintage
 windows above apply when `--config` is omitted. Supply a strict JSON

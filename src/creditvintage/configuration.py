@@ -12,6 +12,7 @@ from creditvintage.core import (
     DataContractError,
     FeatureEvent,
     PerformanceEvent,
+    parse_calendar_date,
     snapshot,
 )
 from creditvintage.model import Config, _digest, _rows_between
@@ -40,14 +41,7 @@ def load_config(path: Path | None = None, *, seed: int | None = None) -> Config:
         if missing:
             raise DataContractError(f"Missing config dates: {', '.join(sorted(missing))}")
         for name in DATE_FIELDS:
-            value = values[name]
-            try:
-                parsed = date.fromisoformat(value) if isinstance(value, str) else None
-            except ValueError:
-                parsed = None
-            if parsed is None or parsed.isoformat() != value:
-                raise DataContractError(f"Config {name} must be YYYY-MM-DD")
-            values[name] = parsed
+            values[name] = parse_calendar_date(values[name], f"Config {name}")
     if seed is not None:
         values["seed"] = seed
     return Config(**values)
