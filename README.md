@@ -10,10 +10,13 @@ banking or risk analytics team should ask about before trusting a score.
 - **Compare models on public credit data:** [Start with the public benchmarks](#try-observed-public-data).
 - **Inspect decision-time data and human review:** [Trace source availability](#source-to-prediction-lineage) and [inspect the review workflow](#a-durable-human-review-workflow).
 
-> **Data status:** The point-in-time event experiment is synthetic. A separate
-> [UCI German credit experiment](docs/PUBLIC_CREDIT.md) uses 1,000 historical
-> observed records. Its native good/bad target and random split cannot validate
-> the event pipeline's time controls or a deployable credit policy.
+> **Data status:** The point-in-time event experiment is synthetic. Separate
+> [card](docs/CARD_CREDIT.md) and [German credit](docs/PUBLIC_CREDIT.md) experiments
+> use 30,000 and 1,000 historical observed records. Their native targets and
+> random customer splits cannot validate the event pipeline's time controls
+> or a deployable credit policy.
+
+[Comparison with established tools and remaining gaps / 同方向项目对照](docs/COMPARISON.zh-CN.md).
 
 ## Start with editable CSV inputs
 
@@ -245,9 +248,24 @@ passes its cohort checks. The input digest still covers all supplied event rows;
 it identifies the source bundle, including rows the monitor did not use.
 
 ```bash
+creditvintage preflight --as-of 2024-10-01
 creditvintage monitor --as-of 2024-10-01 --out outputs/early
 creditvintage verify-monitor outputs/early
 ```
+
+Since v0.4.0, `preflight --as-of` checks the monitoring cohorts without fitting
+or writing files. It reports `ready_for_monitoring`, mature train/calibration
+counts, visible current applications and current applications not yet visible.
+Current outcomes are not required or counted. This checks input/cohort readiness;
+it produces no scores or PSI and cannot guarantee successful fitting or useful
+score variation. Without `--as-of`, `preflight` retains its mature evaluation checks.
+
+For an end-to-end synthetic example with **all current outcomes removed**, run
+`python examples/monitoring_without_outcomes.py --out outputs/unlabelled-case`
+from an installed source checkout. It saves the editable inputs and preflight
+JSON, then fits the monitor on historical labels and verifies its report.
+The [walkthrough](docs/CUSTOM_INPUTS.md#4-before-outcomes-mature) shows how to repeat
+the checks directly with the CLI.
 
 The [published synthetic monitoring example](https://dev-belly.github.io/CreditVintage/monitor/)
 has 480 reference and 320 visible current applications. Its PSI is **0.041**
@@ -267,16 +285,16 @@ monitor files private.
 
 ## Run and verify
 
-Version **0.3.2** distributions are published under [GitHub Releases](https://github.com/dev-belly/CreditVintage/releases/tag/v0.3.2)
+Version **0.4.0** distributions are published under [GitHub Releases](https://github.com/dev-belly/CreditVintage/releases/tag/v0.4.0)
 only after all main CI jobs pass. The downloadable wheel is the same artifact
 that passed clean installation and complete offline refitting. Each release
 includes its source archive, installed-check evidence, commit/version manifest
 and SHA-256 checksums. Existing version tags are preserved; changes require a
 version bump. Install the wheel into a Python 3.12+ virtual environment, then
 use the commands above without cloning this repository. The
-[upgrade notes](docs/releases/v0.3.2.md) give the exact wheel URL and a short
-installation check. Commands, fields and models are unchanged; inputs must use
-the documented `YYYY-MM-DD` date format.
+[upgrade notes](docs/releases/v0.4.0.md) give the exact wheel URL and a short
+installation check. Existing commands, inputs and model protocols remain
+compatible; `preflight --as-of` adds the optional monitoring check.
 
 For the current `main` source, use Python 3.12+ and Git. Start in a new parent
 directory and obtain the repository:
@@ -409,11 +427,11 @@ creditvintage run --applications applications.csv --features features.csv \
   --performance performance.csv --config examples/cohort-config.json --out outputs/private
 ```
 
-`preflight` checks the mature train/calibration/test cohorts without fitting or
+Without `--as-of`, `preflight` checks the mature train/calibration/test cohorts without fitting or
 writing a report. It counts excluded applications so an incorrect date range
 cannot look like complete coverage. It checks input consistency, not source
-authenticity or model quality. For immature current cohorts use `monitor`;
-preflight intentionally requires mature evaluation outcomes. The synthetic
+authenticity or model quality. For immature current cohorts use
+`preflight --as-of YYYY-MM-DD` followed by `monitor` at the same cutoff. The synthetic
 generator still uses its documented fixed dates. [Custom-input walkthrough](docs/CUSTOM_INPUTS.md).
 Keep borrower-level files private.
 

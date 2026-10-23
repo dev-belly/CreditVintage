@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "creditvintage-research"
-version = "0.3.2"
+version = "0.4.0"
 description = "Point-in-time credit vintage evaluation and auditable risk reporting"
 readme = "README.md"
 requires-python = ">=3.12"
