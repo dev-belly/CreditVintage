@@ -17,7 +17,7 @@ from creditvintage.core import DataContractError, load_csv_bundle, parse_calenda
 from creditvintage.inputs import check_inputs, initialize_inputs
 from creditvintage.lineage import verify_lineage, write_demo
 from creditvintage.model import evaluate
-from creditvintage.monitoring import monitor, verify_monitor, write_monitor
+from creditvintage.monitoring import monitor, preflight_monitor, verify_monitor, write_monitor
 from creditvintage.public_credit import verify_public_benchmark, write_public_benchmark
 from creditvintage.review_bundle import export_reviews, verify_review_bundle
 from creditvintage.reviews import initialize_reviews, record_review, review_status
@@ -56,9 +56,14 @@ def main(argv: list[str] | None = None) -> int:
     run = commands.add_parser("run", help="Run a fixed synthetic or supplied event experiment")
     data_arguments(run, "outputs/latest")
     inspect = commands.add_parser(
-        "preflight", help="Check inputs and mature evaluation windows without fitting or writing"
+        "preflight", help="Check evaluation or label-free monitoring inputs without fitting"
     )
     data_arguments(inspect, None)
+    inspect.add_argument(
+        "--as-of",
+        type=_calendar_date_argument,
+        help="Check monitoring inputs at this YYYY-MM-DD cutoff instead of mature evaluation",
+    )
     public = commands.add_parser(
         "public-benchmark", help="Run the separate frozen UCI static credit experiment"
     )
@@ -222,12 +227,15 @@ def main(argv: list[str] | None = None) -> int:
             applications, features, performance = generate(config.seed, args.per_vintage)
             data_kind = "synthetic"
         if args.command == "preflight":
-            print(
-                json.dumps(
-                    preflight(applications, features, performance, config, data_kind=data_kind),
-                    indent=2,
+            if args.as_of is None:
+                checked = preflight(
+                    applications, features, performance, config, data_kind=data_kind
                 )
-            )
+            else:
+                checked = preflight_monitor(
+                    applications, features, performance, args.as_of, config, data_kind=data_kind
+                )
+            print(json.dumps(checked, indent=2))
             return 0
         if args.command == "benchmark":
             compared = benchmark(
