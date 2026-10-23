@@ -265,7 +265,8 @@ For an end-to-end synthetic example with **all current outcomes removed**, run
 from an installed source checkout. It saves the editable inputs and preflight
 JSON, then fits the monitor on historical labels and verifies its report.
 The [walkthrough](docs/CUSTOM_INPUTS.md#4-before-outcomes-mature) shows how to repeat
-the checks directly with the CLI.
+the checks directly with the CLI. This example is in the current source checkout;
+it is not included in the previously built v0.4.0 source archive or wheel.
 
 The [published synthetic monitoring example](https://dev-belly.github.io/CreditVintage/monitor/)
 has 480 reference and 320 visible current applications. Its PSI is **0.041**

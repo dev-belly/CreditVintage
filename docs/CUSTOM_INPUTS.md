@@ -194,7 +194,8 @@ scores or PSI. Readiness checks cannot establish source authenticity, guarantee
 successful numerical fitting or prove that reference scores will have enough
 variation for PSI. The numerical monitor performs those later checks.
 
-To reproduce the missing-current-label case from an installed source checkout:
+To reproduce the missing-current-label case from the current installed source
+checkout (the example was added after the v0.4.0 distributions were built):
 
 ```text
 python examples/monitoring_without_outcomes.py --out outputs/unlabelled-case
