@@ -175,6 +175,59 @@ def check(directory: Path, card_evidence: Path | None = None) -> dict[str, Any]:
         comparison = command("verify-benchmark", "benchmark")
         command("monitor", "--as-of", "2024-10-01", "--out", "monitor")
         command("verify-monitor", "monitor")
+        command("init-inputs", "--out", "monitor-inputs")
+        pending_root = work / "monitor-inputs"
+        with (pending_root / "applications.csv").open(encoding="utf-8", newline="") as handle:
+            current_ids = {
+                row["application_id"]
+                for row in csv.DictReader(handle)
+                if "2024-07-01" <= row["decision_at"] <= "2024-12-31"
+            }
+        performance_path = pending_root / "performance.csv"
+        with performance_path.open(encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            columns, pending_reports = reader.fieldnames, list(reader)
+        assert columns is not None
+        with performance_path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=columns, lineterminator="\n")
+            writer.writeheader()
+            writer.writerows(
+                row for row in pending_reports if row["application_id"] not in current_ids
+            )
+        monitoring_inputs = (
+            "--applications",
+            "monitor-inputs/applications.csv",
+            "--features",
+            "monitor-inputs/features.csv",
+            "--performance",
+            "monitor-inputs/performance.csv",
+            "--config",
+            "monitor-inputs/cohorts.json",
+        )
+        input_bytes = {path.name: path.read_bytes() for path in pending_root.iterdir()}
+        monitor_preflight = command("preflight", *monitoring_inputs, "--as-of", "2024-10-01")
+        if (
+            monitor_preflight["status"] != "ready_for_monitoring"
+            or monitor_preflight["model_fitted"] is not False
+            or [
+                monitor_preflight["cohorts"][stage]["applications"]
+                for stage in ("train", "calibration", "current")
+            ]
+            != [240, 120, 80]
+            or monitor_preflight["current_applications_not_yet_visible"] != 40
+            or "events" in monitor_preflight["cohorts"]["current"]
+        ):
+            raise ValueError("Installed monitoring preflight did not preserve label-free cohorts")
+        incomplete_evaluation = command("preflight", *monitoring_inputs, expected=2)
+        if "test has unlabelled loans" not in incomplete_evaluation["stderr"]:
+            raise ValueError("Default preflight lost its mature evaluation gate")
+        command(
+            "monitor", *monitoring_inputs, "--as-of", "2024-10-01", "--out", "unlabelled-monitor"
+        )
+        if command("verify-monitor", "unlabelled-monitor")["loans"] != 80:
+            raise ValueError("Installed monitor and preflight population counts disagree")
+        if input_bytes != {path.name: path.read_bytes() for path in pending_root.iterdir()}:
+            raise ValueError("Preflight or monitoring changed the source input files")
         command("analyze", "evaluation", "--out", "analysis")
         analysis = command("verify-analysis", "analysis")
         command("review-init", "analysis", "--db", "reviews.sqlite")
@@ -279,6 +332,7 @@ def check(directory: Path, card_evidence: Path | None = None) -> dict[str, Any]:
             },
             "evaluation": evaluation,
             "custom_config_and_preflight": "verified without model fitting in preflight",
+            "monitor_preflight": monitor_preflight,
             "public_credit": public_credit,
             "card_credit": card_credit,
             "benchmark": comparison,

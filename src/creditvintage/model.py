@@ -165,13 +165,13 @@ def _digest(
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
-def _fit_stages(
+def _training_rows(
     applications: list[Application],
     features: list[FeatureEvent],
     performance: list[PerformanceEvent],
     config: Config,
-) -> tuple[Pipeline, IsotonicRegression, list[CohortRow], list[CohortRow], np.ndarray]:
-    """Freeze the model and calibrator before the first test application."""
+) -> tuple[list[CohortRow], list[CohortRow]]:
+    """Select the actual mature fitting cohorts without constructing or fitting models."""
     train = _rows_between(
         snapshot(applications, features, performance, config.calibration_start),
         config.train_start,
@@ -184,6 +184,17 @@ def _fit_stages(
         config.calibration_end,
         "calibration",
     )
+    return train, calibration
+
+
+def _fit_stages(
+    applications: list[Application],
+    features: list[FeatureEvent],
+    performance: list[PerformanceEvent],
+    config: Config,
+) -> tuple[Pipeline, IsotonicRegression, list[CohortRow], list[CohortRow], np.ndarray]:
+    """Freeze the model and calibrator before the first test application."""
+    train, calibration = _training_rows(applications, features, performance, config)
     model = make_pipeline(
         StandardScaler(), LogisticRegression(C=1.0, max_iter=1000, random_state=config.seed)
     )

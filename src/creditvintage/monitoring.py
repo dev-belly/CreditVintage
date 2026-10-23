@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import html
 import math
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import date, timedelta
 from importlib.resources import files
 from pathlib import Path
@@ -18,13 +18,14 @@ from creditvintage.core import (
     HORIZON_DAYS,
     REPORT_LAG_DAYS,
     Application,
+    CohortRow,
     DataContractError,
     FeatureEvent,
     PerformanceEvent,
     parse_calendar_date,
     snapshot,
 )
-from creditvintage.model import Config, _digest, _fit_stages, _matrix
+from creditvintage.model import Config, _digest, _fit_stages, _matrix, _training_rows
 from creditvintage.validation import finite_number, read_csv_rows, read_json_object
 
 MONITOR_FILES = (
@@ -118,6 +119,111 @@ def score_psi(reference: np.ndarray, current: np.ndarray) -> tuple[float, list[d
     return round(float(np.sum(components)), 6), bins
 
 
+def _monitor_inputs(
+    applications: list[Application],
+    features: list[FeatureEvent],
+    performance: list[PerformanceEvent],
+    as_of: date,
+    config: Config,
+) -> tuple[list[PerformanceEvent], list[CohortRow]]:
+    """Share label scope, cutoff and current-population gates with model-free checks."""
+    if type(as_of) is not date or as_of < config.test_start:
+        raise DataContractError("Monitor cutoff must be on or after the test window starts")
+    # Only the train and calibration cohorts supply labels. A current-cohort
+    # report must not alter whether a label-free monitoring run succeeds.
+    stage_ids = {
+        app.application_id
+        for app in applications
+        if (config.train_start <= app.decision_at <= config.train_end)
+        or (config.calibration_start <= app.decision_at <= config.calibration_end)
+    }
+    stage_performance = [report for report in performance if report.application_id in stage_ids]
+    current_rows = [
+        row
+        for row in snapshot(applications, features, [], as_of)
+        if config.test_start <= row.application.decision_at <= config.test_end
+    ]
+    if len(current_rows) < 20:
+        raise DataContractError("Monitor window needs at least 20 visible applications")
+    return stage_performance, current_rows
+
+
+def preflight_monitor(
+    applications: list[Application],
+    features: list[FeatureEvent],
+    performance: list[PerformanceEvent],
+    as_of: date,
+    config: Config,
+    *,
+    data_kind: str,
+) -> dict[str, Any]:
+    """Check monitoring inputs with its actual cohort gates, without fitting or writing."""
+    if data_kind not in {"synthetic", "user_supplied"}:
+        raise DataContractError("Unknown data kind")
+    stage_performance, current_rows = _monitor_inputs(
+        applications, features, performance, as_of, config
+    )
+    train, calibration = _training_rows(applications, features, stage_performance, config)
+    cohorts: dict[str, Any] = {}
+    for stage, rows, start, end, cutoff in (
+        ("train", train, config.train_start, config.train_end, config.calibration_start),
+        (
+            "calibration",
+            calibration,
+            config.calibration_start,
+            config.calibration_end,
+            config.test_start,
+        ),
+    ):
+        events = sum(row.label == 1 for row in rows)
+        cohorts[stage] = {
+            "applications": len(rows),
+            "events": events,
+            "non_events": len(rows) - events,
+            "decision_start": start.isoformat(),
+            "decision_end": end.isoformat(),
+            "outcomes_visible_by": cutoff.isoformat(),
+        }
+    cohorts["current"] = {
+        "applications": len(current_rows),
+        "decision_start": config.test_start.isoformat(),
+        "decision_end": config.test_end.isoformat(),
+        "visible_by": as_of.isoformat(),
+        "outcomes_required": False,
+    }
+    in_current_window = [
+        app for app in applications if config.test_start <= app.decision_at <= config.test_end
+    ]
+    return {
+        "schema": "creditvintage-monitor-preflight-v1",
+        "status": "ready_for_monitoring",
+        "data_kind": data_kind,
+        "as_of": as_of.isoformat(),
+        "model_fitted": False,
+        "input_sha256": _digest(applications, features, performance),
+        "input_rows": {
+            "applications": len(applications),
+            "features": len(features),
+            "performance": len(performance),
+        },
+        "config": {
+            key: value.isoformat() if isinstance(value, date) else value
+            for key, value in asdict(config).items()
+        },
+        "cohorts": cohorts,
+        "current_applications_not_yet_visible": len(in_current_window) - len(current_rows),
+        "applications_outside_windows": len(applications)
+        - len(train)
+        - len(calibration)
+        - len(in_current_window),
+        "performance_scope": "train_and_calibration_only",
+        "scope": (
+            "Input and cohort readiness only; no model fitting, scores, PSI, "
+            "source authenticity or model-quality validation"
+        ),
+    }
+
+
 def monitor(
     applications: list[Application],
     features: list[FeatureEvent],
@@ -129,29 +235,14 @@ def monitor(
 ) -> MonitorResult:
     """Score applications visible at cutoff; current outcomes are never used."""
     config = config or Config()
-    if type(as_of) is not date or as_of < config.test_start:
-        raise DataContractError("Monitor cutoff must be on or after the test window starts")
     if data_kind not in {"synthetic", "user_supplied"}:
         raise DataContractError("Unknown data kind")
-    # Only the train and calibration cohorts supply labels. A current-cohort
-    # report must not alter whether a label-free monitoring run succeeds.
-    stage_ids = {
-        app.application_id
-        for app in applications
-        if (config.train_start <= app.decision_at <= config.train_end)
-        or (config.calibration_start <= app.decision_at <= config.calibration_end)
-    }
-    stage_performance = [report for report in performance if report.application_id in stage_ids]
+    stage_performance, current_rows = _monitor_inputs(
+        applications, features, performance, as_of, config
+    )
     model, calibrator, _, calibration, calibration_raw = _fit_stages(
         applications, features, stage_performance, config
     )
-    current_rows = [
-        row
-        for row in snapshot(applications, features, [], as_of)
-        if config.test_start <= row.application.decision_at <= config.test_end
-    ]
-    if len(current_rows) < 20:
-        raise DataContractError("Monitor window needs at least 20 visible applications")
     current_raw = model.predict_proba(_matrix(current_rows))[:, 1]
     current_calibrated = np.asarray(calibrator.predict(current_raw), dtype=float)
     reference = [round(float(value), 10) for value in calibration_raw]
