@@ -10,10 +10,13 @@ banking or risk analytics team should ask about before trusting a score.
 - **Compare models on public credit data:** [Start with the public benchmarks](#try-observed-public-data).
 - **Inspect decision-time data and human review:** [Trace source availability](#source-to-prediction-lineage) and [inspect the review workflow](#a-durable-human-review-workflow).
 
-> **Data status:** The point-in-time event experiment is synthetic. A separate
-> [UCI German credit experiment](docs/PUBLIC_CREDIT.md) uses 1,000 historical
-> observed records. Its native good/bad target and random split cannot validate
-> the event pipeline's time controls or a deployable credit policy.
+> **Data status:** The point-in-time event experiment is synthetic. Separate
+> [card](docs/CARD_CREDIT.md) and [German credit](docs/PUBLIC_CREDIT.md) experiments
+> use 30,000 and 1,000 historical observed records. Their native targets and
+> random customer splits cannot validate the event pipeline's time controls
+> or a deployable credit policy.
+
+[Comparison with established tools and remaining gaps / 同方向项目对照](docs/COMPARISON.zh-CN.md).
 
 ## Start with editable CSV inputs
 
@@ -256,6 +259,14 @@ counts, visible current applications and current applications not yet visible.
 Current outcomes are not required or counted. This checks input/cohort readiness;
 it produces no scores or PSI and cannot guarantee successful fitting or useful
 score variation. Without `--as-of`, `preflight` retains its mature evaluation checks.
+
+For an end-to-end synthetic example with **all current outcomes removed**, run
+`python examples/monitoring_without_outcomes.py --out outputs/unlabelled-case`
+from an installed source checkout. It saves the editable inputs and preflight
+JSON, then fits the monitor on historical labels and verifies its report.
+The [walkthrough](docs/CUSTOM_INPUTS.md#4-before-outcomes-mature) shows how to repeat
+the checks directly with the CLI. This example is in the current source checkout;
+it is not included in the previously built v0.4.0 source archive or wheel.
 
 The [published synthetic monitoring example](https://dev-belly.github.io/CreditVintage/monitor/)
 has 480 reference and 320 visible current applications. Its PSI is **0.041**

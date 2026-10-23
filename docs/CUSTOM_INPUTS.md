@@ -152,6 +152,8 @@ generator retains its original dates; changing JSON does not relocate synthetic
 events. Regression tests additionally shift complete event data four years
 earlier and exercise evaluation, comparison and monitoring on that calendar.
 
+## 4. Before outcomes mature
+
 For current applications without mature outcomes, use `monitor` with the same
 configuration and an explicit `--as-of`:
 
@@ -191,6 +193,24 @@ The JSON reports `current_applications_not_yet_visible` separately from
 scores or PSI. Readiness checks cannot establish source authenticity, guarantee
 successful numerical fitting or prove that reference scores will have enough
 variation for PSI. The numerical monitor performs those later checks.
+
+To reproduce the missing-current-label case from the current installed source
+checkout (the example was added after the v0.4.0 distributions were built):
+
+```text
+python examples/monitoring_without_outcomes.py --out outputs/unlabelled-case
+creditvintage preflight --applications outputs/unlabelled-case/inputs/applications.csv --features outputs/unlabelled-case/inputs/features.csv --performance outputs/unlabelled-case/inputs/performance.csv --config outputs/unlabelled-case/inputs/cohorts.json --as-of 2024-10-01
+creditvintage verify-monitor outputs/unlabelled-case/report
+```
+
+The script creates a new synthetic starter, removes only the current cohort's
+performance rows using the configured decision dates, saves `preflight.json`,
+then fits and verifies the actual monitor. Expect 240 training, 120 calibration,
+80 visible current and 40 future current applications, with zero current outcome
+rows. Open `outputs/unlabelled-case/report/index.html`. The script refuses an
+existing output directory. Only the preflight step is model-free; the subsequent
+monitor intentionally fits the historical model. This is a local demonstration,
+not evidence of an independent user's trial.
 
 Omit `--as-of` to retain the original complete mature-evaluation preflight.
 Keep application-level inputs, preflight output and exported private reports
