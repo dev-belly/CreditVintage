@@ -116,6 +116,8 @@ def snapshot(
     A known 90+ DPD event is positive even when another report is missing.
     All labels wait until the full horizon and reporting lag have elapsed.
     """
+    if type(as_of) is not date:
+        raise DataContractError("Snapshot cutoff must be a calendar date")
     by_id = {app.application_id: app for app in applications}
     if len(by_id) != len(applications):
         raise DataContractError("Duplicate application ID")
@@ -166,7 +168,7 @@ def snapshot(
 
         label: int | None = None
         status = "not_mature"
-        if app.decision_at + timedelta(days=HORIZON_DAYS + REPORT_LAG_DAYS) <= as_of:
+        if (as_of - app.decision_at).days >= HORIZON_DAYS + REPORT_LAG_DAYS:
             latest_reports: dict[date, PerformanceEvent] = {}
             for report in report_index[app.application_id]:
                 if report.available_at > as_of or report.as_of > app.decision_at + timedelta(
