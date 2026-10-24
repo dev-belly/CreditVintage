@@ -265,8 +265,8 @@ For an end-to-end synthetic example with **all current outcomes removed**, run
 from an installed source checkout. It saves the editable inputs and preflight
 JSON, then fits the monitor on historical labels and verifies its report.
 The [walkthrough](docs/CUSTOM_INPUTS.md#4-before-outcomes-mature) shows how to repeat
-the checks directly with the CLI. This example is in the current source checkout;
-it is not included in the previously built v0.4.0 source archive or wheel.
+the checks directly with the CLI. Run the repository example from a source
+checkout; installed wheels expose the equivalent preflight and monitor commands.
 
 The [published synthetic monitoring example](https://dev-belly.github.io/CreditVintage/monitor/)
 has 480 reference and 320 visible current applications. Its PSI is **0.041**
@@ -286,16 +286,19 @@ monitor files private.
 
 ## Run and verify
 
-Version **0.4.0** distributions are published under [GitHub Releases](https://github.com/dev-belly/CreditVintage/releases/tag/v0.4.0)
+Version **0.4.1** distributions are published under [GitHub Releases](https://github.com/dev-belly/CreditVintage/releases/tag/v0.4.1)
 only after all main CI jobs pass. The downloadable wheel is the same artifact
 that passed clean installation and complete offline refitting. Each release
 includes its source archive, installed-check evidence, commit/version manifest
 and SHA-256 checksums. Existing version tags are preserved; changes require a
 version bump. Install the wheel into a Python 3.12+ virtual environment, then
 use the commands above without cloning this repository. The
-[upgrade notes](docs/releases/v0.4.0.md) give the exact wheel URL and a short
+[upgrade notes](docs/releases/v0.4.1.md) give the exact wheel URL and a short
 installation check. Existing commands, inputs and model protocols remain
-compatible; `preflight --as-of` adds the optional monitoring check.
+compatible. This patch avoids date overflow when checking an immature snapshot
+near the calendar's upper bound and enforces the Python API's calendar-date cutoff.
+The 180-day outcome horizon, two-day reporting lag and numerical dependency pins
+are unchanged; `preflight --as-of` retains the optional monitoring check.
 
 For the current `main` source, use Python 3.12+ and Git. Start in a new parent
 directory and obtain the repository:
