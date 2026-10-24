@@ -9,8 +9,10 @@ import os
 import shutil
 import subprocess
 import tempfile
+import tomllib
 import venv
 from pathlib import Path
+from textwrap import dedent
 from typing import Any
 
 
@@ -23,6 +25,9 @@ def check(directory: Path, card_evidence: Path | None = None) -> dict[str, Any]:
 
     credit_wheel = wheel("creditvintage_research")
     pit_wheel = wheel("pitbridge")
+    expected_version = tomllib.loads(
+        (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(encoding="utf-8")
+    )["project"]["version"]
     environment = dict(os.environ)
     for key in ("PYTHONPATH", "PYTHONHOME", "PYTHONUSERBASE"):
         environment.pop(key, None)
@@ -66,7 +71,9 @@ def check(directory: Path, card_evidence: Path | None = None) -> dict[str, Any]:
             "-I",
             "-c",
             "import importlib.util,json,creditvintage; "
+            "from importlib.metadata import version; "
             "print(json.dumps({'origin':creditvintage.__file__, "
+            "'version':version('creditvintage-research'), "
             "'pitbridge':importlib.util.find_spec('pitbridge') is not None}))",
         )
         location = json.loads(probe.stdout)
@@ -74,6 +81,52 @@ def check(directory: Path, card_evidence: Path | None = None) -> dict[str, Any]:
             raise ValueError("Imported CreditVintage from outside its isolated environment")
         if location["pitbridge"]:
             raise ValueError("The core wheel unexpectedly installed the optional integration")
+        if location["version"] != expected_version:
+            raise ValueError("Installed wheel version differs from the checked source version")
+        calendar_probe = run(
+            str(python),
+            "-I",
+            "-c",
+            dedent("""
+                import json
+                from datetime import date, datetime, timedelta
+                from creditvintage.core import (
+                    REPORT_DAYS, Application, DataContractError, FeatureEvent,
+                    PerformanceEvent, snapshot,
+                )
+
+                for age in (0, 181, 182):
+                    decision = date.max - timedelta(days=age)
+                    app = Application("calendar-end", decision, 100_000, "retail")
+                    features = [
+                        FeatureEvent(app.application_id, name, value, decision, decision)
+                        for name, value in (
+                            ("utilization", 0.2), ("debt_to_income", 0.3),
+                            ("prior_delinquencies", 0),
+                        )
+                    ]
+                    reports = [
+                        PerformanceEvent(app.application_id,
+                            decision + timedelta(days=day),
+                            decision + timedelta(days=day + 2), 0)
+                        for day in REPORT_DAYS
+                    ] if age == 182 else []
+                    row = snapshot([app], features, reports, date.max)[0]
+                    expected = ((0, "observed_nondefault") if age == 182
+                                else (None, "not_mature"))
+                    if (row.label, row.status) != expected:
+                        raise ValueError(f"Installed snapshot changed maturity at age {age}")
+                for invalid in (None, "2025-01-01", datetime(2025, 1, 1)):
+                    try:
+                        snapshot([], [], [], invalid)
+                    except DataContractError:
+                        pass
+                    else:
+                        raise ValueError("Installed snapshot accepted a non-date cutoff")
+                print(json.dumps({"status": "verified", "cases": 6}))
+            """),
+        )
+        calendar_boundaries = json.loads(calendar_probe.stdout)
         run(str(python), "-I", "-m", "creditvintage", "--help")
         starter = command("init-inputs", "--out", "editable-inputs")
         diagnosed = command("check-inputs", "editable-inputs")
@@ -320,8 +373,10 @@ def check(directory: Path, card_evidence: Path | None = None) -> dict[str, Any]:
         run(str(python), "-m", "pip", "check")
         return {
             "status": "verified",
+            "version": location["version"],
             "installation": "non-editable wheels; clean venv; cwd outside both source trees",
             "core_without_pitbridge": True,
+            "snapshot_calendar_boundaries": calendar_boundaries,
             "editable_csv_inputs": {
                 "status": "verified",
                 "applications": 480,
