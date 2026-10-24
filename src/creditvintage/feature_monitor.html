@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CreditVintage | decision-time input distributions</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, sans-serif; color: #17304c; }
+    body { margin: 0; background: #f4f7fb; line-height: 1.6; }
+    main { max-width: 1040px; margin: 3rem auto; padding: clamp(1.2rem, 4vw, 3rem); background: white; border: 1px solid #dce6ef; border-radius: 20px; }
+    .eyebrow { color: #176d81; text-transform: uppercase; letter-spacing: .12em; font-size: .8rem; font-weight: 700; }
+    h1 { font-size: clamp(2rem, 5vw, 3.6rem); line-height: 1.12; max-width: 820px; margin: .7rem 0 1.2rem; }
+    h2 { margin-top: 2.2rem; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin: 1.8rem 0; }
+    .card { background: #edf5f8; padding: 1rem 1.3rem; border-radius: 12px; }
+    .card strong { display: block; font-size: 2.1rem; color: #12647a; }
+    .note { border-left: 4px solid #ca9140; padding-left: 1rem; }
+    .table-wrap { overflow-x: auto; }
+    .scroll-hint { display: none; }
+    table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+    th, td { text-align: left; padding: .8rem .65rem; border-bottom: 1px solid #e0e8ef; white-space: nowrap; }
+    thead { background: #f4f7fb; }
+    a { color: #12647a; }
+    code { background: #edf2f7; padding: .1rem .3rem; border-radius: 4px; }
+    footer { border-top: 1px solid #e0e8ef; margin-top: 2rem; padding-top: 1rem; }
+    @media (max-width: 700px) {
+      main { margin: 0; border: 0; border-radius: 0; }
+      .scroll-hint { display: block; color: #47657d; font-size: .85rem; }
+    }
+  </style>
+</head>
+<body><main>
+  <header><div class="eyebrow">CreditVintage / input monitoring / @@SOURCE@@</div>
+    <h1>Which inputs changed before labels matured?</h1>
+    <p>Decision-time feature distributions as of <strong>@@AS_OF@@</strong>. This comparison uses application and feature events, with no outcome file or model fitting.</p>
+  </header>
+  <div class="cards">
+    <div class="card">Reference applications<strong>@@REFERENCE@@</strong></div>
+    <div class="card">Visible current applications<strong>@@CURRENT@@</strong></div>
+    <div class="card">Current applications not yet visible<strong>@@FUTURE@@</strong></div>
+  </div>
+  <p>Reference decisions: @@REFERENCE_WINDOW@@. Current window: @@CURRENT_WINDOW@@, restricted to decisions on or before the cutoff. Every feature must have been available by its own decision date.</p>
+  <h2>Input by input</h2>
+  <p>Distances range from 0 (identical empirical distributions) to 1. KS distance is the largest absolute difference between the two empirical cumulative distributions. Total variation compares the two segment proportions. Means retain source units; <code>principal_cents</code> is in cents.</p>
+  <p class="scroll-hint">Swipe or scroll the tables horizontally to see every column.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th scope="col">Input</th><th scope="col">Distance</th><th scope="col">Measure</th><th scope="col">Reference mean</th><th scope="col">Current mean</th></tr></thead>
+    <tbody>@@FEATURE_ROWS@@</tbody>
+  </table></div>
+  <h2>By current origination month</h2>
+  <p>Every month uses the same full reference population. Months with fewer than 20 applications have no distance estimate.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th scope="col">Vintage</th><th scope="col">Applications</th><th scope="col">Utilization</th><th scope="col">Debt / income</th><th scope="col">Prior delinquencies</th><th scope="col">Principal</th><th scope="col">Segment</th></tr></thead>
+    <tbody>@@MONTHLY_ROWS@@</tbody>
+  </table></div>
+  <p class="note">These are marginal distribution distances, not statistical significance, model deterioration, default rates or an automatic decision rule. They do not detect every joint-distribution change. Missing decision-time features fail validation rather than being filled with zero; missing-rate trends are a separate, unimplemented check.</p>
+  <footer>
+    <p>Inspect the <a href="distributions.csv">cumulative counts and category counts</a>, <a href="reference_features.csv">reference snapshots</a>, <a href="current_features.csv">current snapshots</a>, <a href="monitor.json">method and results</a>, <a href="inputs.json">normalized input events</a>, and <a href="manifest.json">file hashes</a>.</p>
+    <p>Rebuild every snapshot and result with <code>creditvintage verify-feature-monitor DIRECTORY</code>. Replay checks internal consistency; it does not authenticate the source events. <a href="https://github.com/dev-belly/CreditVintage/blob/main/docs/FEATURE_MONITORING.md">Method and input contract</a>.</p>
+  </footer>
+</main></body>
+</html>

@@ -234,6 +234,23 @@ and a hosted multi-user service would need identity, authorization and attachmen
 
 ## Before outcomes mature: score monitoring
 
+To inspect **which inputs changed** before fitting a model, use the separate
+v0.5.0 feature monitor:
+
+```bash
+creditvintage monitor-features --as-of 2024-10-01 --out outputs/input-distributions
+creditvintage verify-feature-monitor outputs/input-distributions
+```
+
+It compares the three decision-time features, principal in cents and segment
+composition with the calibration-window population. It needs no outcome file,
+including historical outcomes. Numeric inputs use empirical KS distance and the
+two segments use total variation; these are descriptive distances, without
+significance tests or automatic thresholds. Monthly samples below 20 are marked
+insufficient. The [method and two-CSV workflow](docs/FEATURE_MONITORING.md) explain
+retained input events, replay, strict missing-feature handling and limits.
+[Open the generated synthetic report](https://dev-belly.github.io/CreditVintage/feature-monitor/).
+
 The separate `monitor` command freezes the same train and calibration stages,
 then scores only applications visible by a chosen cutoff. It needs **no
 performance reports from the current cohort**. Its raw-score population
@@ -286,19 +303,19 @@ monitor files private.
 
 ## Run and verify
 
-Version **0.4.1** distributions are published under [GitHub Releases](https://github.com/dev-belly/CreditVintage/releases/tag/v0.4.1)
+Version **0.5.0** distributions are published under [GitHub Releases](https://github.com/dev-belly/CreditVintage/releases/tag/v0.5.0)
 only after all main CI jobs pass. The downloadable wheel is the same artifact
 that passed clean installation and complete offline refitting. Each release
 includes its source archive, installed-check evidence, commit/version manifest
 and SHA-256 checksums. Existing version tags are preserved; changes require a
 version bump. Install the wheel into a Python 3.12+ virtual environment, then
 use the commands above without cloning this repository. The
-[upgrade notes](docs/releases/v0.4.1.md) give the exact wheel URL and a short
+[upgrade notes](docs/releases/v0.5.0.md) give the exact wheel URL and a short
 installation check. Existing commands, inputs and model protocols remain
-compatible. This patch avoids date overflow when checking an immature snapshot
-near the calendar's upper bound and enforces the Python API's calendar-date cutoff.
-The 180-day outcome horizon, two-day reporting lag and numerical dependency pins
-are unchanged; `preflight --as-of` retains the optional monitoring check.
+compatible. This version adds model-free feature-distribution monitoring and its
+event-level replay. Earlier score-monitor reports and the snapshot calendar-boundary
+fix from v0.4.1 retain their contracts. The new commands require v0.5.0 or its source;
+older wheels do not include them.
 
 For the current `main` source, use Python 3.12+ and Git. Start in a new parent
 directory and obtain the repository:

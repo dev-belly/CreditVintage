@@ -213,6 +213,18 @@ monitor intentionally fits the historical model. This is a local demonstration,
 not evidence of an independent user's trial.
 
 Omit `--as-of` to retain the original complete mature-evaluation preflight.
+
+From v0.5.0, [model-free feature monitoring](FEATURE_MONITORING.md) is another
+option when the task is to inspect input distributions. It reads only
+`applications.csv` and `features.csv`, so neither historical nor current outcome
+records are needed. It keeps the same strict decision-time feature contract;
+missing-feature rates are not estimated by dropping incomplete applications.
+
+```text
+creditvintage monitor-features --applications applications.csv --features features.csv --config cohorts.json --as-of 2024-10-01 --out outputs/input-distributions
+creditvintage verify-feature-monitor outputs/input-distributions
+```
+
 Keep application-level inputs, preflight output and exported private reports
 within the appropriate access boundary.
 
