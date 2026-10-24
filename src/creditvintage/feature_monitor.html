@@ -16,13 +16,17 @@
     .card strong { display: block; font-size: 2.1rem; color: #12647a; }
     .note { border-left: 4px solid #ca9140; padding-left: 1rem; }
     .table-wrap { overflow-x: auto; }
+    .scroll-hint { display: none; }
     table { border-collapse: collapse; width: 100%; font-size: .92rem; }
     th, td { text-align: left; padding: .8rem .65rem; border-bottom: 1px solid #e0e8ef; white-space: nowrap; }
     thead { background: #f4f7fb; }
     a { color: #12647a; }
     code { background: #edf2f7; padding: .1rem .3rem; border-radius: 4px; }
     footer { border-top: 1px solid #e0e8ef; margin-top: 2rem; padding-top: 1rem; }
-    @media (max-width: 700px) { main { margin: 0; border: 0; border-radius: 0; } }
+    @media (max-width: 700px) {
+      main { margin: 0; border: 0; border-radius: 0; }
+      .scroll-hint { display: block; color: #47657d; font-size: .85rem; }
+    }
   </style>
 </head>
 <body><main>
@@ -38,8 +42,9 @@
   <p>Reference decisions: @@REFERENCE_WINDOW@@. Current window: @@CURRENT_WINDOW@@, restricted to decisions on or before the cutoff. Every feature must have been available by its own decision date.</p>
   <h2>Input by input</h2>
   <p>Distances range from 0 (identical empirical distributions) to 1. KS distance is the largest absolute difference between the two empirical cumulative distributions. Total variation compares the two segment proportions. Means retain source units; <code>principal_cents</code> is in cents.</p>
+  <p class="scroll-hint">Swipe or scroll the tables horizontally to see every column.</p>
   <div class="table-wrap"><table>
-    <thead><tr><th scope="col">Input</th><th scope="col">Measure</th><th scope="col">Distance</th><th scope="col">Reference mean</th><th scope="col">Current mean</th></tr></thead>
+    <thead><tr><th scope="col">Input</th><th scope="col">Distance</th><th scope="col">Measure</th><th scope="col">Reference mean</th><th scope="col">Current mean</th></tr></thead>
     <tbody>@@FEATURE_ROWS@@</tbody>
   </table></div>
   <h2>By current origination month</h2>

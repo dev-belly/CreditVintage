@@ -266,10 +266,10 @@ def _render(result: FeatureMonitorResult) -> str:
     summary = result.summary
     feature_rows = "\n".join(
         f"<tr><th scope='row'>{html.escape(item['feature'])}</th>"
+        f"<td><strong>{item['distance']:.3f}</strong></td>"
         "<td>"
         + ("KS distance" if item["method"] == "empirical_ks_distance" else "Total variation")
         + "</td>"
-        f"<td><strong>{item['distance']:.3f}</strong></td>"
         f"<td>{item['reference'].get('mean', '—')}</td>"
         f"<td>{item['current'].get('mean', '—')}</td></tr>"
         for item in summary["features"]
