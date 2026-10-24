@@ -190,31 +190,30 @@ def snapshot(
     return rows
 
 
-def load_csv_bundle(
-    applications_path: Path, features_path: Path, performance_path: Path
-) -> tuple[list[Application], list[FeatureEvent], list[PerformanceEvent]]:
-    """Read the documented three-file contract without silently filling gaps."""
-
-    def read(path: Path, columns: set[str]) -> list[dict[str, str]]:
-        with path.open(newline="", encoding="utf-8") as handle:
-            reader = csv.DictReader(handle, strict=True)
-            try:
-                if (
-                    reader.fieldnames is None
-                    or len(reader.fieldnames) != len(columns)
-                    or set(reader.fieldnames) != columns
-                ):
-                    raise DataContractError(f"Unexpected CSV columns: {path.name}")
-                rows = list(reader)
-            except csv.Error as exc:
-                raise DataContractError(
-                    f"Malformed CSV quoting in {path.name} at line {reader.reader.line_num}: {exc}"
-                ) from exc
-            if any(
-                set(row) != columns or any(value is None for value in row.values()) for row in rows
+def _read_input_csv(path: Path, columns: set[str]) -> list[dict[str, str]]:
+    with path.open(newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle, strict=True)
+        try:
+            if (
+                reader.fieldnames is None
+                or len(reader.fieldnames) != len(columns)
+                or set(reader.fieldnames) != columns
             ):
-                raise DataContractError(f"Malformed CSV row: {path.name}")
-            return rows
+                raise DataContractError(f"Unexpected CSV columns: {path.name}")
+            rows = list(reader)
+        except csv.Error as exc:
+            raise DataContractError(
+                f"Malformed CSV quoting in {path.name} at line {reader.reader.line_num}: {exc}"
+            ) from exc
+        if any(set(row) != columns or any(value is None for value in row.values()) for row in rows):
+            raise DataContractError(f"Malformed CSV row: {path.name}")
+        return rows
+
+
+def load_feature_csvs(
+    applications_path: Path, features_path: Path
+) -> tuple[list[Application], list[FeatureEvent]]:
+    """Read application/feature events without opening an outcome file."""
 
     try:
         apps = [
@@ -224,7 +223,7 @@ def load_csv_bundle(
                 int(row["principal_cents"]),
                 row["segment"],  # type: ignore[arg-type]
             )
-            for row in read(
+            for row in _read_input_csv(
                 applications_path,
                 {"application_id", "decision_at", "principal_cents", "segment"},
             )
@@ -237,11 +236,22 @@ def load_csv_bundle(
                 parse_calendar_date(row["observed_at"], f"{features_path.name} observed_at"),
                 parse_calendar_date(row["available_at"], f"{features_path.name} available_at"),
             )
-            for row in read(
+            for row in _read_input_csv(
                 features_path,
                 {"application_id", "name", "value", "observed_at", "available_at"},
             )
         ]
+    except (ValueError, TypeError, KeyError) as exc:
+        raise DataContractError(f"Invalid CSV value: {exc}") from exc
+    return apps, feats
+
+
+def load_csv_bundle(
+    applications_path: Path, features_path: Path, performance_path: Path
+) -> tuple[list[Application], list[FeatureEvent], list[PerformanceEvent]]:
+    """Read the documented three-file contract without silently filling gaps."""
+    apps, feats = load_feature_csvs(applications_path, features_path)
+    try:
         reports = [
             PerformanceEvent(
                 row["application_id"],
@@ -249,7 +259,7 @@ def load_csv_bundle(
                 parse_calendar_date(row["available_at"], f"{performance_path.name} available_at"),
                 int(row["days_past_due"]),
             )
-            for row in read(
+            for row in _read_input_csv(
                 performance_path,
                 {"application_id", "as_of", "available_at", "days_past_due"},
             )

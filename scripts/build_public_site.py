@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import shutil
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,11 @@ from creditvintage.artifacts import verify_result
 from creditvintage.benchmark import benchmark, verify_benchmark, write_benchmark
 from creditvintage.business import verify_analysis, write_analysis
 from creditvintage.card_credit import verify_card_benchmark, write_card_benchmark
+from creditvintage.feature_monitoring import (
+    monitor_features,
+    verify_feature_monitor,
+    write_feature_monitor,
+)
 from creditvintage.lineage import verify_lineage, write_demo
 from creditvintage.monitoring import verify_monitor
 from creditvintage.public_credit import verify_public_benchmark, write_public_benchmark
@@ -26,6 +32,12 @@ def build(destination: Path) -> dict[str, Any]:
     (destination / ".nojekyll").touch()
     verify_result(destination / "demo")
     verify_monitor(destination / "monitor")
+    applications, features, _ = generate()
+    write_feature_monitor(
+        monitor_features(applications, features, date(2024, 10, 1), data_kind="synthetic"),
+        destination / "feature-monitor",
+    )
+    feature_monitor = verify_feature_monitor(destination / "feature-monitor")
     write_analysis(destination / "demo", destination / "analysis")
     analysis = verify_analysis(destination / "analysis")
     summary = write_demo(destination / "lineage")
@@ -45,6 +57,7 @@ def build(destination: Path) -> dict[str, Any]:
         "benchmark": comparison,
         "public_credit": public_credit,
         "card_credit": card_credit,
+        "feature_monitor": feature_monitor,
     }
 
 

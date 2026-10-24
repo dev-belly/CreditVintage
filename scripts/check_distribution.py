@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import os
 import shutil
@@ -279,6 +280,50 @@ def check(directory: Path, card_evidence: Path | None = None) -> dict[str, Any]:
         )
         if command("verify-monitor", "unlabelled-monitor")["loans"] != 80:
             raise ValueError("Installed monitor and preflight population counts disagree")
+        # No outcome file exists during this installed two-table workflow.
+        unavailable = pending_root / "outcomes-not-loaded.csv"
+        performance_path.rename(unavailable)
+        try:
+            command(
+                "monitor-features",
+                "--applications",
+                "monitor-inputs/applications.csv",
+                "--features",
+                "monitor-inputs/features.csv",
+                "--config",
+                "monitor-inputs/cohorts.json",
+                "--as-of",
+                "2024-10-01",
+                "--out",
+                "feature-monitor",
+            )
+            feature_monitor = command("verify-feature-monitor", "feature-monitor")
+        finally:
+            unavailable.rename(performance_path)
+        if (
+            feature_monitor["reference_applications"] != 120
+            or feature_monitor["current_applications"] != 80
+            or feature_monitor["monitored_inputs"] != 5
+            or feature_monitor["model_fitted"] is not False
+        ):
+            raise ValueError("Installed feature monitoring lost label-free population counts")
+        feature_root = work / "feature-monitor"
+        feature_inputs = json.loads((feature_root / "inputs.json").read_text(encoding="utf-8"))
+        if "performance" in feature_inputs:
+            raise ValueError("Feature-monitor evidence unexpectedly contains outcomes")
+        summary_path = feature_root / "monitor.json"
+        false_summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        false_summary["features"][0]["distance"] += 0.1
+        summary_path.write_text(json.dumps(false_summary), encoding="utf-8")
+        manifest_path = feature_root / "manifest.json"
+        false_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        false_manifest["files_sha256"]["monitor.json"] = hashlib.sha256(
+            summary_path.read_bytes()
+        ).hexdigest()
+        manifest_path.write_text(json.dumps(false_manifest), encoding="utf-8")
+        rejected_feature_report = command("verify-feature-monitor", "feature-monitor", expected=2)
+        if "event replay" not in rejected_feature_report["stderr"]:
+            raise ValueError("Installed feature replay accepted rehashed false distances")
         if input_bytes != {path.name: path.read_bytes() for path in pending_root.iterdir()}:
             raise ValueError("Preflight or monitoring changed the source input files")
         command("analyze", "evaluation", "--out", "analysis")
@@ -388,6 +433,7 @@ def check(directory: Path, card_evidence: Path | None = None) -> dict[str, Any]:
             "evaluation": evaluation,
             "custom_config_and_preflight": "verified without model fitting in preflight",
             "monitor_preflight": monitor_preflight,
+            "feature_monitor": {**feature_monitor, "rehashed_false_distance_rejected": True},
             "public_credit": public_credit,
             "card_credit": card_credit,
             "benchmark": comparison,

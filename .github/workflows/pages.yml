@@ -55,6 +55,18 @@ jobs:
         uses: actions/upload-pages-artifact@v4
         with:
           path: _site
+      - name: Capture feature-monitor desktop and mobile layouts
+        shell: bash
+        run: |
+          mkdir -p layout-preview
+          google-chrome --headless --no-sandbox --disable-dev-shm-usage --hide-scrollbars --window-size=1440,1600 --screenshot="$PWD/layout-preview/desktop.png" "file://$PWD/_site/feature-monitor/index.html"
+          google-chrome --headless --no-sandbox --disable-dev-shm-usage --hide-scrollbars --window-size=390,2400 --screenshot="$PWD/layout-preview/mobile.png" "file://$PWD/_site/feature-monitor/index.html"
+      - name: Retain feature-monitor layout previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: feature-monitor-layouts
+          path: layout-preview/*.png
+          if-no-files-found: error
 
   deploy:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'

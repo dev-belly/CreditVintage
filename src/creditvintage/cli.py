@@ -13,7 +13,17 @@ from creditvintage.benchmark import benchmark, verify_benchmark, write_benchmark
 from creditvintage.business import verify_analysis, write_analysis
 from creditvintage.card_credit import verify_card_benchmark, write_card_benchmark
 from creditvintage.configuration import load_config, preflight
-from creditvintage.core import DataContractError, load_csv_bundle, parse_calendar_date
+from creditvintage.core import (
+    DataContractError,
+    load_csv_bundle,
+    load_feature_csvs,
+    parse_calendar_date,
+)
+from creditvintage.feature_monitoring import (
+    monitor_features,
+    verify_feature_monitor,
+    write_feature_monitor,
+)
 from creditvintage.inputs import check_inputs, initialize_inputs
 from creditvintage.lineage import verify_lineage, write_demo
 from creditvintage.model import evaluate
@@ -43,7 +53,9 @@ def main(argv: list[str] | None = None) -> int:
     diagnose.add_argument("directory", type=Path)
     diagnose.add_argument("--max-issues", type=int, default=100)
 
-    def data_arguments(command: argparse.ArgumentParser, default_out: str | None) -> None:
+    def data_arguments(
+        command: argparse.ArgumentParser, default_out: str | None, *, outcomes: bool = True
+    ) -> None:
         if default_out is not None:
             command.add_argument("--out", type=Path, default=Path(default_out))
         command.add_argument("--config", type=Path, help="JSON with all seven calendar dates")
@@ -51,7 +63,8 @@ def main(argv: list[str] | None = None) -> int:
         command.add_argument("--per-vintage", type=int, default=80)
         command.add_argument("--applications", type=Path)
         command.add_argument("--features", type=Path)
-        command.add_argument("--performance", type=Path)
+        if outcomes:
+            command.add_argument("--performance", type=Path)
 
     run = commands.add_parser("run", help="Run a fixed synthetic or supplied event experiment")
     data_arguments(run, "outputs/latest")
@@ -99,6 +112,16 @@ def main(argv: list[str] | None = None) -> int:
         "verify-monitor", help="Check score-monitoring digests and recompute PSI"
     )
     check_monitor.add_argument("directory", type=Path)
+    feature_monitor = commands.add_parser(
+        "monitor-features",
+        help="Compare decision-time input distributions without labels or fitting",
+    )
+    data_arguments(feature_monitor, "outputs/feature-monitor", outcomes=False)
+    feature_monitor.add_argument("--as-of", type=_calendar_date_argument, required=True)
+    check_features = commands.add_parser(
+        "verify-feature-monitor", help="Rebuild feature-monitor evidence from retained events"
+    )
+    check_features.add_argument("directory", type=Path)
     business = commands.add_parser("analyze", help="Run verified SQL cohort and review analysis")
     business.add_argument("report", type=Path)
     business.add_argument("--out", type=Path, default=Path("outputs/analysis"))
@@ -214,7 +237,28 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "verify-monitor":
             print(json.dumps(verify_monitor(args.directory), indent=2))
             return 0
+        if args.command == "verify-feature-monitor":
+            print(json.dumps(verify_feature_monitor(args.directory), indent=2))
+            return 0
         config = load_config(args.config, seed=args.seed)
+        if args.command == "monitor-features":
+            supplied = (args.applications, args.features)
+            if any(path is not None for path in supplied) and not all(
+                path is not None for path in supplied
+            ):
+                raise DataContractError("Supply both application and feature CSV files together")
+            if all(path is not None for path in supplied):
+                applications, features = load_feature_csvs(*supplied)
+                data_kind = "user_supplied"
+            else:
+                applications, features, _ = generate(config.seed, args.per_vintage)
+                data_kind = "synthetic"
+            featured = monitor_features(
+                applications, features, args.as_of, config, data_kind=data_kind
+            )
+            write_feature_monitor(featured, args.out)
+            print(json.dumps({"out": str(args.out), **featured.summary}, indent=2))
+            return 0
         inputs = (args.applications, args.features, args.performance)
         if any(path is not None for path in inputs) and not all(
             path is not None for path in inputs
