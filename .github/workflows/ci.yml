@@ -76,6 +76,16 @@ jobs:
           creditvintage verify-feature-quality outputs/ci-feature-quality
       - name: Run the editable example without current outcome labels
         run: python examples/monitoring_without_outcomes.py --out outputs/ci-unlabelled-case
+      - name: Retain and replay an intentionally failed coverage policy
+        shell: bash
+        run: |
+          creditvintage init-feature-policy --out outputs/ci-policy.json
+          set +e
+          creditvintage check-feature-quality outputs/ci-feature-quality --policy outputs/ci-policy.json --out outputs/ci-feature-check
+          verdict=$?
+          set -e
+          test "$verdict" -eq 3
+          creditvintage verify-feature-check outputs/ci-feature-check
       - run: creditvintage verify docs/demo
       - run: creditvintage analyze docs/demo --out outputs/ci-analysis
       - run: creditvintage verify-analysis outputs/ci-analysis
