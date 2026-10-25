@@ -104,6 +104,39 @@ class CohortRow:
     status: str
 
 
+def _index_features(
+    applications: list[Application], features: list[FeatureEvent]
+) -> tuple[dict[str, Application], dict[tuple[str, str], list[FeatureEvent]]]:
+    """One identity/revision contract for strict snapshots and coverage diagnostics."""
+    by_id = {app.application_id: app for app in applications}
+    if len(by_id) != len(applications):
+        raise DataContractError("Duplicate application ID")
+    feature_index: dict[tuple[str, str], list[FeatureEvent]] = defaultdict(list)
+    feature_keys: set[tuple[str, str, date]] = set()
+    for feature_event in features:
+        if feature_event.application_id not in by_id:
+            raise DataContractError("Feature references unknown application")
+        key = (
+            feature_event.application_id,
+            feature_event.name,
+            feature_event.available_at,
+        )
+        if key in feature_keys:
+            raise DataContractError("Ambiguous same-day feature revision")
+        feature_keys.add(key)
+        feature_index[(feature_event.application_id, feature_event.name)].append(feature_event)
+    return by_id, feature_index
+
+
+def _decision_feature(events: list[FeatureEvent], decision_at: date) -> FeatureEvent | None:
+    candidates = [
+        event
+        for event in events
+        if event.available_at <= decision_at and event.observed_at <= decision_at
+    ]
+    return max(candidates, key=lambda event: event.available_at) if candidates else None
+
+
 def snapshot(
     applications: list[Application],
     features: list[FeatureEvent],
@@ -118,25 +151,9 @@ def snapshot(
     """
     if type(as_of) is not date:
         raise DataContractError("Snapshot cutoff must be a calendar date")
-    by_id = {app.application_id: app for app in applications}
-    if len(by_id) != len(applications):
-        raise DataContractError("Duplicate application ID")
-    feature_index: dict[tuple[str, str], list[FeatureEvent]] = defaultdict(list)
+    by_id, feature_index = _index_features(applications, features)
     report_index: dict[str, list[PerformanceEvent]] = defaultdict(list)
-    feature_keys: set[tuple[str, str, date]] = set()
     report_keys: set[tuple[str, date, date]] = set()
-    for feature_event in features:
-        if feature_event.application_id not in by_id:
-            raise DataContractError("Feature references unknown application")
-        key = (
-            feature_event.application_id,
-            feature_event.name,
-            feature_event.available_at,
-        )
-        if key in feature_keys:
-            raise DataContractError("Ambiguous same-day feature revision")
-        feature_keys.add(key)
-        feature_index[(feature_event.application_id, feature_event.name)].append(feature_event)
     for report_event in performance:
         app = by_id.get(report_event.application_id)
         if app is None or report_event.as_of <= app.decision_at:
@@ -157,14 +174,12 @@ def snapshot(
             continue
         values: list[float] = []
         for name in FEATURE_NAMES:
-            candidates = [
-                event
-                for event in feature_index[(app.application_id, name)]
-                if event.available_at <= app.decision_at and event.observed_at <= app.decision_at
-            ]
-            if not candidates:
+            selected = _decision_feature(
+                feature_index.get((app.application_id, name), []), app.decision_at
+            )
+            if selected is None:
                 raise DataContractError(f"Missing decision-time {name}: {app.application_id}")
-            values.append(max(candidates, key=lambda event: event.available_at).value)
+            values.append(selected.value)
 
         label: int | None = None
         status = "not_mature"

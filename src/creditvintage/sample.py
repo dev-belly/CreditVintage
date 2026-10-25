@@ -85,3 +85,42 @@ def generate(
                     PerformanceEvent(app_id, report_day, report_day + timedelta(days=2), dpd)
                 )
     return applications, features, reports
+
+
+def generate_feature_quality(
+    seed: int = 20260927,
+    per_vintage: int = 80,
+) -> tuple[list[Application], list[FeatureEvent]]:
+    """Four deliberately unavailable July slots; no outcome records are returned."""
+    applications, features, _ = generate(seed, per_vintage)
+    cases = {
+        ("CV202407-0000", "utilization"): "absent",
+        ("CV202407-0001", "debt_to_income"): "late",
+        ("CV202407-0002", "prior_delinquencies"): "after_decision",
+        ("CV202407-0003", "utilization"): "after_cutoff",
+    }
+    originals: dict[tuple[str, str], FeatureEvent] = {}
+    retained = []
+    for event in features:
+        key = (event.application_id, event.name)
+        if key in cases:
+            originals.setdefault(key, event)
+        else:
+            retained.append(event)
+    for key, kind in cases.items():
+        original = originals[key]
+        if kind == "absent":
+            continue
+        decision = date(2024, 7, 1)
+        observed = (
+            decision + timedelta(days=1)
+            if kind == "after_decision"
+            else decision - timedelta(days=5)
+        )
+        available = {
+            "late": date(2024, 7, 4),
+            "after_decision": date(2024, 7, 3),
+            "after_cutoff": date(2024, 10, 2),
+        }[kind]
+        retained.append(FeatureEvent(key[0], key[1], original.value, observed, available))
+    return applications, retained

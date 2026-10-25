@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import html
-import json
 import math
 from bisect import bisect_right
-from dataclasses import asdict, dataclass, fields
+from dataclasses import dataclass
 from datetime import date
 from importlib.resources import files
 from pathlib import Path
@@ -14,16 +13,15 @@ from tempfile import TemporaryDirectory
 from typing import Any
 
 from creditvintage.artifacts import _csv, _hash, _json
-from creditvintage.configuration import DATE_FIELDS
 from creditvintage.core import (
     FEATURE_NAMES,
     Application,
     CohortRow,
     DataContractError,
     FeatureEvent,
-    parse_calendar_date,
     snapshot,
 )
+from creditvintage.feature_inputs import decode_inputs, encode_inputs
 from creditvintage.model import Config, _digest
 from creditvintage.validation import read_json_object
 
@@ -213,26 +211,8 @@ def monitor_features(
     current_window = [
         app for app in applications if config.test_start <= app.decision_at <= config.test_end
     ]
-    inputs = json.loads(
-        json.dumps(
-            {
-                "schema": SCHEMA,
-                "data_kind": data_kind,
-                "as_of": as_of,
-                "config": asdict(config),
-                "applications": [
-                    asdict(row) for row in sorted(applications, key=lambda row: row.application_id)
-                ],
-                "features": [
-                    asdict(row)
-                    for row in sorted(
-                        features, key=lambda row: (row.application_id, row.name, row.available_at)
-                    )
-                ],
-            },
-            default=str,
-            allow_nan=False,
-        )
+    inputs = encode_inputs(
+        applications, features, as_of, config, schema=SCHEMA, data_kind=data_kind
     )
     summary = {
         "schema": SCHEMA,
@@ -339,38 +319,8 @@ def write_feature_monitor(result: FeatureMonitorResult, destination: Path) -> di
 
 
 def _replay(source: dict[str, Any]) -> FeatureMonitorResult:
-    if set(source) != {"schema", "data_kind", "as_of", "config", "applications", "features"}:
-        raise DataContractError("Unexpected feature-monitor input fields")
-    if source["schema"] != SCHEMA or not isinstance(source["config"], dict):
-        raise DataContractError("Unexpected feature-monitor input schema")
-    config = dict(source["config"])
-    if set(config) != {item.name for item in fields(Config)}:
-        raise DataContractError("Unexpected feature-monitor config fields")
-    for name in DATE_FIELDS:
-        config[name] = parse_calendar_date(config[name], name)
-    for name in ("applications", "features"):
-        if not isinstance(source[name], list) or any(
-            not isinstance(row, dict) for row in source[name]
-        ):
-            raise DataContractError(f"Expected feature-monitor {name} records")
-    applications = []
-    for original in source["applications"]:
-        row = dict(original)
-        row["decision_at"] = parse_calendar_date(row["decision_at"], "decision_at")
-        applications.append(Application(**row))
-    features = []
-    for original in source["features"]:
-        row = dict(original)
-        for name in ("observed_at", "available_at"):
-            row[name] = parse_calendar_date(row[name], name)
-        features.append(FeatureEvent(**row))
-    return monitor_features(
-        applications,
-        features,
-        parse_calendar_date(source["as_of"], "as_of"),
-        Config(**config),
-        data_kind=source["data_kind"],
-    )
+    applications, features, as_of, config, data_kind = decode_inputs(source, schema=SCHEMA)
+    return monitor_features(applications, features, as_of, config, data_kind=data_kind)
 
 
 def verify_feature_monitor(destination: Path) -> dict[str, Any]:

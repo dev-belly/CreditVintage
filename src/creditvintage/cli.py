@@ -24,6 +24,11 @@ from creditvintage.feature_monitoring import (
     verify_feature_monitor,
     write_feature_monitor,
 )
+from creditvintage.feature_quality import (
+    monitor_feature_quality,
+    verify_feature_quality,
+    write_feature_quality,
+)
 from creditvintage.inputs import check_inputs, initialize_inputs
 from creditvintage.lineage import verify_lineage, write_demo
 from creditvintage.model import evaluate
@@ -31,7 +36,7 @@ from creditvintage.monitoring import monitor, preflight_monitor, verify_monitor,
 from creditvintage.public_credit import verify_public_benchmark, write_public_benchmark
 from creditvintage.review_bundle import export_reviews, verify_review_bundle
 from creditvintage.reviews import initialize_reviews, record_review, review_status
-from creditvintage.sample import generate
+from creditvintage.sample import generate, generate_feature_quality
 
 
 def _calendar_date_argument(value: str) -> date:
@@ -122,6 +127,15 @@ def main(argv: list[str] | None = None) -> int:
         "verify-feature-monitor", help="Rebuild feature-monitor evidence from retained events"
     )
     check_features.add_argument("directory", type=Path)
+    feature_quality = commands.add_parser(
+        "monitor-feature-quality", help="Diagnose decision-time feature gaps and visible delays"
+    )
+    data_arguments(feature_quality, "outputs/feature-quality", outcomes=False)
+    feature_quality.add_argument("--as-of", type=_calendar_date_argument, required=True)
+    check_quality = commands.add_parser(
+        "verify-feature-quality", help="Replay feature-coverage diagnostics from input events"
+    )
+    check_quality.add_argument("directory", type=Path)
     business = commands.add_parser("analyze", help="Run verified SQL cohort and review analysis")
     business.add_argument("report", type=Path)
     business.add_argument("--out", type=Path, default=Path("outputs/analysis"))
@@ -240,8 +254,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "verify-feature-monitor":
             print(json.dumps(verify_feature_monitor(args.directory), indent=2))
             return 0
+        if args.command == "verify-feature-quality":
+            print(json.dumps(verify_feature_quality(args.directory), indent=2))
+            return 0
         config = load_config(args.config, seed=args.seed)
-        if args.command == "monitor-features":
+        if args.command in {"monitor-features", "monitor-feature-quality"}:
             supplied = (args.applications, args.features)
             if any(path is not None for path in supplied) and not all(
                 path is not None for path in supplied
@@ -251,8 +268,18 @@ def main(argv: list[str] | None = None) -> int:
                 applications, features = load_feature_csvs(*supplied)
                 data_kind = "user_supplied"
             else:
-                applications, features, _ = generate(config.seed, args.per_vintage)
+                if args.command == "monitor-feature-quality":
+                    applications, features = generate_feature_quality(config.seed, args.per_vintage)
+                else:
+                    applications, features, _ = generate(config.seed, args.per_vintage)
                 data_kind = "synthetic"
+            if args.command == "monitor-feature-quality":
+                quality = monitor_feature_quality(
+                    applications, features, args.as_of, config, data_kind=data_kind
+                )
+                write_feature_quality(quality, args.out)
+                print(json.dumps({"out": str(args.out), **quality.summary}, indent=2))
+                return 0
             featured = monitor_features(
                 applications, features, args.as_of, config, data_kind=data_kind
             )

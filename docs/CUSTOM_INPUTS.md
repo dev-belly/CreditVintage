@@ -228,3 +228,9 @@ creditvintage verify-feature-monitor outputs/input-distributions
 Keep application-level inputs, preflight output and exported private reports
 within the appropriate access boundary.
 
+For valid event records with absent or late decision-time features, v0.6.0 adds
+[feature-coverage diagnostics](FEATURE_QUALITY.md). It accepts only the application
+and feature CSV paths and retains each expected slot instead of discarding the
+incomplete application. It diagnoses coverage and visible timing; it does not
+relax the existing scoring/distribution gates or accept malformed feature values.
+

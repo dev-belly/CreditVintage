@@ -67,6 +67,18 @@ jobs:
           name: feature-monitor-layouts
           path: layout-preview/*.png
           if-no-files-found: error
+      - name: Capture feature-quality layouts
+        shell: bash
+        run: |
+          mkdir -p quality-layout
+          google-chrome --headless --no-sandbox --disable-dev-shm-usage --hide-scrollbars --window-size=1440,2600 --screenshot="$PWD/quality-layout/desktop.png" "file://$PWD/_site/feature-quality/index.html"
+          google-chrome --headless --no-sandbox --disable-dev-shm-usage --hide-scrollbars --window-size=390,3800 --screenshot="$PWD/quality-layout/mobile.png" "file://$PWD/_site/feature-quality/index.html"
+      - name: Retain feature-quality previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: feature-quality-layouts
+          path: quality-layout/*.png
+          if-no-files-found: error
 
   deploy:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'

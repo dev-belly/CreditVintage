@@ -232,6 +232,25 @@ work, not captured credit events or prevented loss. This is a trusted local CLI 
 actor names are declarations, evidence references are not authenticated documents,
 and a hosted multi-user service would need identity, authorization and attachment controls.
 
+## Diagnose missing decision-time inputs before comparing distributions
+
+From v0.6.0, the two-table quality diagnostic shows **which inputs were missing
+at the decision and which delays are already visible**, without fitting or labels:
+
+```bash
+creditvintage monitor-feature-quality --as-of 2024-10-01 --out outputs/input-quality
+creditvintage verify-feature-quality outputs/input-quality
+```
+
+The generated synthetic case deliberately has four unavailable slots: it retains
+all 320 visible current applications, of which 316 have all three inputs. It
+separates known late arrivals, post-decision observations and no visible events,
+and keeps each feature's population/month denominator. Future records do not
+explain gaps before they become visible. A valid diagnostic can report incomplete
+coverage; existing scoring and distribution commands still reject missing inputs.
+[Method and two-CSV contract](docs/FEATURE_QUALITY.md) ·
+[Open coverage and timing](https://dev-belly.github.io/CreditVintage/feature-quality/).
+
 ## Before outcomes mature: score monitoring
 
 To inspect **which inputs changed** before fitting a model, use the separate
@@ -303,19 +322,19 @@ monitor files private.
 
 ## Run and verify
 
-Version **0.5.0** distributions are published under [GitHub Releases](https://github.com/dev-belly/CreditVintage/releases/tag/v0.5.0)
+Version **0.6.0** distributions are published under [GitHub Releases](https://github.com/dev-belly/CreditVintage/releases/tag/v0.6.0)
 only after all main CI jobs pass. The downloadable wheel is the same artifact
 that passed clean installation and complete offline refitting. Each release
 includes its source archive, installed-check evidence, commit/version manifest
 and SHA-256 checksums. Existing version tags are preserved; changes require a
 version bump. Install the wheel into a Python 3.12+ virtual environment, then
 use the commands above without cloning this repository. The
-[upgrade notes](docs/releases/v0.5.0.md) give the exact wheel URL and a short
+[upgrade notes](docs/releases/v0.6.0.md) give the exact wheel URL and a short
 installation check. Existing commands, inputs and model protocols remain
-compatible. This version adds model-free feature-distribution monitoring and its
-event-level replay. Earlier score-monitor reports and the snapshot calendar-boundary
-fix from v0.4.1 retain their contracts. The new commands require v0.5.0 or its source;
-older wheels do not include them.
+compatible. This version adds feature-coverage and visible-delay diagnostics.
+The original feature-distribution format from v0.5.0 remains byte-compatible;
+earlier scoring/report protocols retain their contracts. The quality commands
+require v0.6.0 or its source; older wheels do not include them.
 
 For the current `main` source, use Python 3.12+ and Git. Start in a new parent
 directory and obtain the repository:
