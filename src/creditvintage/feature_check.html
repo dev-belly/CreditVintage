@@ -18,7 +18,7 @@
 <div class="cards"><div class="card">Rules passed<strong>@@PASS@@</strong></div><div class="card">Rules failed<strong>@@FAIL@@</strong></div><div class="card">Insufficient data<strong>@@INSUFFICIENT@@</strong></div></div>
 <h2>Inspect each rule</h2>
 <p>Thresholds come from the retained policy; choose them for your task. The published example uses illustrative limits. Every configured rule remains visible. Empty or undersized populations are insufficient; they cannot pass by dropping missing cases. Swipe or scroll the table horizontally to inspect all columns.</p>
-<div class="scroll" role="region" aria-label="Coverage policy rules" tabindex="0"><table><thead><tr><th>Rule</th><th>Population</th><th>Month</th><th>Input</th><th>Available / expected</th><th>Required coverage</th><th>Minimum applications</th><th>Result</th><th>Reason</th></tr></thead><tbody>@@ROWS@@</tbody></table></div>
+<div class="scroll" role="region" aria-label="Coverage policy rules" tabindex="0"><table><thead><tr><th>Input</th><th>Available / expected</th><th>Result</th><th>Required coverage</th><th>Minimum applications</th><th>Population</th><th>Month</th><th>Rule</th><th>Reason</th></tr></thead><tbody>@@ROWS@@</tbody></table></div>
 <h2>Separate three questions</h2>
 <p><strong>Policy pass:</strong> only the named coverage and sample conditions were met. A partial policy or a tolerance below 100% can pass with incomplete data. Existing scoring and distribution commands still require every decision-time input.</p>
 <p><strong>Verified evidence:</strong> events, policy, counts and files rebuild consistently. A verified bundle can contain a failed policy. Its verifier returns the policy result separately.</p>

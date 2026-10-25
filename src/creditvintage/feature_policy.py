@@ -227,14 +227,14 @@ def _render(result: FeatureCheckResult) -> str:
         + "".join(
             f"<td>{html.escape(str(value))}</td>"
             for value in (
-                row["id"],
-                row["population"],
-                row["vintage"],
                 row["feature"],
                 f"{row['available']}/{row['applications']}",
+                row["status"],
                 row["min_coverage"],
                 row["min_applications"],
-                row["status"],
+                row["population"],
+                row["vintage"],
+                row["id"],
                 row["reason"],
             )
         )
