@@ -251,6 +251,23 @@ coverage; existing scoring and distribution commands still reject missing inputs
 [Method and two-CSV contract](docs/FEATURE_QUALITY.md) ·
 [Open coverage and timing](https://dev-belly.github.io/CreditVintage/feature-quality/).
 
+From v0.7.0, check that diagnostic against **your explicit coverage conditions**:
+
+```text
+creditvintage init-feature-policy --out coverage-policy.json
+creditvintage check-feature-quality outputs/input-quality --policy coverage-policy.json --out outputs/input-check
+creditvintage verify-feature-check outputs/input-check
+```
+
+The example check deliberately returns **3**, with three full-coverage rules
+failed; run verification separately. It verifies with `policy_status: fail`
+because events, rules and verdict agree. Edit overall/monthly rules for your task.
+Empty/small groups are insufficient; exact counts decide conditions, not rounded
+rates. Policy pass covers only named rules; scoring still requires complete
+inputs. Independently saved policy digests can pin approved rules in verification.
+[Policy contract and exit codes](docs/FEATURE_POLICY.md) ·
+[Inspect the failed example](https://dev-belly.github.io/CreditVintage/feature-check/).
+
 ## Before outcomes mature: score monitoring
 
 To inspect **which inputs changed** before fitting a model, use the separate
@@ -322,19 +339,20 @@ monitor files private.
 
 ## Run and verify
 
-Version **0.6.0** distributions are published under [GitHub Releases](https://github.com/dev-belly/CreditVintage/releases/tag/v0.6.0)
+Version **0.7.0** distributions are published under [GitHub Releases](https://github.com/dev-belly/CreditVintage/releases/tag/v0.7.0)
 only after all main CI jobs pass. The downloadable wheel is the same artifact
 that passed clean installation and complete offline refitting. Each release
 includes its source archive, installed-check evidence, commit/version manifest
 and SHA-256 checksums. Existing version tags are preserved; changes require a
 version bump. Install the wheel into a Python 3.12+ virtual environment, then
 use the commands above without cloning this repository. The
-[upgrade notes](docs/releases/v0.6.0.md) give the exact wheel URL and a short
+[upgrade notes](docs/releases/v0.7.0.md) give the exact wheel URL and a short
 installation check. Existing commands, inputs and model protocols remain
-compatible. This version adds feature-coverage and visible-delay diagnostics.
+compatible. This version adds explicit coverage-policy checks and retained rule evidence.
 The original feature-distribution format from v0.5.0 remains byte-compatible;
 earlier scoring/report protocols retain their contracts. The quality commands
-require v0.6.0 or its source; older wheels do not include them.
+require v0.6.0 or its source; policy commands require v0.7.0. Older wheels retain
+their documented capabilities.
 
 For the current `main` source, use Python 3.12+ and Git. Start in a new parent
 directory and obtain the repository:

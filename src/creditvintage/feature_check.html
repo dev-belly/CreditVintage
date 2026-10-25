@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CreditVintage · Feature coverage policy</title>
+<style>
+:root{color-scheme:light;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#19364d;background:#f3f6fa;line-height:1.6}
+*{box-sizing:border-box}body{margin:0;padding:48px 24px}main{max-width:1180px;margin:auto;background:white;border:1px solid #dce6ee;border-radius:20px;padding:44px}
+.eyebrow{font-size:12px;font-weight:750;letter-spacing:.12em;color:#14768b;text-transform:uppercase}h1{font-size:clamp(30px,4vw,48px);line-height:1.14;letter-spacing:-.035em;max-width:850px;margin:16px 0 24px}h2{font-size:24px;margin:34px 0 12px}
+.intro{max-width:850px}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:26px 0}.card{padding:18px;background:#eef5f7;border-radius:12px}.card strong{display:block;font-size:32px;color:#116b80}.verdict{padding:18px 22px;border-left:4px solid #cf9436;background:#fff8ec}.verdict strong{font-size:22px}
+.scroll{overflow-x:auto;margin:18px 0}table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}th,td{text-align:left;border-bottom:1px solid #e1e9f0;padding:11px 10px}th{background:#f3f6fa}a{color:#126f88}code{background:#f3f6fa;padding:2px 5px;overflow-wrap:anywhere}.hash{font-size:13px;overflow-wrap:anywhere}.note{border-top:1px solid #dce6ee;padding-top:20px;color:#40566b}footer{margin-top:30px;font-size:14px}
+@media(max-width:640px){body{padding:0}main{border:0;border-radius:0;padding:24px 18px}.cards{gap:8px}.card{padding:12px}.card strong{font-size:26px}table{font-size:12px}}
+</style>
+<main>
+<div class="eyebrow">CreditVintage / explicit coverage policy / @@KIND@@</div>
+<h1>Does this batch meet the rules you specified?</h1>
+<p class="intro">Decision-time feature coverage known as of <strong>@@CUTOFF@@</strong>, checked against a retained policy. Conditions use exact available / expected counts. Report rates rounded for display never decide pass or fail.</p>
+<div class="verdict">Overall policy result: <strong>@@STATUS@@</strong></div>
+<div class="cards"><div class="card">Rules passed<strong>@@PASS@@</strong></div><div class="card">Rules failed<strong>@@FAIL@@</strong></div><div class="card">Insufficient data<strong>@@INSUFFICIENT@@</strong></div></div>
+<h2>Inspect each rule</h2>
+<p>Thresholds come from the retained policy; choose them for your task. The published example uses illustrative limits. Every configured rule remains visible. Empty or undersized populations are insufficient; they cannot pass by dropping missing cases. Swipe or scroll the table horizontally to inspect all columns.</p>
+<div class="scroll" role="region" aria-label="Coverage policy rules" tabindex="0"><table><thead><tr><th>Input</th><th>Available / expected</th><th>Result</th><th>Required coverage</th><th>Minimum applications</th><th>Population</th><th>Month</th><th>Rule</th><th>Reason</th></tr></thead><tbody>@@ROWS@@</tbody></table></div>
+<h2>Separate three questions</h2>
+<p><strong>Policy pass:</strong> only the named coverage and sample conditions were met. A partial policy or a tolerance below 100% can pass with incomplete data. Existing scoring and distribution commands still require every decision-time input.</p>
+<p><strong>Verified evidence:</strong> events, policy, counts and files rebuild consistently. A verified bundle can contain a failed policy. Its verifier returns the policy result separately.</p>
+<p><strong>Trusted policy and sources:</strong> keep the expected policy digest outside this bundle and supply it when verifying. That pins the policy; it does not authenticate data sources or certify credit-risk quality.</p>
+<p class="hash">Canonical policy SHA-256: <code>@@POLICY@@</code></p>
+<p class="note">No outcomes, model fitting, automatic notifications or changes to scoring rules. Any failed rule makes the overall result fail; otherwise any insufficient rule makes it insufficient. The check command returns 0 only for pass, 3 for failed/insufficient rules, and 2 for invalid inputs or inconsistent evidence.</p>
+<footer><a href="policy.json">Retained policy</a> · <a href="check.json">Result JSON</a> · <a href="checks.csv">All checks CSV</a> · <a href="quality/index.html">Source coverage and timing</a> · <a href="manifest.json">File manifest</a><p>Replay with <code>creditvintage verify-feature-check DIRECTORY</code>. See the <a href="https://github.com/dev-belly/CreditVintage/blob/main/docs/FEATURE_POLICY.md">method and full command contract</a>.</p></footer>
+</main>
+</html>

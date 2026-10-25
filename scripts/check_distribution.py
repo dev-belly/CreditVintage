@@ -340,6 +340,83 @@ def check(directory: Path, card_evidence: Path | None = None) -> dict[str, Any]:
                 raise ValueError(
                     "Installed diagnostics discarded an application with a missing input"
                 )
+            policy_init = command("init-feature-policy", "--out", "coverage-policy.json")
+            trusted_policy = policy_init["policy_sha256"]
+            passed_policy = command(
+                "check-feature-quality",
+                "healthy-quality",
+                "--policy",
+                "coverage-policy.json",
+                "--out",
+                "healthy-check",
+            )
+            if passed_policy["status"] != "pass":
+                raise ValueError("Installed healthy coverage policy did not pass")
+            command(
+                "verify-feature-check", "healthy-check", "--expected-policy-sha256", trusted_policy
+            )
+            failed_policy = json.loads(
+                run(
+                    str(cli),
+                    "check-feature-quality",
+                    "gap-quality",
+                    "--policy",
+                    "coverage-policy.json",
+                    "--out",
+                    "gap-check",
+                    expected=3,
+                ).stdout
+            )
+            feature_check = command(
+                "verify-feature-check", "gap-check", "--expected-policy-sha256", trusted_policy
+            )
+            if failed_policy["counts"] != {"pass": 2, "fail": 1, "insufficient_data": 0} or (
+                feature_check["status"],
+                feature_check["policy_status"],
+            ) != ("verified", "fail"):
+                raise ValueError(
+                    "Installed evidence verification confused policy failure with integrity"
+                )
+            wrong_policy = command(
+                "verify-feature-check",
+                "gap-check",
+                "--expected-policy-sha256",
+                "0" * 64,
+                expected=2,
+            )
+            if "trusted expected digest" not in wrong_policy["stderr"]:
+                raise ValueError("Installed verifier did not enforce the external policy pin")
+            undersized = json.loads((work / "coverage-policy.json").read_text(encoding="utf-8"))
+            for rule in undersized["rules"]:
+                rule["min_applications"] = 100
+            (work / "small-policy.json").write_text(json.dumps(undersized), encoding="utf-8")
+            small_policy = json.loads(
+                run(
+                    str(cli),
+                    "check-feature-quality",
+                    "gap-quality",
+                    "--policy",
+                    "small-policy.json",
+                    "--out",
+                    "small-check",
+                    expected=3,
+                ).stdout
+            )
+            if small_policy["status"] != "insufficient_data":
+                raise ValueError("Installed small populations were not blocked by policy")
+            check_path = work / "gap-check" / "check.json"
+            false_check = json.loads(check_path.read_text(encoding="utf-8"))
+            false_check["status"] = "pass"
+            check_path.write_text(json.dumps(false_check), encoding="utf-8")
+            check_manifest_path = work / "gap-check" / "manifest.json"
+            check_manifest = json.loads(check_manifest_path.read_text(encoding="utf-8"))
+            check_manifest["files_sha256"]["check.json"] = hashlib.sha256(
+                check_path.read_bytes()
+            ).hexdigest()
+            check_manifest_path.write_text(json.dumps(check_manifest), encoding="utf-8")
+            rejected_check = command("verify-feature-check", "gap-check", expected=2)
+            if "replay" not in rejected_check["stderr"]:
+                raise ValueError("Installed verifier accepted a rehashed false policy pass")
             strict_gap = command(
                 "monitor-features", *gap_flags, "--out", "must-not-exist", expected=2
             )
@@ -502,6 +579,13 @@ def check(directory: Path, card_evidence: Path | None = None) -> dict[str, Any]:
                 **feature_quality,
                 "strict_missing_feature_gate": True,
                 "rehashed_false_coverage_rejected": True,
+            },
+            "feature_policy": {
+                **feature_check,
+                "healthy_policy_passed": True,
+                "insufficient_data_blocked": True,
+                "external_policy_pin_enforced": True,
+                "rehashed_false_pass_rejected": True,
             },
             "public_credit": public_credit,
             "card_credit": card_credit,

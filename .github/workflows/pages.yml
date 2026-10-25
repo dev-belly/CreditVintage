@@ -79,6 +79,18 @@ jobs:
           name: feature-quality-layouts
           path: quality-layout/*.png
           if-no-files-found: error
+      - name: Capture coverage-policy layouts
+        shell: bash
+        run: |
+          mkdir -p policy-layout
+          google-chrome --headless --no-sandbox --disable-dev-shm-usage --hide-scrollbars --window-size=1440,1900 --screenshot="$PWD/policy-layout/desktop.png" "file://$PWD/_site/feature-check/index.html"
+          google-chrome --headless --no-sandbox --disable-dev-shm-usage --hide-scrollbars --window-size=390,2700 --screenshot="$PWD/policy-layout/mobile.png" "file://$PWD/_site/feature-check/index.html"
+      - name: Retain coverage-policy previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: feature-policy-layouts
+          path: policy-layout/*.png
+          if-no-files-found: error
 
   deploy:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'

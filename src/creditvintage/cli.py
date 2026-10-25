@@ -24,6 +24,11 @@ from creditvintage.feature_monitoring import (
     verify_feature_monitor,
     write_feature_monitor,
 )
+from creditvintage.feature_policy import (
+    check_feature_quality,
+    initialize_policy,
+    verify_feature_check,
+)
 from creditvintage.feature_quality import (
     monitor_feature_quality,
     verify_feature_quality,
@@ -136,6 +141,19 @@ def main(argv: list[str] | None = None) -> int:
         "verify-feature-quality", help="Replay feature-coverage diagnostics from input events"
     )
     check_quality.add_argument("directory", type=Path)
+    policy_init = commands.add_parser("init-feature-policy", help="Create editable coverage rules")
+    policy_init.add_argument("--out", type=Path, required=True)
+    policy_check = commands.add_parser(
+        "check-feature-quality", help="Check verified feature coverage against explicit rules"
+    )
+    policy_check.add_argument("directory", type=Path)
+    policy_check.add_argument("--policy", type=Path, required=True)
+    policy_check.add_argument("--out", type=Path, required=True)
+    policy_verify = commands.add_parser(
+        "verify-feature-check", help="Rebuild a policy check from retained rules and input events"
+    )
+    policy_verify.add_argument("directory", type=Path)
+    policy_verify.add_argument("--expected-policy-sha256")
     business = commands.add_parser("analyze", help="Run verified SQL cohort and review analysis")
     business.add_argument("report", type=Path)
     business.add_argument("--out", type=Path, default=Path("outputs/analysis"))
@@ -256,6 +274,23 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "verify-feature-quality":
             print(json.dumps(verify_feature_quality(args.directory), indent=2))
+            return 0
+        if args.command == "init-feature-policy":
+            print(json.dumps(initialize_policy(args.out), indent=2))
+            return 0
+        if args.command == "check-feature-quality":
+            verdict = check_feature_quality(args.directory, args.policy, args.out)
+            print(json.dumps({"out": str(args.out), **verdict}, indent=2))
+            return 0 if verdict["status"] == "pass" else 3
+        if args.command == "verify-feature-check":
+            print(
+                json.dumps(
+                    verify_feature_check(
+                        args.directory, expected_policy_sha256=args.expected_policy_sha256
+                    ),
+                    indent=2,
+                )
+            )
             return 0
         config = load_config(args.config, seed=args.seed)
         if args.command in {"monitor-features", "monitor-feature-quality"}:

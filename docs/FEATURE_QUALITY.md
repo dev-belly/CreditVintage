@@ -158,3 +158,11 @@ verify_feature_quality(Path("outputs/feature-quality"))
 ```
 
 Pass `Config` as the fourth argument for another valid calendar.
+
+## Check explicit acceptance conditions
+
+From v0.7.0, [coverage policies](FEATURE_POLICY.md) check a verified diagnostic
+against user-specified overall/monthly coverage and minimum sample conditions.
+They retain failed/insufficient verdicts and source events. A diagnostic that
+verifies can fail its policy; a partial or tolerant policy pass still does not
+establish scoring readiness. Existing quality artifacts retain their v1 format.
