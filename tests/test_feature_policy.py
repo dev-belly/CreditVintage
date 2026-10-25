@@ -195,7 +195,7 @@ def test_self_contained_replay_policy_identity_and_source_immutability(tmp_path,
     assert checked["status"] == "verified" and checked["policy_status"] == "fail"
     assert checked["model_fitted"] is False
     assert set(CHECK_FILES) | {"manifest.json"} == {
-        str(p.relative_to(output)) for p in output.rglob("*") if p.is_file()
+        p.relative_to(output).as_posix() for p in output.rglob("*") if p.is_file()
     }
 
 
