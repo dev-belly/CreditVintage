@@ -1,0 +1,12 @@
+{
+  "files_sha256": {
+    "current_features.csv": "88bedeb024a96c6898fbbf0db4bd3b2f3ec651f23ab637fce21f2decf3873139",
+    "distributions.csv": "22b2449bc799bd233005c31b5a96aa2889b590878607d5186385f4556dba8684",
+    "index.html": "12c1c6e1e7a92b04b0b25573756dbd14b080632f670d5332615797e16ce88043",
+    "inputs.json": "37a8ed95189f595945d8ecc38572d0ca0420e2e765e3d6ce1e81bf7f7dbdf0dc",
+    "monitor.json": "fd263f487bb06039a438f782bf73056fc9a9ddade415eed46731e05a1c6afd27",
+    "reference_features.csv": "9bf57986e62ae646c6f89563f74f2d783fa373907c23cbbe767380b8feb73d65"
+  },
+  "input_sha256": "7bbaab7be2817ce0b07da1510e3caf157095a3b0ddc8a47789750d8c01207d3a",
+  "schema": "creditvintage-feature-monitor-v1"
+}

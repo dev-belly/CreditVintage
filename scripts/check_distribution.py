@@ -284,6 +284,16 @@ def check(directory: Path, card_evidence: Path | None = None) -> dict[str, Any]:
         unavailable = pending_root / "outcomes-not-loaded.csv"
         performance_path.rename(unavailable)
         try:
+            quality_flags = (
+                "--applications",
+                "monitor-inputs/applications.csv",
+                "--features",
+                "monitor-inputs/features.csv",
+                "--config",
+                "monitor-inputs/cohorts.json",
+                "--as-of",
+                "2024-10-01",
+            )
             command(
                 "monitor-features",
                 "--applications",
@@ -298,6 +308,60 @@ def check(directory: Path, card_evidence: Path | None = None) -> dict[str, Any]:
                 "feature-monitor",
             )
             feature_monitor = command("verify-feature-monitor", "feature-monitor")
+            command("monitor-feature-quality", *quality_flags, "--out", "healthy-quality")
+            healthy_quality = command("verify-feature-quality", "healthy-quality")
+            if healthy_quality["populations"]["current"]["complete_applications"] != 80:
+                raise ValueError(
+                    "Installed quality diagnostics changed healthy decision-time coverage"
+                )
+            with (pending_root / "features.csv").open(encoding="utf-8", newline="") as handle:
+                reader = csv.DictReader(handle)
+                feature_columns = reader.fieldnames
+                gap_features = [
+                    row
+                    for row in reader
+                    if (row["application_id"], row["name"]) != ("CV202407-0000", "utilization")
+                ]
+            assert feature_columns is not None
+            with (work / "gap-features.csv").open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=feature_columns, lineterminator="\n")
+                writer.writeheader()
+                writer.writerows(gap_features)
+            gap_flags = list(quality_flags)
+            gap_flags[gap_flags.index("--features") + 1] = "gap-features.csv"
+            command("monitor-feature-quality", *gap_flags, "--out", "gap-quality")
+            feature_quality = command("verify-feature-quality", "gap-quality")
+            current_quality = feature_quality["populations"]["current"]
+            if (
+                current_quality["applications"],
+                current_quality["complete_applications"],
+                current_quality["incomplete_applications"],
+            ) != (80, 79, 1):
+                raise ValueError(
+                    "Installed diagnostics discarded an application with a missing input"
+                )
+            strict_gap = command(
+                "monitor-features", *gap_flags, "--out", "must-not-exist", expected=2
+            )
+            if (
+                "Missing decision-time" not in strict_gap["stderr"]
+                or (work / "must-not-exist").exists()
+            ):
+                raise ValueError("Coverage diagnostics weakened the strict distribution gate")
+            quality_root = work / "gap-quality"
+            quality_summary = quality_root / "quality.json"
+            false_quality = json.loads(quality_summary.read_text(encoding="utf-8"))
+            false_quality["populations"]["current"]["complete_applications"] = 80
+            quality_summary.write_text(json.dumps(false_quality), encoding="utf-8")
+            quality_manifest = quality_root / "manifest.json"
+            false_quality_manifest = json.loads(quality_manifest.read_text(encoding="utf-8"))
+            false_quality_manifest["files_sha256"]["quality.json"] = hashlib.sha256(
+                quality_summary.read_bytes()
+            ).hexdigest()
+            quality_manifest.write_text(json.dumps(false_quality_manifest), encoding="utf-8")
+            rejected_quality = command("verify-feature-quality", "gap-quality", expected=2)
+            if "event replay" not in rejected_quality["stderr"]:
+                raise ValueError("Installed quality replay accepted rehashed false coverage")
         finally:
             unavailable.rename(performance_path)
         if (
@@ -434,6 +498,11 @@ def check(directory: Path, card_evidence: Path | None = None) -> dict[str, Any]:
             "custom_config_and_preflight": "verified without model fitting in preflight",
             "monitor_preflight": monitor_preflight,
             "feature_monitor": {**feature_monitor, "rehashed_false_distance_rejected": True},
+            "feature_quality": {
+                **feature_quality,
+                "strict_missing_feature_gate": True,
+                "rehashed_false_coverage_rejected": True,
+            },
             "public_credit": public_credit,
             "card_credit": card_credit,
             "benchmark": comparison,

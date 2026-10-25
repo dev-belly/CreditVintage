@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CreditVintage | decision-time feature coverage</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, sans-serif; color: #17304c; }
+    body { margin: 0; background: #f4f7fb; line-height: 1.6; }
+    main { max-width: 1080px; margin: 3rem auto; padding: clamp(1.2rem, 4vw, 3rem); background: white; border: 1px solid #dce6ef; border-radius: 20px; }
+    .eyebrow { color: #176d81; text-transform: uppercase; letter-spacing: .12em; font-size: .8rem; font-weight: 700; }
+    h1 { font-size: clamp(2rem, 5vw, 3.6rem); line-height: 1.12; max-width: 850px; margin: .7rem 0 1.2rem; }
+    h2 { margin-top: 2.2rem; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin: 1.8rem 0; }
+    .card { background: #edf5f8; padding: 1rem 1.2rem; border-radius: 12px; }
+    .card strong { display: block; font-size: 2rem; color: #12647a; }
+    .note { border-left: 4px solid #ca9140; padding-left: 1rem; }
+    .table-wrap { overflow-x: auto; }
+    table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+    th, td { text-align: left; padding: .7rem .5rem; border-bottom: 1px solid #e0e8ef; white-space: nowrap; }
+    thead { background: #f4f7fb; }
+    a { color: #12647a; }
+    code { background: #edf2f7; padding: .1rem .3rem; border-radius: 4px; }
+    footer { border-top: 1px solid #e0e8ef; margin-top: 2rem; padding-top: 1rem; }
+    @media (max-width: 700px) { main { margin: 0; border: 0; border-radius: 0; } }
+  </style>
+</head>
+<body><main>
+  <header><div class="eyebrow">CreditVintage / feature coverage / @@SOURCE@@</div>
+    <h1>What was missing when the decision was made?</h1>
+    <p>Application and feature events known as of <strong>@@AS_OF@@</strong>. Every expected feature slot remains in the denominator, including unavailable inputs. No outcome file or fitted model is used.</p>
+  </header>
+  <div class="cards">
+    <div class="card">Visible current applications<strong>@@CURRENT@@</strong></div>
+    <div class="card">All three inputs available<strong>@@COMPLETE@@</strong></div>
+    <div class="card">At least one unavailable input<strong>@@INCOMPLETE@@</strong></div>
+    <div class="card">Current applications after cutoff<strong>@@FUTURE@@</strong></div>
+  </div>
+  <h2>Coverage by input</h2>
+  <p><strong>Available</strong> means observed and available by the application's decision. <strong>Late</strong> means a pre-decision observation first arrived after that decision but by the report cutoff. <strong>Post-decision</strong> means only later observations are visible. <strong>No visible event</strong> means nothing was available by the report cutoff, even if the supplied file contains future records.</p>
+  <p>Swipe or scroll the tables horizontally to inspect every column. Counts use all applications in each configured population, without dropping incomplete cases.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Population</th><th>Input</th><th>Available / expected</th><th>Late</th><th>Post-decision</th><th>No visible event</th></tr></thead><tbody>@@OVERVIEW@@</tbody>
+  </table></div>
+  <h2>Current origination months</h2>
+  <p>These are observed counts, including small months. An empty population has no coverage rate; it is not treated as 0% missing or 100% complete.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Vintage</th><th>Input</th><th>Available / expected</th><th>Late</th><th>Post-decision</th><th>No visible event</th></tr></thead><tbody>@@MONTHLY@@</tbody>
+  </table></div>
+  <h2>Visible timing in days</h2>
+  <p>Availability lag is availability date minus observation date, measured on the selected on-time events. Lateness uses the first visible pre-decision observation that arrived late, measured from the decision. A dash means no applicable records; an unknown delay is not filled with zero.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Input</th><th>On-time events</th><th>Median lag</th><th>Maximum lag</th><th>Median lateness</th><th>Maximum lateness</th></tr></thead><tbody>@@TIMING@@</tbody>
+  </table></div>
+  <h2>Inspect unavailable inputs</h2>
+  <p>Showing @@SHOWN@@ of @@MISSING@@ unavailable slots across both populations. Download the full <a href="availability.csv">application-feature ledger</a>.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Application</th><th>Input</th><th>Reason</th><th>Decision</th><th>Observed</th><th>Available</th></tr></thead><tbody>@@DETAIL@@</tbody>
+  </table></div>
+  <p class="note">This diagnoses decision-time event coverage, not raw CSV null rates, all forms of data quality, credit risk or model deterioration. Malformed values and duplicate revisions still fail validation. Existing scoring and distribution checks still reject missing decision-time features. A successfully created or verified diagnostic report can contain incomplete coverage.</p>
+  <footer><p>Inspect <a href="inputs.json">normalized events</a>, <a href="quality.json">method and totals</a>, <a href="coverage.csv">complete population/month coverage</a>, and <a href="manifest.json">file hashes</a>. Rebuild with <code>creditvintage verify-feature-quality DIRECTORY</code>.</p>
+    <p>Replay checks consistency with the retained events, without authenticating their source. <a href="https://github.com/dev-belly/CreditVintage/blob/main/docs/FEATURE_QUALITY.md">Method and two-table workflow</a>.</p>
+  </footer>
+</main></body>
+</html>

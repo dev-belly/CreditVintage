@@ -70,6 +70,10 @@ jobs:
         run: |
           creditvintage monitor-features --as-of 2024-10-01 --out outputs/ci-feature-monitor
           creditvintage verify-feature-monitor outputs/ci-feature-monitor
+      - name: Diagnose and replay decision-time feature availability
+        run: |
+          creditvintage monitor-feature-quality --as-of 2024-10-01 --out outputs/ci-feature-quality
+          creditvintage verify-feature-quality outputs/ci-feature-quality
       - name: Run the editable example without current outcome labels
         run: python examples/monitoring_without_outcomes.py --out outputs/ci-unlabelled-case
       - run: creditvintage verify docs/demo

@@ -65,6 +65,12 @@ late-feature trends. Use input diagnostics to resolve invalid input before
 comparing distributions. The fixed three-feature and two-segment event contract
 is not a general-purpose arbitrary-column drift API.
 
+From v0.6.0, the separate [feature-coverage diagnostic](FEATURE_QUALITY.md) can
+inspect absent decision-time events and visible delays before this strict
+distribution route succeeds. It keeps incomplete applications in its own
+denominators. That event-slot coverage is distinct from raw CSV null-rate trends;
+this report's distribution and missing-feature contracts retain their behavior.
+
 ## Measures and arithmetic
 
 For a numeric input, let `F_ref(x)` and `F_cur(x)` be the empirical fractions of

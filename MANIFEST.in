@@ -3,4 +3,5 @@ recursive-include .github/workflows *.yml
 recursive-include scripts *.py
 recursive-include examples *.py *.html *.json
 recursive-include docs *.md *.html *.csv *.json
+recursive-include tests *.py *.json *.md
 global-exclude __pycache__ *.py[cod]

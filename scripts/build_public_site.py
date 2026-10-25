@@ -17,10 +17,15 @@ from creditvintage.feature_monitoring import (
     verify_feature_monitor,
     write_feature_monitor,
 )
+from creditvintage.feature_quality import (
+    monitor_feature_quality,
+    verify_feature_quality,
+    write_feature_quality,
+)
 from creditvintage.lineage import verify_lineage, write_demo
 from creditvintage.monitoring import verify_monitor
 from creditvintage.public_credit import verify_public_benchmark, write_public_benchmark
-from creditvintage.sample import generate
+from creditvintage.sample import generate, generate_feature_quality
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -38,6 +43,13 @@ def build(destination: Path) -> dict[str, Any]:
         destination / "feature-monitor",
     )
     feature_monitor = verify_feature_monitor(destination / "feature-monitor")
+    write_feature_quality(
+        monitor_feature_quality(
+            *generate_feature_quality(), date(2024, 10, 1), data_kind="synthetic"
+        ),
+        destination / "feature-quality",
+    )
+    feature_quality = verify_feature_quality(destination / "feature-quality")
     write_analysis(destination / "demo", destination / "analysis")
     analysis = verify_analysis(destination / "analysis")
     summary = write_demo(destination / "lineage")
@@ -58,6 +70,7 @@ def build(destination: Path) -> dict[str, Any]:
         "public_credit": public_credit,
         "card_credit": card_credit,
         "feature_monitor": feature_monitor,
+        "feature_quality": feature_quality,
     }
 
 
