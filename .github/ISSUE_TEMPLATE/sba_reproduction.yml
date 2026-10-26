@@ -1,0 +1,42 @@
+name: SBA study reproduction
+description: Record an actual independent installation or observed reproduction problem.
+title: "SBA reproduction: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please report an actual run. Do not include borrower identities, private data or credentials.
+        The target is recorded SBA charge-off within 24 calendar months, not 180-day delinquency.
+  - type: input
+    id: version
+    attributes:
+      label: CreditVintage version and installation source
+      placeholder: "0.8.0, public release wheel"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: OS, Python and numerical library versions
+      placeholder: "Windows 11, Python 3.12, numpy 2.3.5, scipy 1.17.0, scikit-learn 1.8.0"
+    validations:
+      required: true
+  - type: textarea
+    id: commands
+    attributes:
+      label: Exact commands and current directory
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Actual result and exit code
+      description: Include verification JSON or the error text; distinguish expected from observed.
+    validations:
+      required: true
+  - type: textarea
+    id: obstacle
+    attributes:
+      label: What blocked you or was unclear?
+      description: Successful runs are welcome too. Report your actual experience without adoption claims.

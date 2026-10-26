@@ -33,6 +33,7 @@ from creditvintage.lineage import verify_lineage, write_demo
 from creditvintage.monitoring import verify_monitor
 from creditvintage.public_credit import verify_public_benchmark, write_public_benchmark
 from creditvintage.sample import generate, generate_feature_quality
+from creditvintage.sba_credit import verify_sba_benchmark, write_sba_benchmark
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -76,6 +77,8 @@ def build(destination: Path) -> dict[str, Any]:
     public_credit = verify_public_benchmark(destination / "public-credit")
     write_card_benchmark(destination / "card-credit")
     card_credit = verify_card_benchmark(destination / "card-credit")
+    write_sba_benchmark(destination / "sba-credit")
+    sba_credit = verify_sba_benchmark(destination / "sba-credit")
     if not (destination / "index.html").is_file():
         raise ValueError("Site entry page is missing")
     return {
@@ -85,6 +88,7 @@ def build(destination: Path) -> dict[str, Any]:
         "benchmark": comparison,
         "public_credit": public_credit,
         "card_credit": card_credit,
+        "sba_credit": sba_credit,
         "feature_monitor": feature_monitor,
         "feature_quality": feature_quality,
         "feature_check": feature_check,

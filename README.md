@@ -10,7 +10,10 @@ banking or risk analytics team should ask about before trusting a score.
 - **Compare models on public credit data:** [Start with the public benchmarks](#try-observed-public-data).
 - **Inspect decision-time data and human review:** [Trace source availability](#source-to-prediction-lineage) and [inspect the review workflow](#a-durable-human-review-workflow).
 
-> **Data status:** The point-in-time event experiment is synthetic. Separate
+> **Data status:** The point-in-time event experiment is synthetic. The new
+> [SBA study](docs/SBA_CREDIT.md) uses 35,000 observed loans and real funding/charge-off
+> dates, with mature time-separated cohorts. It is retrospective: historical
+> feature revisions and first-publication times are absent. Separate
 > [card](docs/CARD_CREDIT.md) and [German credit](docs/PUBLIC_CREDIT.md) experiments
 > use 30,000 and 1,000 historical observed records. Their native targets and
 > random customer splits cannot validate the event pipeline's time controls
@@ -49,6 +52,29 @@ The older `v0.3.0` raises a parsing error for that case. See the
 [patch and upgrade notes](docs/releases/v0.3.1.md); existing `v0.3.0` assets are preserved.
 
 ## Try observed public data
+
+The [observed SBA study](docs/SBA_CREDIT.md) evaluates **35,000 loans across real
+funding periods**: 20,000 earlier training loans, 5,000 separate calibration
+loans and 10,000 2016–2017 test loans. The target is recorded charge-off within
+24 calendar months; earlier horizons mature before the next stage starts.
+Four approval inputs use training-only preprocessing. The test retains **89
+recorded events**: logistic AUC **0.6723**, Brier **0.009011**; isotonic lowers
+Brier to **0.008819** while reducing AUC to **0.6584**. At the same 1,000 review
+slots, logistic finds 26/89 events; this is historical concentration, not savings.
+[Open the dated-loan report](https://dev-belly.github.io/CreditVintage/sba-credit/).
+
+```text
+creditvintage sba-benchmark --out outputs/sba-credit
+creditvintage verify-sba outputs/sba-credit
+```
+
+The installed wheel runs this offline without PITBridge or a raw download.
+The complete ZIP includes sources, protocol, conversion audit, all predictions,
+year slices, queues and 900 paired bootstrap rows. The optional converter
+rebuilds the exact frozen sample from both full official CSVs. Historical
+feature availability remains unknown; this target is kept distinct from the
+synthetic 180-day and static UCI targets. [Actual-run feedback](https://github.com/dev-belly/CreditVintage/issues/new?template=sba_reproduction.yml).
+
 
 The larger [UCI credit-card experiment](docs/CARD_CREDIT.md) uses **30,000
 observed records**, five frozen 18,000/6,000/6,000 train/calibration/test splits,
@@ -339,19 +365,19 @@ monitor files private.
 
 ## Run and verify
 
-Version **0.7.0** distributions are published under [GitHub Releases](https://github.com/dev-belly/CreditVintage/releases/tag/v0.7.0)
+Version **0.8.0** distributions are published under [GitHub Releases](https://github.com/dev-belly/CreditVintage/releases/tag/v0.8.0)
 only after all main CI jobs pass. The downloadable wheel is the same artifact
 that passed clean installation and complete offline refitting. Each release
 includes its source archive, installed-check evidence, commit/version manifest
 and SHA-256 checksums. Existing version tags are preserved; changes require a
 version bump. Install the wheel into a Python 3.12+ virtual environment, then
 use the commands above without cloning this repository. The
-[upgrade notes](docs/releases/v0.7.0.md) give the exact wheel URL and a short
+[upgrade notes](docs/releases/v0.8.0.md) give the exact wheel URL and a short
 installation check. Existing commands, inputs and model protocols remain
-compatible. This version adds explicit coverage-policy checks and retained rule evidence.
+compatible. This version adds observed SBA time-separated validation and portable refitting evidence.
 The original feature-distribution format from v0.5.0 remains byte-compatible;
 earlier scoring/report protocols retain their contracts. The quality commands
-require v0.6.0 or its source; policy commands require v0.7.0. Older wheels retain
+require v0.6.0 or its source; policy commands require v0.7.0; SBA commands require v0.8.0. Older wheels retain
 their documented capabilities.
 
 For the current `main` source, use Python 3.12+ and Git. Start in a new parent
@@ -555,6 +581,8 @@ Project code is available under the [MIT License](LICENSE).
 The bundled UCI datasets retain their **CC BY 4.0** terms and attribution;
 see the [German credit source notice](src/creditvintage/data/german_credit/SOURCE.md)
 and [credit-card source notice](src/creditvintage/data/card_credit/SOURCE.md).
-The distribution metadata uses `MIT AND CC-BY-4.0` because the package contains
-both project code and those datasets. This does not relicense the datasets.
+The [SBA source notice](src/creditvintage/data/sba_credit/SOURCE.md) records the
+source catalogue’s U.S. Government Works designation. Distribution metadata uses
+`MIT AND CC-BY-4.0 AND LicenseRef-US-Government-Works` for the combined package.
+These terms do not relicense the separately attributed datasets.
 

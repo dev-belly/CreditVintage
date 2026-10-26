@@ -3,3 +3,4 @@
 # Keep the attributed UCI originals byte-for-byte, including codebook whitespace.
 src/creditvintage/data/german_credit/german.* -text -whitespace
 src/creditvintage/data/card_credit/*.gz -text
+src/creditvintage/data/sba_credit/*.gz -text

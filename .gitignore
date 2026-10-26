@@ -12,3 +12,6 @@ _site/
 
 .pitbridge/
 docs/lineage/
+
+/sba-raw/
+/portable-sba/

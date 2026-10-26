@@ -1,0 +1,34 @@
+{
+  "borrower_group_overlap": 0,
+  "converted_csv_bytes": 6637900,
+  "converted_csv_sha256": "08c60deb116345624e75cdbf22ea305be33ebeba17d2d2c11292a5e3ba1da8f1",
+  "earliest_groups_by_stage": {
+    "calibration": 35342,
+    "test": 101070,
+    "train": 285455
+  },
+  "eligible_by_stage_before_groups": {
+    "calibration": 40347,
+    "test": 114765,
+    "train": 314194
+  },
+  "excluded_by_reason": {
+    "chargeoff_date_missing": 8,
+    "invalid_date_order": 435,
+    "invalid_money": 10,
+    "invalid_outcome_date": 612,
+    "missing_borrower_group": 4,
+    "missing_funding_or_approval": 150607,
+    "outside_frozen_windows": 615102
+  },
+  "schema": "creditvintage-sba-conversion-v1",
+  "selected_by_stage": {
+    "calibration": 5000,
+    "test": 10000,
+    "train": 20000
+  },
+  "source_logical_rows": {
+    "FOIA_7a_FY2000_FY2009_asof_260630.csv": 690333,
+    "FOIA_7a_FY2010_FY2019_asof_260630.csv": 545751
+  }
+}

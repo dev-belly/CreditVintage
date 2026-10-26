@@ -17,7 +17,9 @@ from textwrap import dedent
 from typing import Any
 
 
-def check(directory: Path, card_evidence: Path | None = None) -> dict[str, Any]:
+def check(
+    directory: Path, card_evidence: Path | None = None, sba_evidence: Path | None = None
+) -> dict[str, Any]:
     def wheel(prefix: str) -> Path:
         matches = list(directory.resolve().glob(f"{prefix}-*.whl"))
         if len(matches) != 1:
@@ -225,6 +227,32 @@ def check(directory: Path, card_evidence: Path | None = None) -> dict[str, Any]:
         if card_evidence is not None:
             card_evidence.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(work / "card-credit" / "evidence.zip", card_evidence)
+        command("sba-benchmark", "--out", "sba-credit")
+        sba_credit = command("verify-sba", "sba-credit")
+        if (
+            sba_credit["records"] != 35000
+            or sba_credit["test_records"] != 10000
+            or sba_credit["test_events"] != 89
+            or sba_credit["refitted"] is not True
+            or sba_credit["target"] != "recorded_chargeoff_within_24_calendar_months"
+        ):
+            raise ValueError("Installed SBA study lost its dates, source or native target")
+        if sba_evidence is not None:
+            sba_evidence.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(work / "sba-credit" / "evidence.zip", sba_evidence)
+        sba_path = work / "sba-credit"
+        sba_summary = json.loads((sba_path / "summary.json").read_text(encoding="utf-8"))
+        sba_summary["test_metrics"]["logistic"]["roc_auc"] = 0.99
+        (sba_path / "summary.json").write_text(json.dumps(sba_summary), encoding="utf-8")
+        sba_manifest = json.loads((sba_path / "manifest.json").read_text(encoding="utf-8"))
+        sba_manifest["files_sha256"]["summary.json"] = hashlib.sha256(
+            (sba_path / "summary.json").read_bytes()
+        ).hexdigest()
+        (sba_path / "manifest.json").write_text(json.dumps(sba_manifest), encoding="utf-8")
+        rejected = command("verify-sba", "sba-credit", expected=2)
+        if "SBA summary" not in rejected["stderr"]:
+            raise ValueError("Installed SBA verifier accepted a rehashed false AUC")
+        sba_credit["rehashed_false_metric_rejected"] = True
         command("benchmark", "--out", "benchmark")
         comparison = command("verify-benchmark", "benchmark")
         command("monitor", "--as-of", "2024-10-01", "--out", "monitor")
@@ -589,6 +617,7 @@ def check(directory: Path, card_evidence: Path | None = None) -> dict[str, Any]:
             },
             "public_credit": public_credit,
             "card_credit": card_credit,
+            "sba_credit": sba_credit,
             "benchmark": comparison,
             "analysis": analysis,
             "selected_review_cases": selected,
@@ -605,5 +634,6 @@ if __name__ == "__main__":
         "directory", type=Path, help="Directory with CreditVintage and PITBridge wheels"
     )
     parser.add_argument("--card-evidence", type=Path, help="Export the verified card evidence ZIP")
+    parser.add_argument("--sba-evidence", type=Path, help="Export the verified SBA evidence ZIP")
     args = parser.parse_args()
-    print(json.dumps(check(args.directory, args.card_evidence), indent=2))
+    print(json.dumps(check(args.directory, args.card_evidence, args.sba_evidence), indent=2))

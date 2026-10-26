@@ -92,6 +92,21 @@ jobs:
           path: policy-layout/*.png
           if-no-files-found: error
 
+      - name: Capture SBA desktop and mobile layouts
+        shell: bash
+        run: |
+          mkdir -p sba-layout
+          google-chrome --headless --no-sandbox --disable-dev-shm-usage --hide-scrollbars --window-size=1440,3600 --screenshot="$PWD/sba-layout/desktop.png" "file://$PWD/_site/sba-credit/index.html"
+          google-chrome --headless --no-sandbox --disable-dev-shm-usage --hide-scrollbars --window-size=390,2200 --screenshot="$PWD/sba-layout/mobile-top.png" "file://$PWD/_site/sba-credit/index.html"
+          google-chrome --headless --no-sandbox --disable-dev-shm-usage --hide-scrollbars --window-size=390,2200 --screenshot="$PWD/sba-layout/mobile-models.png" "file://$PWD/_site/sba-credit/index.html#models"
+          google-chrome --headless --no-sandbox --disable-dev-shm-usage --hide-scrollbars --window-size=390,2600 --screenshot="$PWD/sba-layout/mobile-evidence.png" "file://$PWD/_site/sba-credit/index.html#evidence"
+      - name: Retain SBA layout previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: sba-credit-layouts
+          path: sba-layout/*.png
+          if-no-files-found: error
+
   deploy:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: build
