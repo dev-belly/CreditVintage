@@ -8,6 +8,7 @@ on:
       - "docs/**"
       - "examples/german_credit.*"
       - "scripts/build_public_site.py"
+      - "scripts/capture_sba_layouts.py"
       - "pyproject.toml"
       - ".github/workflows/pages.yml"
   pull_request:
@@ -16,6 +17,7 @@ on:
       - "docs/**"
       - "examples/german_credit.*"
       - "scripts/build_public_site.py"
+      - "scripts/capture_sba_layouts.py"
       - "pyproject.toml"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
@@ -42,10 +44,11 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m pip install -e ".[dev]" -e .pitbridge
+      - run: python -m pip install playwright==1.64.1
       - name: Check publishing code
         run: |
-          ruff check scripts/build_public_site.py
-          ruff format --check scripts/build_public_site.py
+          ruff check scripts/build_public_site.py scripts/capture_sba_layouts.py
+          ruff format --check scripts/build_public_site.py scripts/capture_sba_layouts.py
           mypy scripts/build_public_site.py
       - name: Build and verify public evidence
         run: |
@@ -92,14 +95,8 @@ jobs:
           path: policy-layout/*.png
           if-no-files-found: error
 
-      - name: Capture SBA desktop and mobile layouts
-        shell: bash
-        run: |
-          mkdir -p sba-layout
-          google-chrome --headless --no-sandbox --disable-gpu --run-all-compositor-stages-before-draw --virtual-time-budget=2500 --disable-dev-shm-usage --hide-scrollbars --window-size=1440,3600 --screenshot="$PWD/sba-layout/desktop.png" "file://$PWD/_site/sba-credit/index.html"
-          google-chrome --headless --no-sandbox --disable-gpu --run-all-compositor-stages-before-draw --virtual-time-budget=2500 --disable-dev-shm-usage --hide-scrollbars --window-size=390,2200 --screenshot="$PWD/sba-layout/mobile-top.png" "file://$PWD/_site/sba-credit/index.html"
-          google-chrome --headless --no-sandbox --disable-gpu --run-all-compositor-stages-before-draw --virtual-time-budget=2500 --disable-dev-shm-usage --hide-scrollbars --window-size=390,2200 --screenshot="$PWD/sba-layout/mobile-models.png" "file://$PWD/_site/sba-credit/index.html#models"
-          google-chrome --headless --no-sandbox --disable-gpu --run-all-compositor-stages-before-draw --virtual-time-budget=2500 --disable-dev-shm-usage --hide-scrollbars --window-size=390,2600 --screenshot="$PWD/sba-layout/mobile-evidence.png" "file://$PWD/_site/sba-credit/index.html#evidence"
+      - name: Check and capture SBA desktop and mobile layouts
+        run: python scripts/capture_sba_layouts.py
       - name: Retain SBA layout previews
         uses: actions/upload-artifact@v4
         with:
