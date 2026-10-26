@@ -8,6 +8,7 @@ on:
       - "docs/**"
       - "examples/german_credit.*"
       - "scripts/build_public_site.py"
+      - "scripts/capture_sba_layouts.py"
       - "pyproject.toml"
       - ".github/workflows/pages.yml"
   pull_request:
@@ -16,6 +17,7 @@ on:
       - "docs/**"
       - "examples/german_credit.*"
       - "scripts/build_public_site.py"
+      - "scripts/capture_sba_layouts.py"
       - "pyproject.toml"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
@@ -42,10 +44,11 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m pip install -e ".[dev]" -e .pitbridge
+      - run: python -m pip install playwright==1.64.1
       - name: Check publishing code
         run: |
-          ruff check scripts/build_public_site.py
-          ruff format --check scripts/build_public_site.py
+          ruff check scripts/build_public_site.py scripts/capture_sba_layouts.py
+          ruff format --check scripts/build_public_site.py scripts/capture_sba_layouts.py
           mypy scripts/build_public_site.py
       - name: Build and verify public evidence
         run: |
@@ -90,6 +93,15 @@ jobs:
         with:
           name: feature-policy-layouts
           path: policy-layout/*.png
+          if-no-files-found: error
+
+      - name: Check and capture SBA desktop and mobile layouts
+        run: python scripts/capture_sba_layouts.py
+      - name: Retain SBA layout previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: sba-credit-layouts
+          path: sba-layout/*.png
           if-no-files-found: error
 
   deploy:

@@ -35,6 +35,10 @@ def prepare(
     if (
         result.get("status") != "verified"
         or result.get("card_credit", {}).get("refitted") is not True
+        or result.get("sba_credit", {}).get("refitted") is not True
+        or result.get("sba_credit", {}).get("target")
+        != "recorded_chargeoff_within_24_calendar_months"
+        or result.get("sba_credit", {}).get("rehashed_false_metric_rejected") is not True
     ):
         raise ValueError(
             "Installed distribution and card-data refitting must pass before packaging"
@@ -115,6 +119,10 @@ def verify(directory: Path, commit: str) -> dict[str, Any]:
     if (
         check.get("status") != "verified"
         or check.get("card_credit", {}).get("refitted") is not True
+        or check.get("sba_credit", {}).get("refitted") is not True
+        or check.get("sba_credit", {}).get("target")
+        != "recorded_chargeoff_within_24_calendar_months"
+        or check.get("sba_credit", {}).get("rehashed_false_metric_rejected") is not True
     ):
         raise ValueError("Release lacks installed-distribution refit evidence")
     return {"status": "verified", "version": version, "commit": commit, "assets": 5}

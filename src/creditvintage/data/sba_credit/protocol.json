@@ -1,0 +1,78 @@
+{
+  "bootstrap": {
+    "interval": "2.5 and 97.5 percentiles; conditional on fitted models and frozen sample",
+    "iterations": 300,
+    "paired": true,
+    "seed": 20261025,
+    "unit": "test funding month"
+  },
+  "capacity": [
+    0.05,
+    0.1,
+    0.2
+  ],
+  "excluded_predictors": [
+    "record_id",
+    "borrower_group",
+    "source_file",
+    "source_record",
+    "approval_date",
+    "funded_at",
+    "horizon_end",
+    "stage",
+    "loan_status",
+    "paid_in_full_date",
+    "chargeoff_date",
+    "chargeoff_amount",
+    "current_term",
+    "business_age",
+    "jobs",
+    "collateral",
+    "sold_secondary_market"
+  ],
+  "features": [
+    "log1p_gross_approval_usd",
+    "sba_guaranteed_share",
+    "initial_interest_rate_pct",
+    "approval_processing_method"
+  ],
+  "grouping": "Remove non-ASCII alphanumeric characters from uppercase recorded borrower name/state/ZIP; SHA256 of pipe-joined values. Earliest eligible funded loan per key; ties by source record ID. Imperfect identity heuristic.",
+  "isotonic": "Fit on calibration labels only; raw input grid 6 decimal places; final scores 10 decimal places; out-of-bounds clip.",
+  "limitations": [
+    "Retrospective final-snapshot funding-cohort validation; first-publication times and historical feature revisions are absent. Do not invent available_at.",
+    "Recorded SBA charge-off is not 180-day delinquency, lifetime default, recoveries or prevented loss.",
+    "US historical SBA lending is not current Chinese retail credit.",
+    "Only about 90 held-out events; sampling, identity matching and missing-rate shifts restrict inference.",
+    "A hash binds bytes, not truth or independent adoption. No deployment, causal, savings or external-use claim."
+  ],
+  "logistic": {
+    "C": 1.0,
+    "class_weight": null,
+    "max_iter": 2000,
+    "solver": "lbfgs",
+    "tuning": false
+  },
+  "preprocessing": "Median imputation with missing indicators, scaling and one-hot categories fit on train only; unknown categories ignored.",
+  "sampling": "Per stage, lowest SHA256(original file SHA256 + colon + one-based logical row ordinal); no outcome-based sampling. Stage windows and sample sizes were fixed before fitting.",
+  "schema": "creditvintage-sba-protocol-v1",
+  "source_as_of": "2026-06-30",
+  "target": "recorded_chargeoff_within_24_calendar_months",
+  "target_definition": "Recorded ChargeOffDate from FirstDisbursementDate through inclusive 24-month anniversary; clamp leap-day month ends. Later lifetime charge-offs are negative for this horizon. CHGOFF without a date is excluded, never a negative.",
+  "windows": {
+    "calibration": [
+      "2013-01-01",
+      "2013-12-31",
+      5000
+    ],
+    "test": [
+      "2016-01-01",
+      "2017-12-31",
+      10000
+    ],
+    "train": [
+      "2006-01-01",
+      "2010-12-31",
+      20000
+    ]
+  }
+}

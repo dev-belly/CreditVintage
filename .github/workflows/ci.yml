@@ -56,6 +56,10 @@ jobs:
       - run: creditvintage preflight --config examples/cohort-config.json
       - run: creditvintage public-benchmark --out outputs/ci-public
       - run: creditvintage verify-public outputs/ci-public
+      - name: Refit real dated SBA cohorts and the native 24-month target
+        run: |
+          creditvintage sba-benchmark --out outputs/ci-sba
+          creditvintage verify-sba outputs/ci-sba
       - name: Replay the five-split public credit comparison
         run: |
           python examples/german_credit.py --out outputs/public-credit-comparison
@@ -122,8 +126,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: python -m pip install build ruff
       - name: Check the distribution replay script
-        run: ruff check scripts/check_distribution.py scripts/release_artifacts.py scripts/convert_card_source.py
-      - run: ruff format --check scripts/check_distribution.py scripts/release_artifacts.py scripts/convert_card_source.py
+        run: ruff check scripts/check_distribution.py scripts/release_artifacts.py scripts/convert_card_source.py scripts/prepare_sba.py
+      - run: ruff format --check scripts/check_distribution.py scripts/release_artifacts.py scripts/convert_card_source.py scripts/prepare_sba.py
       - name: Build the sdist and its wheel, then the pinned optional integration
         run: |
           python -m build --outdir dist
@@ -132,13 +136,20 @@ jobs:
         env:
           PYTHONUTF8: "0"
         shell: bash
-        run: python scripts/check_distribution.py dist --card-evidence portable-card/evidence.zip > installed-check.json
+        run: python scripts/check_distribution.py dist --card-evidence portable-card/evidence.zip --sba-evidence portable-sba/evidence.zip > installed-check.json
       - name: Retain Linux Python 3.12 card evidence for other runtimes
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         uses: actions/upload-artifact@v4
         with:
           name: card-replay-evidence
           path: portable-card/evidence.zip
+          if-no-files-found: error
+      - name: Retain Linux Python 3.12 SBA evidence for other runtimes
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sba-replay-evidence
+          path: portable-sba/evidence.zip
           if-no-files-found: error
       - name: Prepare exact checked release assets
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
@@ -155,7 +166,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   portable-card:
-    name: Cross-runtime card replay (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    name: Cross-runtime public-data replay (${{ matrix.os }}, Python ${{ matrix.python-version }})
     needs: distribution
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
@@ -179,6 +190,10 @@ jobs:
         with:
           name: card-replay-evidence
           path: portable-card
+      - uses: actions/download-artifact@v4
+        with:
+          name: sba-replay-evidence
+          path: portable-sba
       - name: Install the checked Linux-built wheel without a source checkout
         shell: bash
         run: python -m pip install checked-release/*.whl
@@ -201,4 +216,24 @@ jobs:
                   archive.extractall(directory)
               (directory / "evidence.zip").write_bytes(archive_bytes)
               print(json.dumps(verify_card_benchmark(directory), indent=2))
+          PY
+      - name: Refit the same SBA ZIP on another OS or Python version
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import tempfile
+          import zipfile
+          from pathlib import Path
+          from creditvintage.sba_credit import SBA_FILES, verify_sba_benchmark
+
+          payload = Path("portable-sba/evidence.zip").read_bytes()
+          with tempfile.TemporaryDirectory() as temporary:
+              directory = Path(temporary)
+              with zipfile.ZipFile("portable-sba/evidence.zip") as archive:
+                  if archive.namelist() != [*SBA_FILES, "manifest.json"]:
+                      raise ValueError("Unexpected SBA evidence inventory")
+                  archive.extractall(directory)
+              (directory / "evidence.zip").write_bytes(payload)
+              print(json.dumps(verify_sba_benchmark(directory), indent=2))
           PY

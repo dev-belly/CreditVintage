@@ -5,3 +5,4 @@ recursive-include examples *.py *.html *.json
 recursive-include docs *.md *.html *.csv *.json
 recursive-include tests *.py *.json *.md
 global-exclude __pycache__ *.py[cod]
+recursive-include .github/ISSUE_TEMPLATE *.yml

@@ -42,6 +42,7 @@ from creditvintage.public_credit import verify_public_benchmark, write_public_be
 from creditvintage.review_bundle import export_reviews, verify_review_bundle
 from creditvintage.reviews import initialize_reviews, record_review, review_status
 from creditvintage.sample import generate, generate_feature_quality
+from creditvintage.sba_credit import verify_sba_benchmark, write_sba_benchmark
 
 
 def _calendar_date_argument(value: str) -> date:
@@ -101,6 +102,12 @@ def main(argv: list[str] | None = None) -> int:
         "verify-card", help="Refit and replay all five card-data splits"
     )
     verify_card.add_argument("directory", type=Path)
+    sba = commands.add_parser(
+        "sba-benchmark", help="Validate observed SBA funding cohorts across time"
+    )
+    sba.add_argument("--out", type=Path, default=Path("outputs/sba-credit"))
+    verify_sba = commands.add_parser("verify-sba", help="Refit the frozen SBA time-separated study")
+    verify_sba.add_argument("directory", type=Path)
     compare = commands.add_parser(
         "benchmark", help="Compare frozen policies at equal review budgets"
     )
@@ -199,6 +206,17 @@ def main(argv: list[str] | None = None) -> int:
             diagnosis = check_inputs(args.directory, max_issues=args.max_issues)
             print(json.dumps(diagnosis, indent=2))
             return 0 if diagnosis["status"] == "ready_for_evaluation" else 2
+        if args.command == "sba-benchmark":
+            sba_result = write_sba_benchmark(args.out)
+            print(
+                json.dumps(
+                    {"out": str(args.out), "test_metrics": sba_result["test_metrics"]}, indent=2
+                )
+            )
+            return 0
+        if args.command == "verify-sba":
+            print(json.dumps(verify_sba_benchmark(args.directory), indent=2))
+            return 0
         if args.command == "card-benchmark":
             summary = write_card_benchmark(args.out)
             print(json.dumps({"out": str(args.out), "results": summary["results"]}, indent=2))

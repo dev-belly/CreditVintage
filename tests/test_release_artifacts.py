@@ -35,7 +35,19 @@ def inputs(tmp_path):
         info.size = len(content)
         archive.addfile(info, io.BytesIO(content))
     check = tmp_path / "checked.json"
-    check.write_text(json.dumps({"status": "verified", "card_credit": {"refitted": True}}))
+    check.write_text(
+        json.dumps(
+            {
+                "status": "verified",
+                "card_credit": {"refitted": True},
+                "sba_credit": {
+                    "refitted": True,
+                    "target": "recorded_chargeoff_within_24_calendar_months",
+                    "rehashed_false_metric_rejected": True,
+                },
+            }
+        )
+    )
     return dist, check, tmp_path / "release"
 
 
@@ -73,3 +85,17 @@ def test_changed_distribution_and_missing_exact_version_are_rejected(inputs):
     next(dist.glob("*.whl")).unlink()
     with pytest.raises(ValueError, match="exactly one"):
         release.prepare(dist, check, output.parent / "second", COMMIT)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [("refitted", False), ("target", "180_day_default"), ("rehashed_false_metric_rejected", False)],
+)
+def test_release_requires_native_sba_refit_and_tamper_check(inputs, field, value):
+    dist, check, output = inputs
+    result = json.loads(check.read_text())
+    result["sba_credit"][field] = value
+    check.write_text(json.dumps(result))
+    with pytest.raises(ValueError, match="must pass"):
+        release.prepare(dist, check, output, COMMIT)
+    assert not output.exists()
