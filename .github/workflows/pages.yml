@@ -34,13 +34,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
           repository: dev-belly/PITBridge
           ref: ed19dc698534f45a2b646fb4976ff6b01966b0cc
           path: .pitbridge
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - run: python -m pip install -e ".[dev]" -e .pitbridge
@@ -55,7 +55,7 @@ jobs:
           python examples/german_credit.py --verify docs/public-credit-comparison
           python scripts/build_public_site.py
       - name: Upload verified site
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: _site
       - name: Capture feature-monitor desktop and mobile layouts
@@ -65,7 +65,7 @@ jobs:
           google-chrome --headless --no-sandbox --disable-dev-shm-usage --hide-scrollbars --window-size=1440,1600 --screenshot="$PWD/layout-preview/desktop.png" "file://$PWD/_site/feature-monitor/index.html"
           google-chrome --headless --no-sandbox --disable-dev-shm-usage --hide-scrollbars --window-size=390,2400 --screenshot="$PWD/layout-preview/mobile.png" "file://$PWD/_site/feature-monitor/index.html"
       - name: Retain feature-monitor layout previews
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: feature-monitor-layouts
           path: layout-preview/*.png
@@ -77,7 +77,7 @@ jobs:
           google-chrome --headless --no-sandbox --disable-dev-shm-usage --hide-scrollbars --window-size=1440,2600 --screenshot="$PWD/quality-layout/desktop.png" "file://$PWD/_site/feature-quality/index.html"
           google-chrome --headless --no-sandbox --disable-dev-shm-usage --hide-scrollbars --window-size=390,3800 --screenshot="$PWD/quality-layout/mobile.png" "file://$PWD/_site/feature-quality/index.html"
       - name: Retain feature-quality previews
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: feature-quality-layouts
           path: quality-layout/*.png
@@ -89,7 +89,7 @@ jobs:
           google-chrome --headless --no-sandbox --disable-dev-shm-usage --hide-scrollbars --window-size=1440,1900 --screenshot="$PWD/policy-layout/desktop.png" "file://$PWD/_site/feature-check/index.html"
           google-chrome --headless --no-sandbox --disable-dev-shm-usage --hide-scrollbars --window-size=390,2700 --screenshot="$PWD/policy-layout/mobile.png" "file://$PWD/_site/feature-check/index.html"
       - name: Retain coverage-policy previews
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: feature-policy-layouts
           path: policy-layout/*.png
@@ -98,7 +98,7 @@ jobs:
       - name: Check and capture SBA desktop and mobile layouts
         run: python scripts/capture_sba_layouts.py
       - name: Retain SBA layout previews
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sba-credit-layouts
           path: sba-layout/*.png
@@ -119,4 +119,4 @@ jobs:
     steps:
       - name: Publish GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

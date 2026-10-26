@@ -29,13 +29,13 @@ jobs:
       - name: Exercise Windows checkout conversion
         if: runner.os == 'Windows'
         run: git config --global core.autocrlf true
-      - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
           repository: dev-belly/PITBridge
           ref: ed19dc698534f45a2b646fb4976ff6b01966b0cc
           path: .pitbridge
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
       - run: python -m pip install -e ".[dev]"
@@ -115,13 +115,13 @@ jobs:
           - os: windows-latest
             python-version: "3.12"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
           repository: dev-belly/PITBridge
           ref: ed19dc698534f45a2b646fb4976ff6b01966b0cc
           path: .pitbridge
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
       - run: python -m pip install build ruff
@@ -139,14 +139,14 @@ jobs:
         run: python scripts/check_distribution.py dist --card-evidence portable-card/evidence.zip --sba-evidence portable-sba/evidence.zip > installed-check.json
       - name: Retain Linux Python 3.12 card evidence for other runtimes
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: card-replay-evidence
           path: portable-card/evidence.zip
           if-no-files-found: error
       - name: Retain Linux Python 3.12 SBA evidence for other runtimes
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sba-replay-evidence
           path: portable-sba/evidence.zip
@@ -159,7 +159,7 @@ jobs:
         run: python scripts/release_artifacts.py prepare dist installed-check.json release --commit "$BUILD_SHA"
       - name: Retain the distributions that passed installation and refitting
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: checked-distributions
           path: release/*
@@ -179,18 +179,18 @@ jobs:
           - os: windows-latest
             python-version: "3.12"
     steps:
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: checked-distributions
           path: checked-release
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: card-replay-evidence
           path: portable-card
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: sba-replay-evidence
           path: portable-sba
