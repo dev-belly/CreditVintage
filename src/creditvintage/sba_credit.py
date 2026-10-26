@@ -454,6 +454,7 @@ def verify_sba_benchmark(directory: Path) -> dict[str, Any]:
     if (
         set(manifest) != {"schema", "files_sha256"}
         or manifest["schema"] != "creditvintage-sba-manifest-v1"
+        or not isinstance(manifest["files_sha256"], dict)
         or set(manifest["files_sha256"]) != set(SBA_FILES)
     ):
         raise DataContractError("SBA manifest inventory differs")
@@ -518,7 +519,7 @@ def verify_sba_benchmark(directory: Path) -> dict[str, Any]:
                     or archive.read(entry) != path.read_bytes()
                 ):
                     raise DataContractError("SBA ZIP content differs")
-    except zipfile.BadZipFile as exc:
+    except (zipfile.BadZipFile, RuntimeError) as exc:
         raise DataContractError("Invalid SBA evidence ZIP") from exc
     return {
         "status": "verified",

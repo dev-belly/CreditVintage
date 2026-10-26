@@ -305,6 +305,15 @@ def test_output_never_overwrites_prior_evidence(bundle, capsys):
     assert "new SBA destination" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize("inventory", [None, [], "source.csv.gz", 1])
+def test_malformed_manifest_inventory_has_controlled_cli_error(tmp_path, capsys, inventory):
+    (tmp_path / "manifest.json").write_text(
+        json.dumps({"schema": "creditvintage-sba-manifest-v1", "files_sha256": inventory})
+    )
+    assert main(["verify-sba", str(tmp_path)]) == 2
+    assert "SBA manifest inventory" in capsys.readouterr().err
+
+
 def test_converter_rejects_wrong_original_hash_before_output(tmp_path):
     import importlib.util
 
