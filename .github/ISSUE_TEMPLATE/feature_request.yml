@@ -1,0 +1,30 @@
+name: Feature request
+description: "Propose a concrete improvement to decision-time features, mature outcomes and replayable review evidence."
+title: "[Feature]: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem and user workflow
+      description: Describe a task that the current contract makes difficult, with a small synthetic example.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Proposed behavior
+      description: "Explain inputs, outputs and failure behavior. Preserve the project's focus on decision-time features, mature outcomes and replayable review evidence."
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: How to check the result
+      description: "Identify the command family (evaluation, monitoring, feature quality, review or lineage), cutoff, outcome horizon and artifact version. For lineage, include the PITBridge revision."
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Existing approach and alternatives
+      description: Link relevant documentation or prior issues and explain the remaining gap.
