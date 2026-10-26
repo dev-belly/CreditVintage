@@ -337,7 +337,12 @@ def render_report(result: dict[str, Any]) -> str:
             "<tr><th scope='row'>"
             + cell(method)
             + "</th>"
-            + "".join(f"<td>{value}</td>" for value in values)
+            + "".join(
+                f"<td data-label='{label}'><span>{value}</span></td>"
+                for label, value in zip(
+                    ("ROC AUC", "Average precision", "Brier score"), values, strict=True
+                )
+            )
             + "</tr>"
         )
     policies = [

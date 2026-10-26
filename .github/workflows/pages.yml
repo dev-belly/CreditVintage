@@ -96,10 +96,10 @@ jobs:
         shell: bash
         run: |
           mkdir -p sba-layout
-          google-chrome --headless --no-sandbox --disable-dev-shm-usage --hide-scrollbars --window-size=1440,3600 --screenshot="$PWD/sba-layout/desktop.png" "file://$PWD/_site/sba-credit/index.html"
-          google-chrome --headless --no-sandbox --disable-dev-shm-usage --hide-scrollbars --window-size=390,2200 --screenshot="$PWD/sba-layout/mobile-top.png" "file://$PWD/_site/sba-credit/index.html"
-          google-chrome --headless --no-sandbox --disable-dev-shm-usage --hide-scrollbars --window-size=390,2200 --screenshot="$PWD/sba-layout/mobile-models.png" "file://$PWD/_site/sba-credit/index.html#models"
-          google-chrome --headless --no-sandbox --disable-dev-shm-usage --hide-scrollbars --window-size=390,2600 --screenshot="$PWD/sba-layout/mobile-evidence.png" "file://$PWD/_site/sba-credit/index.html#evidence"
+          google-chrome --headless --no-sandbox --disable-gpu --run-all-compositor-stages-before-draw --virtual-time-budget=2500 --disable-dev-shm-usage --hide-scrollbars --window-size=1440,3600 --screenshot="$PWD/sba-layout/desktop.png" "file://$PWD/_site/sba-credit/index.html"
+          google-chrome --headless --no-sandbox --disable-gpu --run-all-compositor-stages-before-draw --virtual-time-budget=2500 --disable-dev-shm-usage --hide-scrollbars --window-size=390,2200 --screenshot="$PWD/sba-layout/mobile-top.png" "file://$PWD/_site/sba-credit/index.html"
+          google-chrome --headless --no-sandbox --disable-gpu --run-all-compositor-stages-before-draw --virtual-time-budget=2500 --disable-dev-shm-usage --hide-scrollbars --window-size=390,2200 --screenshot="$PWD/sba-layout/mobile-models.png" "file://$PWD/_site/sba-credit/index.html#models"
+          google-chrome --headless --no-sandbox --disable-gpu --run-all-compositor-stages-before-draw --virtual-time-budget=2500 --disable-dev-shm-usage --hide-scrollbars --window-size=390,2600 --screenshot="$PWD/sba-layout/mobile-evidence.png" "file://$PWD/_site/sba-credit/index.html#evidence"
       - name: Retain SBA layout previews
         uses: actions/upload-artifact@v4
         with:
