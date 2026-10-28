@@ -66,6 +66,17 @@ a complete mature evaluation; its maturity failures do not reject monitoring use
 
 ## 1. Make all dates explicit
 
+On current `main`, each `principal_cents` is an integer in `[1, 2^63-1]`, matching
+the SQLite storage used by the business workflow. Cents remain exact integers;
+values above `2^53` are not rounded through a float at ingestion. Portfolio
+total cents still have a separate int64 check before SQL aggregation.
+Unsupported amounts are diagnosed as `record_contract` at their CSV physical
+line before readiness or fitting. Enormous integer feature values and config
+fractions also raise ordinary contract errors rather than binary64 overflows.
+The released v0.8.0 assets predate these validation changes; install current
+source to use them. Existing supported inputs and saved report values are
+unchanged.
+
 Use exact `YYYY-MM-DD` calendar dates throughout the CSVs, the JSON configuration
 and the monitoring `--as-of` argument. For example, use `2024-10-01`, not
 `20241001` or the ISO week date `2024-W40-2`. Timestamps, surrounding spaces and

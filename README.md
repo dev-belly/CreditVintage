@@ -497,7 +497,11 @@ Earlier wheels predate this stricter CSV/cutoff parsing; see the
 [date input and compatibility notes](docs/CUSTOM_INPUTS.md#1-make-all-dates-explicit).
 Segments are `retail` or `small_business`; feature
 names are `utilization`, `debt_to_income`, `prior_delinquencies`.
-`principal_cents` is a positive integer USD-cent amount. The default vintage
+`principal_cents` is a positive integer USD-cent amount within signed int64
+(`1` through `2^63-1`); supported integer cents remain exact above `2^53`.
+SQL analysis additionally requires the portfolio's total cents to fit int64.
+The per-record bound is enforced on current `main`; existing v0.8.0 release
+assets predate it. The default vintage
 windows above apply when `--config` is omitted. Supply a strict JSON
 configuration to `run`, `benchmark`, `monitor` or `preflight` to use your own
 dates, LGD scenario and review fraction. The file must give all seven calendar

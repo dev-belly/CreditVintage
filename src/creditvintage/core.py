@@ -46,8 +46,8 @@ class Application:
             raise DataContractError("Application ID must be 1–128 safe ASCII characters")
         if type(self.decision_at) is not date:
             raise DataContractError("Application needs an ID and decision date")
-        if type(self.principal_cents) is not int or self.principal_cents <= 0:
-            raise DataContractError("Principal must be positive integer cents")
+        if type(self.principal_cents) is not int or not 1 <= self.principal_cents <= 2**63 - 1:
+            raise DataContractError("Principal must be positive integer cents within SQLite int64")
         if self.segment not in {"retail", "small_business"}:
             raise DataContractError("Unknown segment")
 
@@ -63,9 +63,15 @@ class FeatureEvent:
     def __post_init__(self) -> None:
         if type(self.observed_at) is not date or type(self.available_at) is not date:
             raise DataContractError("Feature needs calendar dates")
-        if type(self.value) not in (int, float) or not math.isfinite(self.value):
+        if type(self.value) not in (int, float):
             raise DataContractError("Feature needs a finite numeric value")
-        object.__setattr__(self, "value", float(self.value))
+        try:
+            value = float(self.value)
+        except OverflowError as exc:
+            raise DataContractError("Feature needs a finite numeric value") from exc
+        if not math.isfinite(value):
+            raise DataContractError("Feature needs a finite numeric value")
+        object.__setattr__(self, "value", value)
         if self.name not in FEATURE_NAMES:
             raise DataContractError("Unknown feature or non-finite value")
         if self.observed_at > self.available_at:
