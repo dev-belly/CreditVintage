@@ -105,6 +105,21 @@ class AdapterTests(unittest.TestCase):
         features, _ = self.export()
         self.assertEqual(next(f.value for f in features if f.name == "utilization"), 0.4)
 
+    def test_submicrosecond_arrival_cannot_be_rounded_into_the_cutoff(self) -> None:
+        original = self.data["observations"][0]
+        self.data["observations"].append(
+            {
+                **original,
+                "record_id": "after-cutoff",
+                "revision": 2,
+                "value": 0.99,
+                "ingested_at": "2024-07-01T23:59:59.9999999Z",
+            }
+        )
+        with self.assertRaisesRegex(ValueError, "microsecond precision"):
+            self.export()
+        self.assertFalse(self.path.exists())
+
     def test_age_boundary_is_inclusive(self) -> None:
         self.data["observations"][0]["event_at"] = "2024-06-24T23:59:59.999999Z"
         self.assertEqual(len(self.export()[0]), 3)
@@ -187,6 +202,31 @@ class ReplayTests(unittest.TestCase):
         checked = verify_lineage(self.path)
         self.assertEqual(checked["source_features"], 1440)
         self.assertTrue(checked["pit_replay"] and checked["model_replay"])
+
+    def test_original_dependency_reference_remains_replayable(self) -> None:
+        path = self.path / "summary.json"
+        summary = json.loads(path.read_text(encoding="utf-8"))
+        summary["pitbridge_reference_commit"] = "ed19dc698534f45a2b646fb4976ff6b01966b0cc"
+        path.write_text(json.dumps(summary), encoding="utf-8")
+        self.rehash("summary.json")
+        before = {
+            p.relative_to(self.path): p.read_bytes() for p in self.path.rglob("*") if p.is_file()
+        }
+        checked = verify_lineage(self.path)
+        self.assertTrue(checked["pit_replay"] and checked["model_replay"])
+        self.assertEqual(
+            before,
+            {p.relative_to(self.path): p.read_bytes() for p in self.path.rglob("*") if p.is_file()},
+        )
+
+    def test_unknown_dependency_reference_is_rejected_even_after_rehash(self) -> None:
+        path = self.path / "summary.json"
+        summary = json.loads(path.read_text(encoding="utf-8"))
+        summary["pitbridge_reference_commit"] = "0" * 40
+        path.write_text(json.dumps(summary), encoding="utf-8")
+        self.rehash("summary.json")
+        with self.assertRaisesRegex(DataContractError, "lineage demo contract"):
+            verify_lineage(self.path)
 
     def test_rehashed_lineage_forgery_is_rejected(self) -> None:
         with (self.path / "lineage.csv").open(newline="") as handle:

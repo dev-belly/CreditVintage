@@ -569,7 +569,7 @@ Install the pinned reference implementation before using this optional integrati
 
 ```bash
 git clone https://github.com/dev-belly/PITBridge.git ../PITBridge
-git -C ../PITBridge checkout ed19dc698534f45a2b646fb4976ff6b01966b0cc
+git -C ../PITBridge checkout 219e58a7c2acc4a3fcd4f7ffdb68ba8eef0564f0
 python -m pip install -e ../PITBridge
 creditvintage lineage-demo --out outputs/lineage
 creditvintage verify-lineage outputs/lineage
