@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import html
-import io
 import math
 import platform
 import tempfile
 import zipfile
+import zlib
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
@@ -38,7 +38,7 @@ from creditvintage.sba_source import (
     resource,
     validate_cohorts,
 )
-from creditvintage.validation import read_csv_rows, read_json_object
+from creditvintage.validation import finite_number, read_csv_rows, read_json_object
 
 METHODS = ("constant", "logistic", "isotonic")
 METRICS = ("roc_auc", "average_precision", "brier")
@@ -439,8 +439,7 @@ def _same(actual: Any, expected: Any, label: str, *, tolerance: float = 1e-6) ->
         if (
             isinstance(actual, bool)
             or not isinstance(actual, (int, float))
-            or not math.isfinite(actual)
-            or abs(actual - expected) > tolerance
+            or abs(finite_number(actual, f"SBA {label}") - expected) > tolerance
         ):
             raise DataContractError(f"SBA {label} numeric value differs")
     elif type(actual) is not type(expected) or actual != expected:
@@ -514,7 +513,7 @@ def verify_sba_benchmark(directory: Path) -> dict[str, Any]:
     if (directory / "index.html").read_text(encoding="utf-8") != render_report(report_result):
         raise DataContractError("SBA HTML differs from verified retained numbers")
     try:
-        with zipfile.ZipFile(io.BytesIO((directory / "evidence.zip").read_bytes())) as archive:
+        with zipfile.ZipFile(directory / "evidence.zip") as archive:
             if archive.namelist() != [*SBA_FILES, "manifest.json"]:
                 raise DataContractError("SBA ZIP inventory differs")
             for entry in archive.infolist():
@@ -524,7 +523,7 @@ def verify_sba_benchmark(directory: Path) -> dict[str, Any]:
                     or archive.read(entry) != path.read_bytes()
                 ):
                     raise DataContractError("SBA ZIP content differs")
-    except (zipfile.BadZipFile, RuntimeError) as exc:
+    except (zipfile.BadZipFile, RuntimeError, EOFError, zlib.error) as exc:
         raise DataContractError("Invalid SBA evidence ZIP") from exc
     return {
         "status": "verified",

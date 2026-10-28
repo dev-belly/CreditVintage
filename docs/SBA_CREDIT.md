@@ -17,7 +17,7 @@ Python 3.12+ in a virtual environment; installation needs internet. Evaluation
 and refitting then work offline, without PITBridge or a source checkout.
 
 ```text
-python -m pip install https://github.com/dev-belly/CreditVintage/releases/download/v0.8.0/creditvintage_research-0.8.0-py3-none-any.whl
+python -m pip install https://github.com/dev-belly/CreditVintage/releases/download/v0.8.1/creditvintage_research-0.8.1-py3-none-any.whl
 python -m creditvintage sba-benchmark --out outputs/sba-credit
 python -m creditvintage verify-sba outputs/sba-credit
 ```
@@ -136,7 +136,9 @@ queue rows, six year/method rows, 900 bootstrap rows, summary and HTML.
 recomputes outputs and checks score/order/count contracts, HTML and ZIP bytes.
 Predictions use absolute tolerance 1e-8; summary/derived metrics use 1e-6 for
 small OS/library fit differences. Identities, counts, source and protocol are
-exact. This verifies internal consistency, not source truth or independent use.
+exact. From v0.8.1, oversized numeric claims and malformed ZIP streams return
+exit 2 with a diagnostic and leave the evidence untouched. Valid 0.8.0 bundles
+remain compatible. This verifies internal consistency, not source truth or independent use.
 The release gate also rejects a false AUC after its file hash is recomputed.
 Linux-built evidence is replayed on Windows/Python 3.12 and Ubuntu/Python 3.13.
 
