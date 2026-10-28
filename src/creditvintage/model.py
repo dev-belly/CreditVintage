@@ -59,7 +59,9 @@ class Config:
                 raise DataContractError(f"{name} must be a calendar date")
         for name in ("scenario_lgd", "review_fraction"):
             value = getattr(self, name)
-            if type(value) not in (int, float) or not math.isfinite(value) or not 0 < value <= 1:
+            # Check the bounded domain before isfinite converts an arbitrary
+            # Python integer to binary64 and can raise OverflowError.
+            if type(value) not in (int, float) or not 0 < value <= 1 or not math.isfinite(value):
                 raise DataContractError(f"{name} must be a finite number within (0, 1]")
         lag = timedelta(days=HORIZON_DAYS + REPORT_LAG_DAYS)
         try:
