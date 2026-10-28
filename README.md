@@ -6,6 +6,7 @@
 reviewable risk report.** It is designed to demonstrate the data controls a
 banking or risk analytics team should ask about before trusting a score.
 
+- **Try it in two minutes / 中文交互速览:** [Compare the same review budget](https://dev-belly.github.io/CreditVintage/sba-brief/) on 10,000 held-out SBA loans. No installation or account; keep every fixed method and capacity visible.
 - **Use your own CSVs:** [Create and validate an editable input case](#start-with-editable-csv-inputs).
 - **Compare models on public credit data:** [Start with the public benchmarks](#try-observed-public-data).
 - **Inspect decision-time data and human review:** [Trace source availability](#source-to-prediction-lineage) and [inspect the review workflow](#a-durable-human-review-workflow).
@@ -20,6 +21,16 @@ banking or risk analytics team should ask about before trusting a score.
 > or a deployable credit policy.
 
 [Comparison with established tools and remaining gaps / 同方向项目对照](docs/COMPARISON.zh-CN.md).
+
+The [browser brief](https://dev-belly.github.io/CreditVintage/sba-brief/) reads nine
+aggregate comparisons generated from the fully refitted SBA evidence. Switch
+500 / 1,000 / 2,000 review slots, distinguish precision from event capture, and
+copy a link to the current comparison. At 1,000 slots, raw logistic captures
+26/89 events while independently calibrated scores capture 24/89, even though
+calibration improves Brier. This is retrospective concentration, not prevented
+loss or a way to tune a deployment threshold. Follow any result to the saved
+predictions, protocol and implementation; the complete table also works without
+JavaScript. [How this entry is built and checked](docs/SBA_BRIEF.md).
 
 ## Start with editable CSV inputs
 
