@@ -8,6 +8,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from build_credit_brief import build_brief
+
 from creditvintage.artifacts import verify_result
 from creditvintage.benchmark import benchmark, verify_benchmark, write_benchmark
 from creditvintage.business import verify_analysis, write_analysis
@@ -79,6 +81,7 @@ def build(destination: Path) -> dict[str, Any]:
     card_credit = verify_card_benchmark(destination / "card-credit")
     write_sba_benchmark(destination / "sba-credit")
     sba_credit = verify_sba_benchmark(destination / "sba-credit")
+    sba_brief = build_brief(destination / "sba-credit", destination / "sba-brief")
     if not (destination / "index.html").is_file():
         raise ValueError("Site entry page is missing")
     return {
@@ -89,6 +92,7 @@ def build(destination: Path) -> dict[str, Any]:
         "public_credit": public_credit,
         "card_credit": card_credit,
         "sba_credit": sba_credit,
+        "sba_brief": sba_brief,
         "feature_monitor": feature_monitor,
         "feature_quality": feature_quality,
         "feature_check": feature_check,

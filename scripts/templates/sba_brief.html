@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>同样的复核名额，看到不同的结果 · CreditVintage</title>
+  <meta name="description" content="两分钟读懂 35,000 笔真实 SBA 贷款研究：切换固定复核名额，比较模型、校准、精确率和事件捕获率。无需安装。">
+  <style>
+    :root { color-scheme: light; --ink: #153c38; --muted: #546d66; --teal: #006c60; --line: #d0ded4; --paper: #f3f5ee; --orange: #95501b; font-family: system-ui, -apple-system, "Noto Sans CJK SC", "Noto Sans SC", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font-size: 16px; line-height: 1.75; }
+    main { max-width: 1160px; margin: auto; padding: 26px 30px 48px; }
+    a { color: var(--teal); text-underline-offset: 4px; }
+    nav, .actions, .pills { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 22px; }
+    nav { justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: 18px; font-size: 14px; }
+    .brand { font-weight: 800; text-decoration: none; letter-spacing: -.02em; }
+    .nav-links { display: flex; flex-wrap: wrap; gap: 18px; }
+    header { padding: 38px 0 20px; }
+    .eyebrow { color: var(--teal); font-size: 12px; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
+    h1 { font-size: clamp(32px, 4.8vw, 55px); line-height: 1.2; letter-spacing: -.045em; margin: 16px 0 22px; }
+    h2 { margin: 0 0 12px; font-size: clamp(22px, 3vw, 29px); line-height: 1.4; letter-spacing: -.025em; }
+    h3 { font-size: 16px; margin: 0 0 12px; }
+    p { margin: 10px 0; }
+    .lead { max-width: 850px; color: var(--muted); font-size: 18px; }
+    .pills { margin-top: 24px; gap: 10px; font-size: 13px; }
+    .pills span { border: 1px solid var(--line); background: #fff; border-radius: 30px; padding: 5px 13px; }
+    .lab { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 26px; }
+    fieldset { border: 0; padding: 0; margin: 0 0 14px; }
+    legend { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+    .budget-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+    button { font: inherit; cursor: pointer; }
+    .budget-buttons button { border: 1px solid #a9c3b8; border-radius: 7px; background: #f5f8f2; padding: 10px 17px; font-size: 14px; color: var(--ink); }
+    .budget-buttons button[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+    button:disabled { cursor: default; }
+    .status { color: var(--muted); font-size: 14px; min-height: 25px; }
+    .result-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 20px 0; }
+    .result-card { min-width: 0; border: 1px solid var(--line); border-top: 4px solid #8d9c94; border-radius: 9px; padding: 18px; background: #f9faf6; }
+    .result-card.logistic { border-top-color: var(--teal); background: #edf5ed; }
+    .result-card.isotonic { border-top-color: #be7940; background: #fcf4e9; }
+    .found { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; margin: 0 0 10px; font-variant-numeric: tabular-nums; }
+    .found strong { font-size: 43px; line-height: 1.3; letter-spacing: -.04em; }
+    .found span, .outside { color: var(--muted); font-size: 12px; }
+    meter { display: block; width: 100%; height: 13px; accent-color: var(--teal); }
+    dl { margin: 15px 0 0; font-size: 12px; }
+    dl div { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+    dd { margin: 0; font-size: 15px; font-weight: 750; font-variant-numeric: tabular-nums; }
+    .outside { margin: 12px 0 0; }
+    .explanation { border-left: 3px solid var(--teal); padding: 4px 0 4px 15px; font-size: 14px; }
+    .scope { color: var(--orange); font-size: 13px; }
+    .share { color: var(--teal); background: transparent; border: 0; padding: 0; text-decoration: underline; text-underline-offset: 4px; font-size: 13px; }
+    .share-wrap { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 15px; }
+    #share-status { color: var(--muted); font-size: 12px; }
+    .section { margin-top: 34px; }
+    .reading-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+    .reading-grid article { border-top: 1px solid var(--line); padding-top: 20px; min-width: 0; }
+    .muted { color: var(--muted); font-size: 14px; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 7px; background: #fff; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+    th, td { padding: 9px 11px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+    th { background: #e9f0e7; white-space: nowrap; }
+    tr:last-child td { border-bottom: 0; }
+    details { margin: 24px 0; }
+    summary { cursor: pointer; font-weight: 650; }
+    details .table-wrap { margin-top: 15px; }
+    ol, ul { padding-left: 22px; }
+    li { margin: 8px 0; }
+    pre { background: #153c38; color: #f4f7ee; border-radius: 8px; padding: 16px; overflow-x: auto; font-size: 12px; line-height: 1.8; }
+    code { overflow-wrap: anywhere; }
+    .button { display: inline-block; background: var(--ink); color: #fff; padding: 9px 15px; border: 1px solid var(--ink); border-radius: 7px; text-decoration: none; font-size: 14px; }
+    .button.secondary { color: var(--ink); background: transparent; }
+    footer { border-top: 1px solid var(--line); margin-top: 35px; padding-top: 20px; font-size: 13px; color: var(--muted); }
+    .digest { font-size: 11px; word-break: break-all; }
+    :focus-visible { outline: 3px solid #a35d28; outline-offset: 4px; }
+    @media (max-width: 700px) { main { padding: 20px 17px 36px; } header { padding-top: 25px; } .lab { padding: 19px 15px; } .result-grid { grid-template-columns: 1fr; gap: 12px; } .result-card { padding: 15px; } .found strong { font-size: 37px; } .reading-grid { grid-template-columns: 1fr; gap: 20px; } .budget-buttons { gap: 8px; } .budget-buttons button { padding: 10px 12px; } .lead { font-size: 16px; } }
+  </style>
+</head>
+<body>
+<main>
+  <nav aria-label="主导航"><a class="brand" href="../">CreditVintage ↗</a><div class="nav-links"><a href="../sba-credit/">完整研究</a><a href="#evidence">结果与代码</a><a href="https://github.com/dev-belly/dev-belly/blob/main/FOR_RECRUITERS.md">作者 / 实习方向</a></div></nav>
+  <header>
+    <p class="eyebrow">2-minute case / observed SBA loans</p>
+    <h1>同样的复核名额，<br>看到不同的结果。</h1>
+    <p class="lead">模型的概率更准，复核名单就一定更好吗？从 35,000 笔真实 SBA 贷款中，用同一批测试记录比较原始模型与独立校准，保留变差的结果。</p>
+    <div class="pills"><span>10,000 笔跨期测试贷款</span><span>89 笔记录核销事件</span><span>24 个月观察窗口</span><span>免登录 · 无需安装</span></div>
+  </header>
+  <section class="lab" aria-labelledby="lab-title">
+    <p class="eyebrow">01 / keep the workload equal</p>
+    <h2 id="lab-title">给每种方法同样的复核名额</h2>
+    <fieldset id="capacity-controls" disabled><legend>固定研究容量 / Review slots</legend><div class="budget-buttons"><button type="button" data-capacity="5" aria-pressed="false">500 名额 · 5%</button><button type="button" data-capacity="10" aria-pressed="true">1,000 名额 · 10%</button><button type="button" data-capacity="20" aria-pressed="false">2,000 名额 · 20%</button></div></fieldset>
+    <p id="selection-status" class="status" role="status">当前比较：每种方法复核 1,000 / 10,000 笔贷款。</p>
+    <div class="result-grid" id="result-cards">@@RESULT_CARDS@@</div>
+    <div class="explanation"><p id="denominator-explanation">原始模型找到 26 笔事件：精确率是 26 / 1,000 = 2.60%，事件捕获率是 26 / 89 = 29.21%。两个比例回答不同的问题。</p></div>
+    <p class="scope">这里展示历史记录中的事件集中程度，不能解读为避免了多少坏账。三个容量在研究协议中预先固定；切换只读取已核验结果，不重新训练或选择部署阈值。常数分数按记录 ID 打破并列，名单仅是任意排序。</p>
+    <div class="share-wrap"><button id="copy-scenario" class="share" type="button" disabled>复制当前比较链接</button><span id="share-status" role="status"></span></div>
+    <noscript><p>浏览器未启用 JavaScript，当前显示 10% 容量。下方完整表格保留全部九组比较。</p></noscript>
+  </section>
+  <section class="reading-grid section" aria-label="结果解释与日期口径">
+    <article><p class="eyebrow">02 / probability ≠ ranking</p><h2>校准改善概率误差，<br>排序仍可能变差。</h2><div class="table-wrap"><table id="model-metrics"><caption class="muted">相同 10,000 笔测试贷款；容量切换不改变这些指标</caption><thead><tr><th>固定方法</th><th>AUC ↑</th><th>Brier ↓</th></tr></thead><tbody>@@METRIC_ROWS@@</tbody></table></div><p class="muted">Brier 衡量逐笔概率的平方误差；AUC 衡量正负样本的排序。保序校准会产生并列分数，因此概率误差、排序和固定名单的捕获率需要分别检查。只有 89 笔测试事件，不能把单次差异当成未来保证；<a href="../sba-credit/#models">完整报告保留配对月份 Bootstrap 区间</a>。</p></article>
+    <article><p class="eyebrow">03 / dates before models</p><h2>先让历史结果成熟，<br>再进入下一个阶段。</h2><ol><li><strong>训练：20,000 笔，2006–2010 放款。</strong>预处理和 Logistic 只在训练样本拟合；最晚 24 月表现于 2012 年末成熟。</li><li><strong>独立校准：5,000 笔，2013 放款。</strong>只用这组标签拟合保序校准；最晚表现于 2015 年末成熟。</li><li><strong>测试：10,000 笔，2016–2017 放款。</strong>固定模型与容量后评估；不拿测试结果调整特征或超参数。</li></ol><p class="muted">来源是真实日期的最终公开快照，缺少历史首次公开时间与修订记录。因此这是回溯放款队列验证，不能证明过去决策时已获得全部特征，也不能直接代表当前中国零售信贷。</p></article>
+  </section>
+  <details id="all-comparisons"><summary>展开全部 9 组固定容量结果 / All retained comparisons</summary><div class="table-wrap"><table><thead><tr><th>方法</th><th>容量</th><th>复核笔数</th><th>捕获 / 总事件</th><th>精确率</th><th>事件捕获率</th></tr></thead><tbody>@@POLICY_ROWS@@</tbody></table></div><p class="muted">横向滑动可查看完整表格。所有按钮和表格来自同一份已重拟合核验的证据，不包含新增训练或筛选。</p></details>
+  <section id="evidence" class="section">
+    <p class="eyebrow">04 / follow a number back to its source</p><h2>沿着一个数字，核查整个项目。</h2>
+    <p class="muted"><a href="../sba-credit/policy_metrics.csv">固定容量 CSV</a> → <a href="../sba-credit/predictions.csv">10,000 笔测试预测</a> → <a href="https://github.com/dev-belly/CreditVintage/blob/main/src/creditvintage/sba_credit.py">训练与核验实现</a> → <a href="../sba-credit/protocol.json">冻结研究协议</a>。本页只含汇总数据；<a href="data.json">查看速览数据与来源摘要</a>。</p>
+    <p class="muted">Python 3.12+，在虚拟环境中安装。安装需要网络，之后可离线重跑已发布的 v0.8.1 研究；交互速览由当前网站构建生成。</p>
+    <pre>python -m pip install https://github.com/dev-belly/CreditVintage/releases/download/v0.8.1/creditvintage_research-0.8.1-py3-none-any.whl
+python -m creditvintage sba-benchmark --out outputs/sba-credit
+python -m creditvintage verify-sba outputs/sba-credit</pre>
+    <p class="muted">选择尚不存在的输出目录。成功核验显示 <code>status: verified</code>、<code>refitted: true</code>；这说明证据在当前实现内一致，不等于独立采用或业务收益。</p>
+    <div class="actions"><a class="button" href="../sba-credit/">查看完整报告</a><a class="button secondary" href="../sba-credit/evidence.zip">下载完整证据 ZIP</a><a href="https://github.com/dev-belly/CreditVintage/blob/main/docs/SBA_CREDIT.md">方法、来源与限制</a></div>
+  </section>
+  <footer><p>CreditVintage · dev-belly 的公开研究项目。来源：<a href="https://data.sba.gov/dataset/7a-504-foia">U.S. SBA 7(a) &amp; 504 FOIA</a>，2026-06-30 快照，无 SBA 背书。</p><p>如果这套可复现分析对你有用，可以 <a href="https://github.com/dev-belly/CreditVintage">Star CreditVintage</a>，或 <a href="https://github.com/dev-belly">关注后续项目</a>。</p><p class="digest">固定容量 CSV SHA256：<code>@@POLICY_SHA@@</code></p></footer>
+</main>
+<script type="application/json" id="study-data">@@BRIEF_DATA@@</script>
+<script>
+(() => {
+  "use strict";
+  const study = JSON.parse(document.getElementById("study-data").textContent);
+  const buttons = [...document.querySelectorAll("button[data-capacity]")];
+  const whole = value => value.toLocaleString("en-US");
+  const percent = (numerator, denominator) => `${(100 * numerator / denominator).toFixed(2)}%`;
+  let current = 10;
+  let copyAttempt = 0;
+  function render(capacity, writeHash) {
+    current = capacity;
+    copyAttempt += 1;
+    document.getElementById("share-status").textContent = "";
+    buttons.forEach(button => button.setAttribute("aria-pressed", String(Number(button.dataset.capacity) === capacity)));
+    for (const card of document.querySelectorAll(".result-card")) {
+      const row = study.policies.find(item => item.method === card.dataset.method && item.capacity_percent === capacity);
+      card.querySelector(".captured").textContent = row.captured;
+      card.querySelector("meter").value = row.captured;
+      card.querySelector(".precision").textContent = percent(row.captured, row.reviewed);
+      card.querySelector(".capture").textContent = percent(row.captured, row.total_events);
+      card.querySelector(".outside").textContent = `复核名单外仍有 ${row.total_events - row.captured} 笔事件。`;
+    }
+    const raw = study.policies.find(item => item.method === "logistic" && item.capacity_percent === capacity);
+    document.getElementById("selection-status").textContent = `当前比较：每种方法复核 ${whole(raw.reviewed)} / ${whole(study.test_records)} 笔贷款。`;
+    document.getElementById("denominator-explanation").textContent = `原始模型找到 ${raw.captured} 笔事件：精确率是 ${raw.captured} / ${whole(raw.reviewed)} = ${percent(raw.captured, raw.reviewed)}，事件捕获率是 ${raw.captured} / ${raw.total_events} = ${percent(raw.captured, raw.total_events)}。两个比例回答不同的问题。`;
+    if (writeHash) history.replaceState(null, "", `#capacity=${capacity}`);
+  }
+  function fromHash() {
+    const match = /^#capacity=(5|10|20)$/.exec(location.hash);
+    render(match ? Number(match[1]) : 10, false);
+  }
+  buttons.forEach(button => button.addEventListener("click", () => render(Number(button.dataset.capacity), true)));
+  window.addEventListener("hashchange", fromHash);
+  const copy = document.getElementById("copy-scenario");
+  copy.addEventListener("click", async () => {
+    const attempt = ++copyAttempt;
+    const scenario = new URL(location.href);
+    scenario.hash = `capacity=${current}`;
+    try {
+      await navigator.clipboard.writeText(scenario.href);
+      if (attempt === copyAttempt) document.getElementById("share-status").textContent = "链接已复制。只包含固定容量，不包含个人数据。";
+    } catch {
+      if (attempt === copyAttempt) {
+        history.replaceState(null, "", scenario.hash);
+        document.getElementById("share-status").textContent = "请复制地址栏链接，当前容量已保存在链接中。";
+      }
+    }
+  });
+  fromHash();
+  document.getElementById("capacity-controls").disabled = false;
+  copy.disabled = false;
+})();
+</script>
+</body>
+</html>
