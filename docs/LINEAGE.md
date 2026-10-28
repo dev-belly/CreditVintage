@@ -9,6 +9,7 @@ This integration uses PITBridge's scalar decision-time snapshots as CreditVintag
 | Identity | Each application ID must equal the PIT decision ID and entity ID. No implicit borrower join. |
 | Decision | CreditVintage's calendar date means `23:59:59.999999` on that UTC day. Intraday decisions are rejected. |
 | Availability | `max(published_at, ingested_at)` must be at or before the decision. |
+| Precision | Source timestamps have at most six fractional-second digits on an explicit seconds field; UTC offsets use whole seconds. Unsupported precision fails before any feature export. |
 | Source | Exactly `credit_application`; three explicit feature specs, each with a seven-day maximum age. |
 | Features | `utilization` and `debt_to_income` are fractions in `[0,1]`; `prior_delinquencies` is an integer count in `[0,20]`. |
 | Missingness | Missing, stale or deleted features fail the adapter. No zero imputation. |
@@ -29,7 +30,21 @@ For example, a utilization correction is published at noon on a decision date bu
 
 `verify-lineage` calls PITBridge's hash and semantic verification, which checks the SQL snapshots against independent Python enumeration. It reruns the adapter and compares the exported features and lineage. It checks the evaluation artifacts with CreditVintage's independent metric verifier, then refits from the three preserved input CSVs and compares each held-out probability with `rtol=1e-8, atol=1e-10`. Prediction identities and metadata must agree exactly. The root model-input digest must match the replay.
 
-The dependency reference is PITBridge commit `ed19dc698534f45a2b646fb4976ff6b01966b0cc`, which includes the [finite binary64 numeric-contract repair](https://github.com/dev-belly/PITBridge/pull/3). Both integration CI and the public-site build check out that exact commit, and the generated summary records the same reference. The adapter still enforces the fraction/count ranges above; the upstream numeric repair does not widen its credit-feature contract. The adapter accepts the `pitbridge/0.1.0` bundle schema; recording a reference commit in a manifest is documentation, not a signature attesting the installed package. File hashes and semantic replay do not establish real-world source authenticity.
+The dependency reference is PITBridge commit `219e58a7c2acc4a3fcd4f7ffdb68ba8eef0564f0`, which includes the [timestamp-precision repair](https://github.com/dev-belly/PITBridge/pull/26) and earlier [finite binary64 numeric-contract repair](https://github.com/dev-belly/PITBridge/pull/3). Both integration CI and the public-site build check out that exact commit, and new summaries record the same reference. Install the source pin in the README with current CreditVintage `main`; the earlier v0.8.0 release assets are unchanged.
+
+For example, an ingestion at `23:59:59.9999999Z` is later than the model's
+`23:59:59.999999Z` cutoff. It must not become an eligible revision by dropping
+the seventh digit. The new pin rejects that input before writing a PIT bundle;
+it does not invent a rounding policy for higher-resolution feeds.
+
+Existing bundles declaring the original `ed19dc698534f45a2b646fb4976ff6b01966b0cc`
+reference remain accepted only through the complete hash, source, feature,
+prediction and page replay. Verification does not rewrite their source bytes or
+reference. Unknown references still fail, including after recomputing hashes.
+This preserves already normalized evidence; it cannot recover finer timestamp
+digits that an older importer discarded before saving them.
+
+The adapter still enforces the fraction/count ranges above; the upstream repairs do not widen its credit-feature contract. It accepts the `pitbridge/0.1.0` bundle schema; recording a reference commit in a manifest is documentation, not a signature attesting the installed package. File hashes and semantic replay do not establish real-world source authenticity.
 
 ## Tests
 

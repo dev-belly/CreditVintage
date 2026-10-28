@@ -32,7 +32,10 @@ from creditvintage.validation import read_csv_rows, read_json_object
 
 SOURCE = "credit_application"
 MAX_AGE_DAYS = 7
-PIT_COMMIT = "ed19dc698534f45a2b646fb4976ff6b01966b0cc"
+PIT_COMMIT = "219e58a7c2acc4a3fcd4f7ffdb68ba8eef0564f0"
+# Retain replay of already published evidence; a declared dependency reference
+# does not exempt its inputs, snapshots or predictions from semantic checks.
+LEGACY_PIT_COMMIT = "ed19dc698534f45a2b646fb4976ff6b01966b0cc"
 LINEAGE_COLUMNS = (
     "application_id",
     "decision_at_utc",
@@ -383,7 +386,7 @@ def _verify_lineage(destination: Path) -> dict[str, Any]:
         or summary.get("data_kind") != "synthetic"
         or summary.get("decision_convention") != "end_of_day_utc"
         or summary.get("max_age_days") != MAX_AGE_DAYS
-        or summary.get("pitbridge_reference_commit") != PIT_COMMIT
+        or summary.get("pitbridge_reference_commit") not in (PIT_COMMIT, LEGACY_PIT_COMMIT)
         or type(summary.get("seed")) is not int
     ):
         raise DataContractError("Unsupported lineage demo contract")
