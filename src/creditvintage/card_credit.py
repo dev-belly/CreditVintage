@@ -452,11 +452,16 @@ def verify_card_benchmark(directory: Path) -> dict[str, Any]:
         raise DataContractError("Card report page differs from verified evidence")
     try:
         with zipfile.ZipFile(directory / "evidence.zip") as archive:
-            if archive.namelist() != [*CARD_FILES, "manifest.json"] or any(
-                archive.read(name) != (directory / name).read_bytes() for name in archive.namelist()
-            ):
+            if archive.namelist() != [*CARD_FILES, "manifest.json"]:
                 raise DataContractError("Card evidence ZIP differs from verified files")
-    except zipfile.BadZipFile as exc:
+            for entry in archive.infolist():
+                path = directory / entry.filename
+                if (
+                    entry.file_size != path.stat().st_size
+                    or archive.read(entry) != path.read_bytes()
+                ):
+                    raise DataContractError("Card evidence ZIP differs from verified files")
+    except (zipfile.BadZipFile, RuntimeError, EOFError, zlib.error) as exc:
         raise DataContractError("Invalid card evidence ZIP") from exc
     return {
         "status": "verified",

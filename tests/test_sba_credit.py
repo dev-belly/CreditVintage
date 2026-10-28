@@ -7,6 +7,7 @@ import gzip
 import hashlib
 import json
 import shutil
+import struct
 import zipfile
 from dataclasses import replace
 from datetime import date
@@ -283,6 +284,48 @@ def test_rehashed_nonfinite_prediction_is_rejected(bundle, tmp_path):
     reseal(path)
     with pytest.raises(DataContractError, match="predictions"):
         verify_sba_benchmark(path)
+
+
+@pytest.mark.parametrize("value", [10**400, -(10**400)])
+def test_rehashed_oversized_summary_number_has_controlled_cli_error(
+    bundle, tmp_path, capsys, value
+):
+    path = tmp_path / "oversized-summary"
+    shutil.copytree(bundle, path)
+    summary = json.loads((path / "summary.json").read_text())
+    summary["test_metrics"]["logistic"]["roc_auc"] = value
+    (path / "summary.json").write_text(json.dumps(summary))
+    reseal(path)
+    before = {
+        name: (path / name).read_bytes() for name in (*SBA_FILES, "manifest.json", "evidence.zip")
+    }
+    assert main(["verify-sba", str(path)]) == 2
+    captured = capsys.readouterr()
+    assert "finite number" in captured.err and "Traceback" not in captured.err
+    assert captured.out == ""
+    assert before == {name: (path / name).read_bytes() for name in before}
+
+
+@pytest.mark.parametrize("damage", ["unsupported-compression", "invalid-deflate"])
+def test_damaged_evidence_zip_has_controlled_cli_error(bundle, tmp_path, capsys, damage):
+    path = tmp_path / "damaged-zip"
+    shutil.copytree(bundle, path)
+    archive = path / "evidence.zip"
+    raw = bytearray(archive.read_bytes())
+    if damage == "unsupported-compression":
+        # Keep local and central directory headers consistent so opening a member
+        # reaches the unsupported-codec boundary rather than an inventory error.
+        struct.pack_into("<H", raw, 8, 99)
+        central = raw.index(b"PK\x01\x02")
+        struct.pack_into("<H", raw, central + 10, 99)
+    else:
+        start = 30 + struct.unpack_from("<H", raw, 26)[0] + struct.unpack_from("<H", raw, 28)[0]
+        raw[start] = 0x07  # A reserved DEFLATE block type.
+    archive.write_bytes(raw)
+    assert main(["verify-sba", str(path)]) == 2
+    captured = capsys.readouterr()
+    assert "Invalid SBA evidence ZIP" in captured.err and "Traceback" not in captured.err
+    assert captured.out == "" and archive.read_bytes() == raw
 
 
 def test_extra_zip_member_and_html_fabrication_rejected(bundle, tmp_path):

@@ -5,6 +5,7 @@ import gzip
 import hashlib
 import json
 import shutil
+import struct
 import zipfile
 
 import numpy as np
@@ -23,6 +24,7 @@ from creditvintage.card_credit import (
     verify_card_benchmark,
     write_card_benchmark,
 )
+from creditvintage.cli import main
 from creditvintage.core import DataContractError
 
 
@@ -36,6 +38,29 @@ def report(tmp_path_factory):
     path = tmp_path_factory.mktemp("card-credit") / "report"
     write_card_benchmark(path)
     return path
+
+
+@pytest.mark.parametrize("damage", ["unsupported-compression", "invalid-deflate", "member-size"])
+def test_damaged_card_zip_has_controlled_cli_error(report, tmp_path, capsys, damage):
+    path = tmp_path / "damaged-card"
+    shutil.copytree(report, path)
+    archive = path / "evidence.zip"
+    raw = bytearray(archive.read_bytes())
+    central = raw.index(b"PK\x01\x02")
+    if damage == "unsupported-compression":
+        struct.pack_into("<H", raw, 8, 99)
+        struct.pack_into("<H", raw, central + 10, 99)
+    elif damage == "member-size":
+        size = struct.unpack_from("<I", raw, central + 24)[0]
+        struct.pack_into("<I", raw, central + 24, size + 1)
+    else:
+        start = 30 + struct.unpack_from("<H", raw, 26)[0] + struct.unpack_from("<H", raw, 28)[0]
+        raw[start] = 0x07
+    archive.write_bytes(raw)
+    assert main(["verify-card", str(path)]) == 2
+    captured = capsys.readouterr()
+    assert "ZIP" in captured.err and "Traceback" not in captured.err
+    assert captured.out == "" and archive.read_bytes() == raw
 
 
 def test_native_values_features_and_every_disjoint_partition(data):
