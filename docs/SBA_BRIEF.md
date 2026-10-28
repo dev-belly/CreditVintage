@@ -30,7 +30,7 @@ python -m creditvintage sba-benchmark --out outputs/sba-credit
 python scripts/build_credit_brief.py outputs/sba-credit outputs/sba-brief
 ```
 
-本页由当前网站构建，未修改已发布 v0.8.0 的软件或证据资产。
+本页由当前网站构建；已发布 v0.8.1 安装包用于离线重跑同一研究。
 原有研究报告、CLI、源样本、模型设置、数据协议与校验格式不变。
 
 ## 检查交互与数字

@@ -376,16 +376,16 @@ monitor files private.
 
 ## Run and verify
 
-Version **0.8.0** distributions are published under [GitHub Releases](https://github.com/dev-belly/CreditVintage/releases/tag/v0.8.0)
+Version **0.8.1** distributions are published under [GitHub Releases](https://github.com/dev-belly/CreditVintage/releases/tag/v0.8.1)
 only after all main CI jobs pass. The downloadable wheel is the same artifact
 that passed clean installation and complete offline refitting. Each release
 includes its source archive, installed-check evidence, commit/version manifest
 and SHA-256 checksums. Existing version tags are preserved; changes require a
 version bump. Install the wheel into a Python 3.12+ virtual environment, then
 use the commands above without cloning this repository. The
-[upgrade notes](docs/releases/v0.8.0.md) give the exact wheel URL and a short
+[upgrade notes](docs/releases/v0.8.1.md) give the exact wheel URL and a short
 installation check. Existing commands, inputs and model protocols remain
-compatible. This version adds observed SBA time-separated validation and portable refitting evidence.
+compatible. This patch ships controlled evidence-verification errors, strict input bounds and the timestamp-safe optional integration. The observed SBA model and source protocol are unchanged.
 The original feature-distribution format from v0.5.0 remains byte-compatible;
 earlier scoring/report protocols retain their contracts. The quality commands
 require v0.6.0 or its source; policy commands require v0.7.0; SBA commands require v0.8.0. Older wheels retain
@@ -511,7 +511,7 @@ names are `utilization`, `debt_to_income`, `prior_delinquencies`.
 `principal_cents` is a positive integer USD-cent amount within signed int64
 (`1` through `2^63-1`); supported integer cents remain exact above `2^53`.
 SQL analysis additionally requires the portfolio's total cents to fit int64.
-The per-record bound is enforced on current `main`; existing v0.8.0 release
+The per-record bound is enforced from v0.8.1; existing v0.8.0 release
 assets predate it. The default vintage
 windows above apply when `--config` is omitted. Supply a strict JSON
 configuration to `run`, `benchmark`, `monitor` or `preflight` to use your own

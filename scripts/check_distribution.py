@@ -241,18 +241,41 @@ def check(
             sba_evidence.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(work / "sba-credit" / "evidence.zip", sba_evidence)
         sba_path = work / "sba-credit"
-        sba_summary = json.loads((sba_path / "summary.json").read_text(encoding="utf-8"))
-        sba_summary["test_metrics"]["logistic"]["roc_auc"] = 0.99
-        (sba_path / "summary.json").write_text(json.dumps(sba_summary), encoding="utf-8")
-        sba_manifest = json.loads((sba_path / "manifest.json").read_text(encoding="utf-8"))
-        sba_manifest["files_sha256"]["summary.json"] = hashlib.sha256(
-            (sba_path / "summary.json").read_bytes()
-        ).hexdigest()
-        (sba_path / "manifest.json").write_text(json.dumps(sba_manifest), encoding="utf-8")
+        original_summary = (sba_path / "summary.json").read_bytes()
+        original_manifest = (sba_path / "manifest.json").read_bytes()
+        for false_value, diagnostic in ((0.99, "SBA summary"), (10**400, "finite number")):
+            sba_summary = json.loads(original_summary)
+            sba_summary["test_metrics"]["logistic"]["roc_auc"] = false_value
+            (sba_path / "summary.json").write_text(json.dumps(sba_summary), encoding="utf-8")
+            sba_manifest = json.loads(original_manifest)
+            sba_manifest["files_sha256"]["summary.json"] = hashlib.sha256(
+                (sba_path / "summary.json").read_bytes()
+            ).hexdigest()
+            (sba_path / "manifest.json").write_text(json.dumps(sba_manifest), encoding="utf-8")
+            rejected = command("verify-sba", "sba-credit", expected=2)
+            if diagnostic not in rejected["stderr"] or "Traceback" in rejected["stderr"]:
+                raise ValueError("Installed SBA verifier did not reject a false AUC cleanly")
+        (sba_path / "summary.json").write_bytes(original_summary)
+        (sba_path / "manifest.json").write_bytes(original_manifest)
+        original_zip = (sba_path / "evidence.zip").read_bytes()
+        damaged_zip = bytearray(original_zip)
+        payload = (
+            30
+            + int.from_bytes(damaged_zip[26:28], "little")
+            + int.from_bytes(damaged_zip[28:30], "little")
+        )
+        damaged_zip[payload] = 0x07
+        (sba_path / "evidence.zip").write_bytes(damaged_zip)
         rejected = command("verify-sba", "sba-credit", expected=2)
-        if "SBA summary" not in rejected["stderr"]:
-            raise ValueError("Installed SBA verifier accepted a rehashed false AUC")
+        if (
+            "Invalid SBA evidence ZIP" not in rejected["stderr"]
+            or "Traceback" in rejected["stderr"]
+        ):
+            raise ValueError("Installed SBA verifier did not reject broken DEFLATE cleanly")
+        (sba_path / "evidence.zip").write_bytes(original_zip)
         sba_credit["rehashed_false_metric_rejected"] = True
+        sba_credit["oversized_metric_rejected"] = True
+        sba_credit["damaged_zip_rejected"] = True
         command("benchmark", "--out", "benchmark")
         comparison = command("verify-benchmark", "benchmark")
         command("monitor", "--as-of", "2024-10-01", "--out", "monitor")
