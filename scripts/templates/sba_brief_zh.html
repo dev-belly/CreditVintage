@@ -1,0 +1,36 @@
+<main>
+  <nav aria-label="主导航"><a class="brand" href="../">CreditVintage ↗</a><div class="nav-links"><a data-language-link href="en/#capacity=10" lang="en" hreflang="en">English</a><a href="../sba-credit/">完整研究</a><a href="#evidence">结果与代码</a><a href="https://github.com/dev-belly/dev-belly/blob/main/FOR_RECRUITERS.md">作者 / 实习方向</a></div></nav>
+  <header>
+    <p class="eyebrow">2-minute case / observed SBA loans</p>
+    <h1>同样的复核名额，<br>看到不同的结果。</h1>
+    <p class="lead">模型的概率更准，复核名单就一定更好吗？从 35,000 笔真实 SBA 贷款中，用同一批测试记录比较原始模型与独立校准，保留变差的结果。</p>
+    <div class="pills"><span>10,000 笔跨期测试贷款</span><span>89 笔记录核销事件</span><span>24 个月观察窗口</span><span>免登录 · 无需安装</span></div>
+  </header>
+  <section class="lab" aria-labelledby="lab-title">
+    <p class="eyebrow">01 / keep the workload equal</p>
+    <h2 id="lab-title">给每种方法同样的复核名额</h2>
+    <fieldset id="capacity-controls" disabled><legend>固定研究容量 / Review slots</legend><div class="budget-buttons"><button type="button" data-capacity="5" aria-pressed="false">500 名额 · 5%</button><button type="button" data-capacity="10" aria-pressed="true">1,000 名额 · 10%</button><button type="button" data-capacity="20" aria-pressed="false">2,000 名额 · 20%</button></div></fieldset>
+    <p id="selection-status" class="status" role="status">@@INITIAL_STATUS@@</p>
+    <div class="result-grid" id="result-cards">@@RESULT_CARDS@@</div>
+    <div class="explanation"><p id="denominator-explanation">@@INITIAL_EXPLANATION@@</p></div>
+    <p class="scope">这里展示历史记录中的事件集中程度，不能解读为避免了多少坏账。三个容量在研究协议中预先固定；切换只读取已核验结果，不重新训练或选择部署阈值。常数分数按记录 ID 打破并列，名单仅是任意排序。</p>
+    <div class="share-wrap"><button id="copy-scenario" class="share" type="button" disabled>复制当前比较链接</button><span id="share-status" role="status"></span></div>
+    <noscript><p>浏览器未启用 JavaScript，当前显示 10% 容量。下方完整表格保留全部九组比较。</p></noscript>
+  </section>
+  <section class="reading-grid section" aria-label="结果解释与日期口径">
+    <article><p class="eyebrow">02 / probability ≠ ranking</p><h2>校准改善概率误差，<br>排序仍可能变差。</h2><div class="table-wrap"><table id="model-metrics"><caption class="muted">相同 10,000 笔测试贷款；容量切换不改变这些指标</caption><thead><tr><th>固定方法</th><th>AUC ↑</th><th>Brier ↓</th></tr></thead><tbody>@@METRIC_ROWS@@</tbody></table></div><p class="muted">Brier 衡量逐笔概率的平方误差；AUC 衡量正负样本的排序。保序校准会产生并列分数，因此概率误差、排序和固定名单的捕获率需要分别检查。只有 89 笔测试事件，不能把单次差异当成未来保证；<a href="../sba-credit/#models">完整报告保留配对月份 Bootstrap 区间</a>。</p></article>
+    <article><p class="eyebrow">03 / dates before models</p><h2>先让历史结果成熟，<br>再进入下一个阶段。</h2><ol><li><strong>训练：20,000 笔，2006–2010 放款。</strong>预处理和 Logistic 只在训练样本拟合；最晚 24 月表现于 2012 年末成熟。</li><li><strong>独立校准：5,000 笔，2013 放款。</strong>只用这组标签拟合保序校准；最晚表现于 2015 年末成熟。</li><li><strong>测试：10,000 笔，2016–2017 放款。</strong>固定模型与容量后评估；不拿测试结果调整特征或超参数。</li></ol><p class="muted">来源是真实日期的最终公开快照，缺少历史首次公开时间与修订记录。因此这是回溯放款队列验证，不能证明过去决策时已获得全部特征，也不能直接代表当前中国零售信贷。</p></article>
+  </section>
+  <details id="all-comparisons"><summary>展开全部 9 组固定容量结果 / All retained comparisons</summary><div class="table-wrap"><table><thead><tr><th>方法</th><th>容量</th><th>复核笔数</th><th>捕获 / 总事件</th><th>精确率</th><th>事件捕获率</th></tr></thead><tbody>@@POLICY_ROWS@@</tbody></table></div><p class="muted">横向滑动可查看完整表格。所有按钮和表格来自同一份已重拟合核验的证据，不包含新增训练或筛选。</p></details>
+  <section id="evidence" class="section">
+    <p class="eyebrow">04 / follow a number back to its source</p><h2>沿着一个数字，核查整个项目。</h2>
+    <p class="muted"><a href="../sba-credit/policy_metrics.csv">固定容量 CSV</a> → <a href="../sba-credit/predictions.csv">10,000 笔测试预测</a> → <a href="https://github.com/dev-belly/CreditVintage/blob/main/src/creditvintage/sba_credit.py">训练与核验实现</a> → <a href="../sba-credit/protocol.json">冻结研究协议</a>。本页只含汇总数据；<a href="data.json">查看速览数据与来源摘要</a>。</p>
+    <p class="muted">Python 3.12+，在虚拟环境中安装。安装需要网络，之后可离线重跑已发布的 v0.8.1 研究；交互速览由当前网站构建生成。</p>
+    <pre>python -m pip install https://github.com/dev-belly/CreditVintage/releases/download/v0.8.1/creditvintage_research-0.8.1-py3-none-any.whl
+python -m creditvintage sba-benchmark --out outputs/sba-credit
+python -m creditvintage verify-sba outputs/sba-credit</pre>
+    <p class="muted">选择尚不存在的输出目录。成功核验显示 <code>status: verified</code>、<code>refitted: true</code>；这说明证据在当前实现内一致，不等于独立采用或业务收益。</p>
+    <div class="actions"><a class="button" href="../sba-credit/">查看完整报告</a><a class="button secondary" href="../sba-credit/evidence.zip">下载完整证据 ZIP</a><a href="https://github.com/dev-belly/CreditVintage/blob/main/docs/SBA_CREDIT.md">方法、来源与限制</a></div>
+  </section>
+  <footer><p>CreditVintage · dev-belly 的公开研究项目。来源：<a href="https://data.sba.gov/dataset/7a-504-foia">U.S. SBA 7(a) &amp; 504 FOIA</a>，2026-06-30 快照，无 SBA 背书。</p><p>如果这套可复现分析对你有用，可以 <a href="https://github.com/dev-belly/CreditVintage">Star CreditVintage</a>，或 <a href="https://github.com/dev-belly">关注后续项目</a>。</p><p class="digest">固定容量 CSV SHA256：<code>@@POLICY_SHA@@</code></p></footer>
+</main>

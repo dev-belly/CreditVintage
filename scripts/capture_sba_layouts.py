@@ -4,14 +4,28 @@ from __future__ import annotations
 
 import csv
 import json
+import re
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from threading import Thread
+from typing import Any
 
 from playwright.sync_api import Browser, expect, sync_playwright
 
 
-def check_brief(browser: Browser, root: Path, destination: Path) -> dict[str, object]:
+class PreviewHandler(SimpleHTTPRequestHandler):
+    def log_message(self, message: str, *args: Any) -> None:
+        pass
+
+
+def check_brief(
+    browser: Browser, root: Path, destination: Path, locale: str, base_url: str
+) -> dict[str, object]:
     """Compare the rendered cards to independently ranked held-out predictions."""
-    report = root / "_site" / "sba-brief" / "index.html"
+    report_url = base_url + "/sba-brief/" + ("en/" if locale == "en" else "")
+    copied_text = "Link copied" if locale == "en" else "链接已复制"
+    fallback_text = "address-bar" if locale == "en" else "请复制地址栏"
     with (root / "_site" / "sba-credit" / "predictions.csv").open(
         encoding="utf-8", newline=""
     ) as handle:
@@ -32,7 +46,8 @@ def check_brief(browser: Browser, root: Path, destination: Path) -> dict[str, ob
     observed_widths = []
     for width, height, label in ((1440, 1100, "desktop"), (390, 1500, "mobile")):
         page.set_viewport_size({"width": width, "height": height})
-        page.goto(report.as_uri(), wait_until="load")
+        page.goto(report_url, wait_until="load")
+        expect(page.locator("html")).to_have_attribute("lang", locale)
         observed_widths.append(page.evaluate("window.innerWidth"))
         if observed_widths[-1] != width:
             raise ValueError("The actual brief viewport differs from the requested size")
@@ -55,6 +70,9 @@ def check_brief(browser: Browser, root: Path, destination: Path) -> dict[str, ob
             expect(page.locator("#denominator-explanation")).to_contain_text(f"/ {events}")
             if page.evaluate("location.hash") != f"#capacity={capacity}":
                 raise ValueError("The selected capacity is absent from the scenario URL")
+            expect(page.locator("[data-language-link]")).to_have_attribute(
+                "href", re.compile(f"#capacity={capacity}$")
+            )
         page.locator('button[data-capacity="10"]').focus()
         page.keyboard.press("Space")
         expect(page.locator('article[data-method="logistic"] .captured')).to_have_text("26")
@@ -62,13 +80,18 @@ def check_brief(browser: Browser, root: Path, destination: Path) -> dict[str, ob
         if page.evaluate("document.documentElement.scrollWidth > window.innerWidth"):
             raise ValueError("The interactive brief overflows the viewport")
         page.locator("#all-comparisons summary").click()
-        page.screenshot(path=str(destination / f"brief-{label}.png"), full_page=True)
+        page.screenshot(path=str(destination / f"brief-{locale}-{label}.png"), full_page=True)
     # Direct links restore a comparison, including subsequent hash navigation.
-    page.goto(report.as_uri() + "#capacity=20", wait_until="load")
+    page.goto(report_url + "#capacity=20", wait_until="load")
     expect(page.locator('button[data-capacity="20"]')).to_have_attribute("aria-pressed", "true")
     page.evaluate("location.hash = 'capacity=5'")
     expect(page.locator('button[data-capacity="5"]')).to_have_attribute("aria-pressed", "true")
-    page.goto(report.as_uri() + "#capacity=999", wait_until="load")
+    # Actual HTTP navigation checks both relative language links and retained state.
+    for language in ("zh-CN", "en") if locale == "en" else ("en", "zh-CN"):
+        page.locator("[data-language-link]").click()
+        expect(page.locator("html")).to_have_attribute("lang", language)
+        expect(page.locator('button[data-capacity="5"]')).to_have_attribute("aria-pressed", "true")
+    page.goto(report_url + "#capacity=999", wait_until="load")
     expect(page.locator('button[data-capacity="10"]')).to_have_attribute("aria-pressed", "true")
     # Test both clipboard paths without writing to a runner's actual clipboard.
     page.evaluate(
@@ -76,7 +99,7 @@ def check_brief(browser: Browser, root: Path, destination: Path) -> dict[str, ob
         "writeText:async text => {window.copiedScenario = text}}})"
     )
     page.locator("#copy-scenario").click()
-    expect(page.locator("#share-status")).to_contain_text("链接已复制")
+    expect(page.locator("#share-status")).to_contain_text(copied_text)
     if not page.evaluate("window.copiedScenario.endsWith('#capacity=10')"):
         raise ValueError("The copied scenario has the wrong capacity")
     page.evaluate(
@@ -84,7 +107,7 @@ def check_brief(browser: Browser, root: Path, destination: Path) -> dict[str, ob
         "writeText:async () => {throw new Error('clipboard unavailable')}}})"
     )
     page.locator("#copy-scenario").click()
-    expect(page.locator("#share-status")).to_contain_text("请复制地址栏")
+    expect(page.locator("#share-status")).to_contain_text(fallback_text)
     # A slow copy of an older capacity must not announce success for a newer view.
     page.evaluate(
         "Object.defineProperty(navigator, 'clipboard', {configurable:true, value:{"
@@ -99,7 +122,7 @@ def check_brief(browser: Browser, root: Path, destination: Path) -> dict[str, ob
     context.close()
     plain = browser.new_context(java_script_enabled=False, viewport={"width": 390, "height": 1500})
     page = plain.new_page()
-    page.goto(report.as_uri(), wait_until="load")
+    page.goto(report_url, wait_until="load")
     expect(page.locator('button[data-capacity="10"]')).to_be_disabled()
     expect(page.locator('article[data-method="logistic"] .captured')).to_have_text("26")
     page.locator("#all-comparisons summary").click()
@@ -115,11 +138,13 @@ def check_brief(browser: Browser, root: Path, destination: Path) -> dict[str, ob
         expect(cells.nth(5)).to_have_text(f"{captured / events:.2%}")
     plain.close()
     return {
+        "language": locale,
         "card_selections": checked,
         "observed_viewport_widths": observed_widths,
         "copied_link_and_fallback": True,
         "stale_clipboard_result_ignored": True,
         "without_javascript_comparisons": 9,
+        "language_round_trip_preserves_capacity": True,
         "javascript_errors": errors,
     }
 
@@ -153,7 +178,19 @@ def capture() -> dict[str, object]:
             page.locator(f"#{section}").screenshot(
                 path=str(destination / f"mobile-{section}.png"), animations="disabled"
             )
-        brief = check_brief(browser, root, destination)
+        handler = partial(PreviewHandler, directory=str(root / "_site"))
+        with ThreadingHTTPServer(("127.0.0.1", 0), handler) as server:
+            thread = Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                base_url = f"http://127.0.0.1:{server.server_port}"
+                brief = {
+                    locale: check_brief(browser, root, destination, locale, base_url)
+                    for locale in ("zh-CN", "en")
+                }
+            finally:
+                server.shutdown()
+                thread.join()
         browser.close()
     return {
         "status": "verified",
@@ -162,7 +199,7 @@ def capture() -> dict[str, object]:
         "models": 3,
         "metric_cells": 9,
         "page_overflow": False,
-        "screenshots": 6,
+        "screenshots": 8,
         "brief": brief,
     }
 

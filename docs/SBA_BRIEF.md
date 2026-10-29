@@ -1,6 +1,7 @@
 # 两分钟交互速览 / A short entry into the SBA study
 
 [打开交互速览](https://dev-belly.github.io/CreditVintage/sba-brief/) ·
+[English brief](https://dev-belly.github.io/CreditVintage/sba-brief/en/) ·
 [完整报告](https://dev-belly.github.io/CreditVintage/sba-credit/) ·
 [研究协议、来源与限制](SBA_CREDIT.md)
 
@@ -13,6 +14,19 @@
 不训练模型、不读取逐笔借款人记录、不选择“最佳”测试容量。没有分析统计或外部
 前端依赖。复制按钮只写入系统剪贴板；链接的片段保存容量。禁用 JavaScript 时，
 默认 10% 卡片和全部九组静态表格仍可阅读。
+
+## 中文与 English
+
+两个语言入口共用一份汇总 `data.json`、相同的内嵌研究数据、交互脚本与样式。
+中文保留原地址，英文位于 `en/`；语言按钮在切换时保留 `#capacity=5/10/20`。
+固定容量、解释、事件数量和分享提示均随语言显示；两个静态版本也各自保留
+完整九组表格、证据链接、研究限制和安装命令。两页设置各自的 canonical 及
+双向语言声明，方便读者打开需要的版本。
+
+The English entry uses the same frozen study, methods, targets, capacities and
+aggregate evidence as the Chinese entry. Language switching preserves the
+selected capacity. The browser handles aggregates only; no model training,
+borrower uploads, analytics or external frontend dependencies are added.
 
 ## 从证据生成页面
 
@@ -39,6 +53,8 @@ python scripts/build_credit_brief.py outputs/sba-credit outputs/sba-brief
 损坏证据会在速览输出目录创建之前失败。Pages 的真实 Chrome 检查在 1,440px
 和 390px 视口切换三个容量，将三张卡片与逐笔预测计算值逐项比对；还检查链接
 重载、键盘操作、复制成功与受限剪贴板回退、页面溢出，以及无 JavaScript 的表格。
+这些浏览器检查覆盖两种语言；还会实际往返切换语言并核查当前容量，检查两页
+到同一份汇总与逐笔证据的相对链接。任一语言模板未完整渲染时，构建不会创建输出。
 
 ## 解释范围
 
