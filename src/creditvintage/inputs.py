@@ -7,6 +7,7 @@ from collections import defaultdict
 from dataclasses import asdict, dataclass, field, fields
 from datetime import date
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 
 from creditvintage.artifacts import _csv, _hash, _json
@@ -40,26 +41,34 @@ def _write_records[R: (Application, FeatureEvent, PerformanceEvent)](
 
 def initialize_inputs(destination: Path) -> dict[str, Any]:
     """Write a complete synthetic example; existing destinations are never reused."""
-    if destination.exists():
+    if destination.exists() or destination.is_symlink():
         raise DataContractError("Choose a new input directory; existing files are not overwritten")
     config = Config()
     applications, features, performance = generate(config.seed, 20)
     checked = preflight(applications, features, performance, config, data_kind="synthetic")
-    destination.mkdir(parents=True, exist_ok=False)
-    _write_records(destination, "applications.csv", applications)
-    _write_records(destination, "features.csv", features)
-    _write_records(destination, "performance.csv", performance)
-    _json(destination / "cohorts.json", checked["config"])
-    manifest = {
-        "schema": "creditvintage-input-example-v1",
-        "data_kind": "synthetic",
-        "description": "Generated example records, not observed bank or customer data",
-        "seed": config.seed,
-        "input_sha256": checked["input_sha256"],
-        "input_rows": checked["input_rows"],
-        "files_sha256": {name: _hash(destination / name) for name in INPUT_FILES},
-    }
-    _json(destination / "case.json", manifest)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with TemporaryDirectory(prefix=".creditvintage-inputs-", dir=destination.parent) as temporary:
+        staged = Path(temporary) / "case"
+        staged.mkdir()
+        _write_records(staged, "applications.csv", applications)
+        _write_records(staged, "features.csv", features)
+        _write_records(staged, "performance.csv", performance)
+        _json(staged / "cohorts.json", checked["config"])
+        manifest = {
+            "schema": "creditvintage-input-example-v1",
+            "data_kind": "synthetic",
+            "description": "Generated example records, not observed bank or customer data",
+            "seed": config.seed,
+            "input_sha256": checked["input_sha256"],
+            "input_rows": checked["input_rows"],
+            "files_sha256": {name: _hash(staged / name) for name in INPUT_FILES},
+        }
+        _json(staged / "case.json", manifest)
+        if destination.exists() or destination.is_symlink():
+            raise DataContractError(
+                "Choose a new input directory; existing files are not overwritten"
+            )
+        staged.rename(destination)
     return {"status": "created", "out": str(destination), **manifest, "model_fitted": False}
 
 

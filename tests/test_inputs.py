@@ -4,16 +4,103 @@ import csv
 import hashlib
 import json
 from datetime import date
+from pathlib import Path
 
 import pytest
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
 
+from creditvintage import inputs as input_module
 from creditvintage.cli import main
 from creditvintage.configuration import load_config, preflight
 from creditvintage.core import DataContractError, load_csv_bundle, snapshot
 from creditvintage.inputs import INPUT_FILES, check_inputs, initialize_inputs
+
+
+@pytest.mark.parametrize("failure", [*INPUT_FILES, "case.json", "hash", "rename"])
+def test_failed_initialization_cleans_up_and_cli_can_retry(tmp_path, monkeypatch, capsys, failure):
+    destination = tmp_path / "inputs" / "case"
+    with monkeypatch.context() as patch:
+        if failure.endswith(".csv"):
+            original_records = input_module._write_records
+
+            def interrupt_records(directory, filename, records):
+                original_records(directory, filename, records)
+                if filename == failure:
+                    raise OSError("interrupted example write")
+
+            patch.setattr(input_module, "_write_records", interrupt_records)
+        elif failure.endswith(".json"):
+            original_json = input_module._json
+
+            def interrupt_json(path, value):
+                original_json(path, value)
+                if path.name == failure:
+                    raise OSError("interrupted example write")
+
+            patch.setattr(input_module, "_json", interrupt_json)
+        elif failure == "hash":
+
+            def interrupt_hash(path):
+                raise OSError("interrupted example hash")
+
+            patch.setattr(input_module, "_hash", interrupt_hash)
+        else:
+            original_rename = Path.rename
+
+            def interrupt_rename(path, target):
+                if path.name == "case":
+                    raise OSError("interrupted example publication")
+                return original_rename(path, target)
+
+            patch.setattr(Path, "rename", interrupt_rename)
+        assert main(["init-inputs", "--out", str(destination)]) == 2
+        captured = capsys.readouterr()
+        assert captured.out == "" and "interrupted example" in captured.err
+        assert not destination.exists()
+        assert list(destination.parent.iterdir()) == []
+    assert main(["init-inputs", "--out", str(destination)]) == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "created"
+    assert check_inputs(destination)["status"] == "ready_for_evaluation"
+    assert set(p.name for p in destination.iterdir()) == {*INPUT_FILES, "case.json"}
+    assert list(destination.parent.iterdir()) == [destination]
+
+
+def test_destination_created_during_preparation_is_preserved(tmp_path, monkeypatch):
+    destination = tmp_path / "case"
+    original = input_module._json
+
+    def create_destination(path, value):
+        original(path, value)
+        if path.name == "case.json":
+            destination.mkdir()
+            (destination / "sentinel.txt").write_bytes(b"another existing case")
+
+    monkeypatch.setattr(input_module, "_json", create_destination)
+    with pytest.raises(DataContractError, match="not overwritten"):
+        initialize_inputs(destination)
+    assert (destination / "sentinel.txt").read_bytes() == b"another existing case"
+    assert list(destination.iterdir()) == [destination / "sentinel.txt"]
+    assert list(tmp_path.iterdir()) == [destination]
+
+
+def test_dangling_symlink_is_refused_before_generation(tmp_path, monkeypatch):
+    destination = tmp_path / "case"
+    missing = tmp_path / "missing-target"
+    try:
+        destination.symlink_to(missing, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("Directory symlinks unavailable on this platform")
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("An existing path must fail before generating records")
+
+    monkeypatch.setattr(input_module, "generate", forbidden)
+    with pytest.raises(DataContractError, match="not overwritten"):
+        initialize_inputs(destination)
+    assert destination.is_symlink() and destination.readlink() == missing
+    assert not missing.exists()
 
 
 @pytest.fixture
