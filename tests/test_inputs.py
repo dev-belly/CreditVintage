@@ -92,6 +92,7 @@ def test_dangling_symlink_is_refused_before_generation(tmp_path, monkeypatch):
         destination.symlink_to(missing, target_is_directory=True)
     except (OSError, NotImplementedError):
         pytest.skip("Directory symlinks unavailable on this platform")
+    target_before = destination.readlink()
 
     def forbidden(*args, **kwargs):
         raise AssertionError("An existing path must fail before generating records")
@@ -99,7 +100,7 @@ def test_dangling_symlink_is_refused_before_generation(tmp_path, monkeypatch):
     monkeypatch.setattr(input_module, "generate", forbidden)
     with pytest.raises(DataContractError, match="not overwritten"):
         initialize_inputs(destination)
-    assert destination.is_symlink() and destination.readlink() == missing
+    assert destination.is_symlink() and destination.readlink() == target_before
     assert not missing.exists()
 
 
