@@ -24,6 +24,15 @@ hashes; it does not authenticate replacement inputs. Keep its synthetic origin
 clear when sharing the generated case. The evaluator describes CSV ingestion as
 `user_supplied`; that describes how inputs arrived, not whether they are observed.
 
+On current `main`, initialization prepares all five files in a temporary sibling
+directory and publishes the complete case with one directory rename. A write,
+hashing or publication failure cleans up the temporary files, leaving an absent
+destination available for retry. Existing paths, including dangling symlinks,
+are refused before generation and checked again before publication. Parent
+directories may be created; initialization does not provide a cross-process lock.
+The published v0.8.1 wheel predates this recovery fix; use current source for it.
+Successful example bytes, hashes and diagnostic results are unchanged.
+
 Replace all three CSVs and edit the seven dates for your own compatible event
 records. The checker reads these four named input files from the supplied
 directory and reuses the actual record types, snapshot logic and evaluation
