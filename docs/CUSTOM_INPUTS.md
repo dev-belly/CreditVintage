@@ -24,13 +24,14 @@ hashes; it does not authenticate replacement inputs. Keep its synthetic origin
 clear when sharing the generated case. The evaluator describes CSV ingestion as
 `user_supplied`; that describes how inputs arrived, not whether they are observed.
 
-On current `main`, initialization prepares all five files in a temporary sibling
+From **v0.8.2**, initialization prepares all five files in a temporary sibling
 directory and publishes the complete case with one directory rename. A write,
 hashing or publication failure cleans up the temporary files, leaving an absent
 destination available for retry. Existing paths, including dangling symlinks,
 are refused before generation and checked again before publication. Parent
 directories may be created; initialization does not provide a cross-process lock.
-The published v0.8.1 wheel predates this recovery fix; use current source for it.
+The v0.8.1 wheel predates this recovery fix; use the
+[checked v0.8.2 wheel](releases/v0.8.2.md) or current source for it.
 Successful example bytes, hashes and diagnostic results are unchanged.
 
 Replace all three CSVs and edit the seven dates for your own compatible event
@@ -82,8 +83,8 @@ total cents still have a separate int64 check before SQL aggregation.
 Unsupported amounts are diagnosed as `record_contract` at their CSV physical
 line before readiness or fitting. Enormous integer feature values and config
 fractions also raise ordinary contract errors rather than binary64 overflows.
-The released v0.8.0 assets predate these validation changes; install current
-source to use them. Existing supported inputs and saved report values are
+The released v0.8.0 assets predate these validation changes; use v0.8.1 or later,
+or current source. Existing supported inputs and saved report values are
 unchanged.
 
 Use exact `YYYY-MM-DD` calendar dates throughout the CSVs, the JSON configuration
