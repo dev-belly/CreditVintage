@@ -126,8 +126,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: python -m pip install build ruff
       - name: Check the distribution replay script
-        run: ruff check scripts/check_distribution.py scripts/release_artifacts.py scripts/convert_card_source.py scripts/prepare_sba.py
-      - run: ruff format --check scripts/check_distribution.py scripts/release_artifacts.py scripts/convert_card_source.py scripts/prepare_sba.py
+        run: ruff check scripts/check_distribution.py scripts/check_input_initialization.py scripts/release_artifacts.py scripts/convert_card_source.py scripts/prepare_sba.py
+      - run: ruff format --check scripts/check_distribution.py scripts/check_input_initialization.py scripts/release_artifacts.py scripts/convert_card_source.py scripts/prepare_sba.py
       - name: Build the sdist and its wheel, then the pinned optional integration
         run: |
           python -m build --outdir dist

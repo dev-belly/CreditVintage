@@ -86,6 +86,13 @@ def check(
             raise ValueError("The core wheel unexpectedly installed the optional integration")
         if location["version"] != expected_version:
             raise ValueError("Installed wheel version differs from the checked source version")
+        initialization = json.loads(
+            run(
+                str(python),
+                "-I",
+                str(Path(__file__).resolve().with_name("check_input_initialization.py")),
+            ).stdout
+        )
         calendar_probe = run(
             str(python),
             "-I",
@@ -613,6 +620,7 @@ def check(
             "version": location["version"],
             "installation": "non-editable wheels; clean venv; cwd outside both source trees",
             "core_without_pitbridge": True,
+            "input_initialization": initialization,
             "snapshot_calendar_boundaries": calendar_boundaries,
             "editable_csv_inputs": {
                 "status": "verified",

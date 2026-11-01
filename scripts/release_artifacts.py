@@ -17,6 +17,29 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def validate_initialization(result: dict[str, Any], version: str) -> None:
+    recovery = result.get("input_initialization")
+    if (
+        not isinstance(recovery, dict)
+        or recovery.get("status") != "verified"
+        or recovery.get("version") != version
+        or recovery.get("interrupted_stages")
+        != [
+            "applications.csv",
+            "features.csv",
+            "performance.csv",
+            "cohorts.json",
+            "case.json",
+            "hash",
+            "rename",
+        ]
+        or recovery.get("clean_retries") != 7
+        or recovery.get("successful_files_identical") is not True
+        or recovery.get("existing_target_preserved") is not True
+    ):
+        raise ValueError("Installed input-initialization recovery evidence is required")
+
+
 def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -34,6 +57,7 @@ def prepare(
     result = json.loads(check_result.read_text(encoding="utf-8"))
     if (
         result.get("status") != "verified"
+        or result.get("version") != version
         or result.get("card_credit", {}).get("refitted") is not True
         or result.get("sba_credit", {}).get("refitted") is not True
         or result.get("sba_credit", {}).get("target")
@@ -43,6 +67,7 @@ def prepare(
         raise ValueError(
             "Installed distribution and card-data refitting must pass before packaging"
         )
+    validate_initialization(result, version)
     wheels = list(distributions.glob(f"creditvintage_research-{version}-*.whl"))
     archive = distributions / f"creditvintage_research-{version}.tar.gz"
     if len(wheels) != 1 or not archive.is_file():
@@ -118,6 +143,7 @@ def verify(directory: Path, commit: str) -> dict[str, Any]:
     check = json.loads((directory / "installed-check.json").read_text(encoding="utf-8"))
     if (
         check.get("status") != "verified"
+        or check.get("version") != version
         or check.get("card_credit", {}).get("refitted") is not True
         or check.get("sba_credit", {}).get("refitted") is not True
         or check.get("sba_credit", {}).get("target")
@@ -125,6 +151,7 @@ def verify(directory: Path, commit: str) -> dict[str, Any]:
         or check.get("sba_credit", {}).get("rehashed_false_metric_rejected") is not True
     ):
         raise ValueError("Release lacks installed-distribution refit evidence")
+    validate_initialization(check, version)
     return {"status": "verified", "version": version, "commit": commit, "assets": 5}
 
 

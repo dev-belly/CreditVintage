@@ -39,6 +39,23 @@ def inputs(tmp_path):
         json.dumps(
             {
                 "status": "verified",
+                "version": VERSION,
+                "input_initialization": {
+                    "status": "verified",
+                    "version": VERSION,
+                    "interrupted_stages": [
+                        "applications.csv",
+                        "features.csv",
+                        "performance.csv",
+                        "cohorts.json",
+                        "case.json",
+                        "hash",
+                        "rename",
+                    ],
+                    "clean_retries": 7,
+                    "successful_files_identical": True,
+                    "existing_target_preserved": True,
+                },
                 "card_credit": {"refitted": True},
                 "sba_credit": {
                     "refitted": True,
@@ -97,5 +114,55 @@ def test_release_requires_native_sba_refit_and_tamper_check(inputs, field, value
     result["sba_credit"][field] = value
     check.write_text(json.dumps(result))
     with pytest.raises(ValueError, match="must pass"):
+        release.prepare(dist, check, output, COMMIT)
+    assert not output.exists()
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("status", "failed"),
+        ("version", "0.8.1"),
+        ("interrupted_stages", []),
+        ("clean_retries", 0),
+        ("successful_files_identical", False),
+        ("existing_target_preserved", False),
+    ],
+)
+def test_recovery_evidence_is_required_even_after_rehashing(inputs, field, value):
+    dist, check, output = inputs
+    valid = check.read_text()
+    result = json.loads(valid)
+    result["input_initialization"][field] = value
+    check.write_text(json.dumps(result))
+    with pytest.raises(ValueError, match="input-initialization recovery"):
+        release.prepare(dist, check, output, COMMIT)
+    assert not output.exists()
+    check.write_text(valid)
+    release.prepare(dist, check, output, COMMIT)
+    (output / "installed-check.json").write_text(json.dumps(result))
+    manifest = json.loads((output / "release-manifest.json").read_text())
+    manifest["files_sha256"]["installed-check.json"] = release.digest(
+        output / "installed-check.json"
+    )
+    (output / "release-manifest.json").write_text(json.dumps(manifest))
+    (output / "CHECKSUMS.sha256").write_text(
+        "".join(
+            f"{release.digest(path)}  {path.name}\n"
+            for path in sorted(output.iterdir())
+            if path.name != "CHECKSUMS.sha256"
+        )
+    )
+    with pytest.raises(ValueError, match="input-initialization recovery"):
+        release.verify(output, COMMIT)
+
+
+@pytest.mark.parametrize("field", ["version", "input_initialization"])
+def test_release_rejects_missing_installed_version_or_recovery(inputs, field):
+    dist, check, output = inputs
+    result = json.loads(check.read_text())
+    result.pop(field)
+    check.write_text(json.dumps(result))
+    with pytest.raises(ValueError):
         release.prepare(dist, check, output, COMMIT)
     assert not output.exists()
