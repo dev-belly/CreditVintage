@@ -47,8 +47,8 @@ jobs:
           status=0
           ruff check src tests --output-format concise || status=1
           ruff format --check --diff src tests || status=1
-          ruff check examples/german_credit.py examples/monitoring_without_outcomes.py || status=1
-          ruff format --check examples/german_credit.py examples/monitoring_without_outcomes.py || status=1
+          ruff check examples/german_credit.py examples/monitoring_without_outcomes.py examples/sba_review_sql.py || status=1
+          ruff format --check examples/german_credit.py examples/monitoring_without_outcomes.py examples/sba_review_sql.py || status=1
           mypy src || status=1
           pytest -q || status=1
           exit "$status"

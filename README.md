@@ -9,6 +9,7 @@ banking or risk analytics team should ask about before trusting a score.
 - **Try it in two minutes:** [English](https://dev-belly.github.io/CreditVintage/sba-brief/en/) · [中文交互速览](https://dev-belly.github.io/CreditVintage/sba-brief/). Compare the same review budget on 10,000 held-out SBA loans, without installation or an account.
 - **Use your own CSVs:** [Create and validate an editable input case](#start-with-editable-csv-inputs).
 - **Compare models on public credit data:** [Start with the public benchmarks](#try-observed-public-data).
+- **Practice SQL on saved predictions:** [Recalculate all SBA review budgets and queue members](docs/SBA_REVIEW_SQL.md) with SQLite from this source checkout.
 - **Inspect decision-time data and human review:** [Trace source availability](#source-to-prediction-lineage) and [inspect the review workflow](#a-durable-human-review-workflow).
 
 > **Data status:** The point-in-time event experiment is synthetic. The new
@@ -87,6 +88,13 @@ year slices, queues and 900 paired bootstrap rows. The optional converter
 rebuilds the exact frozen sample from both full official CSVs. Historical
 feature availability remains unknown; this target is kept distinct from the
 synthetic 180-day and static UCI targets. [Actual-run feedback](https://github.com/dev-belly/CreditVintage/issues/new?template=sba_reproduction.yml).
+
+From the current source checkout, the [SQLite exercise](docs/SBA_REVIEW_SQL.md)
+fully verifies and refits a saved SBA bundle, then independently recalculates
+all nine policy rows and all 3,000 queue rows from saved predictions. It keeps
+labels out of ranking, makes tie ordering explicit and distinguishes 26/1,000
+precision from 26/89 event capture. The example needs its repository Python
+and SQL files; installing the published v0.8.2 wheel alone does not supply them.
 
 
 The larger [UCI credit-card experiment](docs/CARD_CREDIT.md) uses **30,000

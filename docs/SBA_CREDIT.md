@@ -17,7 +17,7 @@ Python 3.12+ in a virtual environment; installation needs internet. Evaluation
 and refitting then work offline, without PITBridge or a source checkout.
 
 ```text
-python -m pip install https://github.com/dev-belly/CreditVintage/releases/download/v0.8.1/creditvintage_research-0.8.1-py3-none-any.whl
+python -m pip install https://github.com/dev-belly/CreditVintage/releases/download/v0.8.2/creditvintage_research-0.8.2-py3-none-any.whl
 python -m creditvintage sba-benchmark --out outputs/sba-credit
 python -m creditvintage verify-sba outputs/sba-credit
 ```
@@ -27,6 +27,11 @@ Open `outputs/sba-credit/index.html`. Verification returns `status: verified`,
 and zero repeated borrower group keys. Exit 0 means execution/verification
 succeeded; exit 2 means invalid input, evidence or output. Choose a new output
 directory on repeat; prior evidence is never overwritten.
+
+To practice the same fixed-budget calculations in SQL, use the current
+checkout's [SQLite exercise](SBA_REVIEW_SQL.md). It checks all nine policy rows
+and all 3,000 queue members after full evidence verification; the example
+files are separate from the published wheel's installed commands.
 
 ## Source conversion before modeling
 
