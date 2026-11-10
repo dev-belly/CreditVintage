@@ -274,6 +274,13 @@ delivers a portable CSV/JSON evidence bundle. `creditvintage verify-reviews outp
 replays all cases without the database. The [delivery walkthrough](docs/REVIEW_DELIVERY.md)
 shows how a separately saved `--expected-sha256` checkpoint also detects a consistent rewrite;
 internal hashes alone do not authenticate the author or evidence.
+
+The current source also checks the frozen queue's per-loan values and score/ID
+ordering before status replay, new review events or export. Rehashed nonfinite
+PDs, invalid amounts/dates and reordered priorities are rejected without
+rewriting valid v1 evidence. The published v0.8.2 wheel retains the earlier
+queue checks; see the [source correction and version scope](docs/REVIEW_DELIVERY.md#2026-11-10-源码修复先核对清单再重放操作).
+
 The workspace stores no future performance labels. Its completion rate counts resolved
 work, not captured credit events or prevented loss. This is a trusted local CLI workspace:
 actor names are declarations, evidence references are not authenticated documents,
