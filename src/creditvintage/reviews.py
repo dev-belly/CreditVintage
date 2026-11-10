@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Any
 
 from creditvintage.business import QUEUE_COLUMNS, verify_analysis
-from creditvintage.core import DataContractError
-from creditvintage.validation import read_csv_rows
+from creditvintage.core import Application, DataContractError, parse_calendar_date
+from creditvintage.validation import finite_number, read_csv_rows
 
 SCHEMA = """
 CREATE TABLE source (
@@ -153,6 +153,33 @@ def _text(value: Any, field: str, *, required: bool = True, maximum: int = 2000)
     return value
 
 
+def _queue_priority(row: dict[str, str]) -> tuple[float, str]:
+    """Check per-loan values before reconstructing the SQL queue's priority."""
+    try:
+        application = Application(
+            row["application_id"],
+            parse_calendar_date(row["decision_at"], "Review queue decision_at"),
+            int(row["principal_cents"]),
+            row["segment"],  # type: ignore[arg-type]
+        )
+        decision = application.decision_at
+        # Preserve old strftime output for early years on either platform;
+        # the original queue bytes are never normalized during replay.
+        vintages = {
+            f"{decision.year:04d}-{decision.month:02d}",
+            f"{decision.year}-{decision.month:02d}",
+        }
+        if row["vintage"] not in vintages:
+            raise DataContractError("Vintage must match the decision month")
+        raw = finite_number(row["raw_pd"], "review queue raw_pd")
+        calibrated = finite_number(row["calibrated_pd"], "review queue calibrated_pd")
+        if not 0 <= raw <= 1 or not 0 <= calibrated <= 1:
+            raise DataContractError("Probabilities must be within [0, 1]")
+    except (ValueError, TypeError, KeyError, OverflowError) as exc:
+        raise DataContractError(f"Invalid review queue values: {exc}") from exc
+    return -calibrated, application.application_id
+
+
 def _validate_command(command: dict[str, Any]) -> None:
     for field in ("request_id", "application_id", "actor"):
         _text(command[field], field, maximum=200)
@@ -242,10 +269,15 @@ def _replay(
         path.write_bytes(queue)
         rows = read_csv_rows(path, QUEUE_COLUMNS)
     states = {}
+    previous_priority: tuple[float, str] | None = None
     for rank, row in enumerate(rows, 1):
         identity = _text(row["application_id"], "application_id", maximum=200)
         if identity in states or row["review_rank"] != str(rank):
             raise DataContractError("Invalid review queue identities or rank")
+        priority = _queue_priority(row)
+        if previous_priority is not None and priority < previous_priority:
+            raise DataContractError("Invalid review queue score/identity order")
+        previous_priority = priority
         states[identity] = {**row, "status": "queued", "owner": None, "outcome": None, "version": 0}
     seen = set()
     for sequence, event in enumerate(events, 1):
