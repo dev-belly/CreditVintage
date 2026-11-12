@@ -252,7 +252,7 @@ principal-weighted PD is 18.49%. The preset 10% capacity is global, not a separa
 use the previous observed vintage in the same segment. These are descriptive
 historical measures, not evidence that an intervention reduced losses. See the
 [Chinese business walkthrough](docs/BUSINESS_CASE.md) for denominator checks,
-customer-segment interpretation, a minimal SQL query and interview follow-ups.
+customer-segment interpretation and a minimal SQL query.
 
 ## A durable human review workflow
 
@@ -268,7 +268,7 @@ creditvintage review-status outputs/reviews.sqlite
 ```
 
 The [five-minute walkthrough](docs/REVIEW_WORKFLOW.md) includes complete PowerShell
-commands, competing-reviewer and retry examples, design choices and interview prompts.
+commands, competing-reviewer and retry examples, and design choices.
 After review, `creditvintage review-export outputs/reviews.sqlite --out outputs/review-evidence`
 delivers a portable CSV/JSON evidence bundle. `creditvintage verify-reviews outputs/review-evidence`
 replays all cases without the database. The [delivery walkthrough](docs/REVIEW_DELIVERY.md)
