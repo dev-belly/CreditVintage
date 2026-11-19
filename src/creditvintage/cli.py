@@ -197,7 +197,22 @@ def main(argv: list[str] | None = None) -> int:
         "verify-lineage", help="Replay source features and refit the model"
     )
     check_lineage.add_argument("directory", type=Path)
+    web = commands.add_parser("review-web", help="Open the local browser workbench")
+    web.add_argument("database", type=Path)
+    web.add_argument("--port", type=int, default=8765)
     args = parser.parse_args(argv)
+    if args.command == "review-web":
+        from creditvintage.workbench import serve
+
+        try:
+            if not 0 <= args.port <= 65535:
+                raise ValueError("Port must be between 0 and 65535")
+            serve(args.database, args.port)
+        except (OSError, ValueError) as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+        return 0
+
     try:
         if args.command == "init-inputs":
             print(json.dumps(initialize_inputs(args.out), indent=2))
