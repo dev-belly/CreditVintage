@@ -357,12 +357,9 @@ def record_review(
 
 def review_status(database: Path) -> dict[str, Any]:
     """Return operational completion counts, never retrospective event-capture metrics."""
-    try:
-        with _connection(database) as connection:
-            source, events, states = _load(connection)
-    except (sqlite3.Error, OSError, ValueError, TypeError, KeyError) as exc:
-        raise DataContractError(f"Cannot replay reviews: {exc}") from exc
-    return _status(source, events, states)
+    view = review_workspace(database)
+    del view["history"]
+    return view
 
 
 def _status(
@@ -389,3 +386,13 @@ def _status(
         "completion_rate": counts["resolved"] / len(cases) if cases else None,
         "cases": cases,
     }
+
+
+def review_workspace(database: Path) -> dict[str, Any]:
+    """Read cases and their history from the same verified SQLite snapshot."""
+    try:
+        with _connection(database) as connection:
+            source, events, states = _load(connection)
+    except (sqlite3.Error, OSError, ValueError, TypeError, KeyError) as exc:
+        raise DataContractError(f"Cannot replay reviews: {exc}") from exc
+    return {**_status(source, events, states), "history": events}

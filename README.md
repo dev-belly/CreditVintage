@@ -621,3 +621,11 @@ source catalogue’s U.S. Government Works designation. Distribution metadata us
 `MIT AND CC-BY-4.0 AND LicenseRef-US-Government-Works` for the combined package.
 These terms do not relicense the separately attributed datasets.
 
+
+### Local browser review
+
+After `review-init`, run `creditvintage review-web outputs/reviews.sqlite` and open the
+printed loopback URL. Select a case and enter a reviewer name to claim, resolve,
+release, or reopen it. The page reads the same SQLite history as the CLI. A stale
+case version returns a conflict and refreshes the case. Reviewer names identify
+local actions in this trusted workspace. This command binds to 127.0.0.1.
