@@ -256,6 +256,8 @@ customer-segment interpretation and a minimal SQL query.
 
 ## A durable human review workflow
 
+[Try the case review demo](https://dev-belly.github.io/CreditVintage/review/) with 48 synthetic cases. Claim, resolve, release or reopen a case and inspect its history. The demo keeps its changes in the current browser tab. The local workbench records the same actions in SQLite.
+
 Move the verified, label-free queue into a SQLite workspace with claim, release,
 resolve and reopen actions. Each conclusion requires a reason and evidence reference.
 Concurrent claims are serialized in one transaction and checked against a case version;
@@ -265,6 +267,7 @@ and current state is reconstructed from the frozen queue and events.
 ```bash
 creditvintage review-init outputs/business-case --db outputs/reviews.sqlite
 creditvintage review-status outputs/reviews.sqlite
+creditvintage review-web outputs/reviews.sqlite
 ```
 
 The [five-minute walkthrough](docs/REVIEW_WORKFLOW.md) includes complete PowerShell
@@ -281,10 +284,9 @@ PDs, invalid amounts/dates and reordered priorities are rejected without
 rewriting valid v1 evidence. The published v0.8.2 wheel retains the earlier
 queue checks; see the [source correction and version scope](docs/REVIEW_DELIVERY.md#2026-11-10-源码修复先核对清单再重放操作).
 
-The workspace stores no future performance labels. Its completion rate counts resolved
-work, not captured credit events or prevented loss. This is a trusted local CLI workspace:
-actor names are declarations, evidence references are not authenticated documents,
-and a hosted multi-user service would need identity, authorization and attachment controls.
+The workspace stores a label-free queue and review events. Its completion rate is the share
+of cases resolved. In the local workspace, reviewers declare their names and enter text references
+for evidence. A hosted multi-user service would need identity, authorization and attachment controls.
 
 ## Diagnose missing decision-time inputs before comparing distributions
 

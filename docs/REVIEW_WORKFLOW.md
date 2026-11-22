@@ -6,6 +6,8 @@ CreditVintage 的 `analyze` 仍负责回溯评估；新增 SQLite 工作区只�
 
 ## 五分钟运行
 
+[打开在线复核台](https://dev-belly.github.io/CreditVintage/review/)可直接操作 48 条合成案件。在线操作记录保存在当前浏览器标签页。本地使用 `creditvintage review-web outputs/reviews.sqlite` 打开下方创建的 SQLite 工作区。
+
 在仓库根目录完成 README 中的安装后，用一个尚不存在的输出目录：
 
 ```powershell
@@ -69,4 +71,4 @@ stateDiagram-v2
 
 本模块回归覆盖并发认领、相同请求重试、冲突请求 ID、非法状态跳转、越权操作者声明、空证据、重开、不可覆盖初始化、无未来标签落盘，以及绕过 SQL 触发器后的非法版本链重放。
 
-当前没有 Web 审核界面、服务端身份、附件上传、自动授信、真实损失反馈或 SLA 调度。初始化仍以历史分析输出作工作流演示，不能把它说成已部署的线上申请审批系统。
+本地网页与 CLI 共用 SQLite 工作区，用合成案件演示人工复核和事件重放。多人部署涉及服务端身份、受控附件和真实业务反馈。
