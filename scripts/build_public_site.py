@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import shutil
+import tempfile
 from datetime import date
+from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
@@ -34,10 +36,30 @@ from creditvintage.feature_quality import (
 from creditvintage.lineage import verify_lineage, write_demo
 from creditvintage.monitoring import verify_monitor
 from creditvintage.public_credit import verify_public_benchmark, write_public_benchmark
+from creditvintage.reviews import initialize_reviews, review_workspace
 from creditvintage.sample import generate, generate_feature_quality
 from creditvintage.sba_credit import verify_sba_benchmark, write_sba_benchmark
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def build_review_demo(analysis: Path, destination: Path) -> None:
+    with tempfile.TemporaryDirectory(prefix="creditvintage-demo-") as temporary:
+        database = Path(temporary) / "reviews.sqlite"
+        initialize_reviews(analysis, database)
+        workspace = review_workspace(database)
+    if workspace["source"]["data_kind"] != "synthetic":
+        raise ValueError("The public workbench requires synthetic cases")
+    destination.mkdir(parents=True, exist_ok=False)
+    assets = files("creditvintage")
+    for name in ("workbench.css", "workbench.js", "workbench-demo.js"):
+        (destination / name).write_bytes(assets.joinpath(name).read_bytes())
+    index = assets.joinpath("workbench.html").read_text(encoding="utf-8")
+    (destination / "index.html").write_text(
+        index.replace('data-mode="local"', 'data-mode="demo"'), encoding="utf-8"
+    )
+    queue = {key: workspace[key] for key in ("source", "cases")}
+    (destination / "queue.json").write_text(json.dumps(queue), encoding="utf-8")
 
 
 def build(destination: Path) -> dict[str, Any]:
@@ -71,6 +93,7 @@ def build(destination: Path) -> dict[str, Any]:
         )
     write_analysis(destination / "demo", destination / "analysis")
     analysis = verify_analysis(destination / "analysis")
+    build_review_demo(destination / "analysis", destination / "review/")
     summary = write_demo(destination / "lineage")
     checked = verify_lineage(destination / "lineage")
     write_benchmark(benchmark(*generate(), data_kind="synthetic"), destination / "benchmark")

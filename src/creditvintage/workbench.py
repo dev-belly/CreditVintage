@@ -10,6 +10,13 @@ from typing import Any
 from creditvintage.core import DataContractError
 from creditvintage.reviews import record_review, review_workspace
 
+ASSETS = {
+    "/": ("workbench.html", "text/html; charset=utf-8"),
+    "/workbench.css": ("workbench.css", "text/css; charset=utf-8"),
+    "/workbench.js": ("workbench.js", "text/javascript; charset=utf-8"),
+    "/workbench-demo.js": ("workbench-demo.js", "text/javascript; charset=utf-8"),
+}
+
 
 def serve(workspace: Path, port: int) -> None:
     """Expose the existing workspace operations to the bundled browser page."""
@@ -34,9 +41,9 @@ def serve(workspace: Path, port: int) -> None:
         def do_GET(self) -> None:
             if not self.valid_host():
                 self.send_json(403, {"error": "Open the exact loopback address."})
-            elif self.path == "/":
-                page = Path(__file__).with_name("workbench.html").read_bytes()
-                self.reply(200, page, "text/html; charset=utf-8")
+            elif self.path in ASSETS:
+                asset, media = ASSETS[self.path]
+                self.reply(200, Path(__file__).with_name(asset).read_bytes(), media)
             elif self.path == "/api/state":
                 try:
                     self.send_json(200, review_workspace(workspace))

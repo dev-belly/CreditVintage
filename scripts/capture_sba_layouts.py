@@ -149,6 +149,43 @@ def check_brief(
     }
 
 
+def check_review_demo(browser: Browser, destination: Path, base_url: str) -> None:
+    errors: list[str] = []
+    for width in (1440, 390, 320):
+        page = browser.new_page(viewport={"width": width, "height": 1050})
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        page.goto(base_url + "/review/")
+        expect(page.locator("#count-queued")).to_have_text("48")
+        expect(page.locator("#case-status")).to_have_text("Queued")
+        if page.evaluate("document.documentElement.scrollWidth > window.innerWidth"):
+            raise ValueError("The review demo overflows the viewport")
+        if width != 320:
+            page.screenshot(path=str(destination / f"review-{width}.png"), full_page=True)
+        page.locator("#search").fill("no-match")
+        expect(page.locator("#empty-queue")).to_be_visible()
+        page.locator("#search").clear()
+        page.locator("#submit").click()
+        expect(page.locator("#case-status")).to_have_text("In review")
+        page.locator("#note").fill("The sample record was inspected.")
+        page.locator("#reference").fill("synthetic-doc:sample")
+        page.locator("#outcome").select_option("escalated")
+        page.locator("#submit").click()
+        expect(page.locator("#count-resolved")).to_have_text("1")
+        expect(page.locator("#history")).to_contain_text("Evidence · synthetic-doc:sample")
+        page.reload()
+        expect(page.locator("#case-status")).to_have_text("Resolved")
+        expect(page.locator("#event-count")).to_have_text("2 actions")
+        page.locator("#note").fill("Request a second review.")
+        page.locator("#submit").click()
+        expect(page.locator("#case-status")).to_have_text("Queued")
+        page.on("dialog", lambda dialog: dialog.accept())
+        page.locator("#reset").click()
+        expect(page.locator("#empty-history")).to_be_visible()
+        if errors:
+            raise ValueError(f"Review demo JavaScript errors: {errors}")
+        page.close()
+
+
 def capture() -> dict[str, object]:
     root = Path(__file__).resolve().parents[1]
     report = root / "_site" / "sba-credit" / "index.html"
@@ -188,6 +225,7 @@ def capture() -> dict[str, object]:
                     locale: check_brief(browser, root, destination, locale, base_url)
                     for locale in ("zh-CN", "en")
                 }
+                check_review_demo(browser, destination, base_url)
             finally:
                 server.shutdown()
                 thread.join()
@@ -199,8 +237,9 @@ def capture() -> dict[str, object]:
         "models": 3,
         "metric_cells": 9,
         "page_overflow": False,
-        "screenshots": 8,
+        "screenshots": 10,
         "brief": brief,
+        "review_demo_widths": [1440, 390, 320],
     }
 
 
