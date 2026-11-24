@@ -145,6 +145,7 @@ function updateSelected(row) {
   if (!sameCase) {
     note.value = "";
     reference.value = "";
+    byId("outcome").value = "cleared";
     status("", false, "operation-message");
   }
 
