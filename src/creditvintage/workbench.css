@@ -2,7 +2,7 @@
   color-scheme: light;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   color: #172d26;
-  background: #f4f6f0;
+  background: #f7f8f6;
   --surface: #fff;
   --muted: #4c6258;
   --green: #14604a;
@@ -47,21 +47,21 @@ main { padding: clamp(22px, 5vw, 48px) 0 58px; }
   flex-wrap: wrap;
   gap: 20px;
   padding: clamp(22px, 5vw, 50px);
-  color: #f3faef;
-  background: radial-gradient(ellipse at 94% 90%, #2d684f, transparent 65%), linear-gradient(122deg, #122e26, #194434);
-  border: 1px solid #2f6253;
+  color: #1b2f28;
+  background: radial-gradient(ellipse at 94% 97%, #dfede5, transparent 69%), #fff;
+  border: 1px solid #d8e4da;
   border-radius: clamp(18px, 3vw, 30px);
 }
-.mode { color: #cbebc9; font-size: 0.875rem; font-weight: 650; }
-h1 { font-size: clamp(2.25rem, 5.8vw, 4.2rem); letter-spacing: -0.06em; line-height: 1.04; margin: 7px 0 11px; }
-.lead { max-width: 46ch; color: #e0efe2; }
-.progress-card { display: grid; gap: 7px; width: min(100%, 210px); padding: 12px 14px; border: 1px solid #7ba38c; border-radius: 13px; }
+.mode { color: #17604b; font-size: 0.875rem; font-weight: 650; }
+h1 { font-size: clamp(2.25rem, 6.1vw, 4.85rem); letter-spacing: -0.06em; line-height: 1.04; margin: 7px 0 11px; }
+.lead { max-width: 46ch; color: #465f54; }
+.progress-card { display: grid; gap: 7px; width: min(100%, 210px); padding: 12px 14px; border: 1px solid #c5d8cf; border-radius: 18px; background: #fff9; }
 .progress-card p { font-weight: 650; font-size: 0.875rem; }
-.progress-card span { color: #e1f1e5; font-size: 0.8rem; }
-progress { display: block; width: 100%; height: 7px; appearance: none; border: 0; border-radius: 99px; overflow: hidden; background: #154335; color: #c8efb5; }
-progress::-webkit-progress-bar { background: #154335; }
-progress::-webkit-progress-value { background: #c8efb5; }
-progress::-moz-progress-bar { background: #c8efb5; }
+.progress-card span { color: #40594d; font-size: 0.875rem; }
+progress { display: block; width: 100%; height: 7px; appearance: none; border: 0; border-radius: 99px; overflow: hidden; background: #d5e5dc; color: #24785e; }
+progress::-webkit-progress-bar { background: #d5e5dc; }
+progress::-webkit-progress-value { background: #24785e; }
+progress::-moz-progress-bar { background: #24785e; }
 
 .summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
 .summary > div { padding: 10px clamp(10px, 2vw, 19px); background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
@@ -76,7 +76,7 @@ output[data-error="true"] { color: #a32a22; }
 .secondary:hover { background: #e9f2e8; }
 
 .workspace { display: grid; grid-template-columns: minmax(250px, 0.81fr) minmax(0, 1.9fr); align-items: start; gap: 14px; }
-.card { min-width: 0; padding: clamp(12px, 2.5vw, 24px); background: var(--surface); border: 1px solid var(--line); border-radius: 17px; }
+.card { min-width: 0; padding: clamp(12px, 2.5vw, 24px); background: var(--surface); border: 1px solid var(--line); border-radius: 22px; }
 .detail { display: grid; gap: 14px; min-width: 0; }
 .heading { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 8px; }
 h2 { font-size: clamp(1.1rem, 2.8vw, 1.42rem); line-height: 1.3; letter-spacing: -0.025em; overflow-wrap: anywhere; }
@@ -103,6 +103,7 @@ textarea { resize: vertical; }
   border-radius: 10px;
   background: #f5f8f4;
 }
+.case-button { min-height: 48px; }
 .case-button:hover { background: #e9f3e9; }
 .case-button[aria-pressed="true"] { background: #e5f2e9; border-color: #629b80; }
 .case-button strong { overflow-wrap: anywhere; font-size: 0.875rem; }
@@ -116,7 +117,7 @@ textarea { resize: vertical; }
 #case-panel { scroll-margin-top: 12px; }
 .facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 13px 0 17px; }
 .facts div { padding: 8px 10px; background: #f4f8f4; border-radius: 9px; min-width: 0; }
-.facts dt { color: var(--muted); font-size: 0.78rem; }
+.facts dt { color: var(--muted); font-size: 0.875rem; }
 .facts dd { font-size: 0.91rem; font-weight: 675; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
 legend { margin-bottom: 7px; padding: 0; }
