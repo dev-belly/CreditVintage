@@ -185,7 +185,7 @@ def main(argv: list[str] | None = None) -> int:
     review_export.add_argument("database", type=Path)
     review_export.add_argument("--out", type=Path, required=True)
     review_verify = commands.add_parser("verify-reviews", help="Replay portable review evidence")
-    review_verify.add_argument("directory", type=Path)
+    review_verify.add_argument("evidence", type=Path, help="Evidence directory or ZIP file")
     review_verify.add_argument("--expected-sha256", help="Trusted digest saved outside this bundle")
     lineage = commands.add_parser(
         "lineage-demo", help="Connect PITBridge sources to credit evaluation"
@@ -252,7 +252,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "verify-reviews":
             print(
                 json.dumps(
-                    verify_review_bundle(args.directory, expected_sha256=args.expected_sha256),
+                    verify_review_bundle(args.evidence, expected_sha256=args.expected_sha256),
                     indent=2,
                 )
             )

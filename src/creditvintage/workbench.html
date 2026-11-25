@@ -39,6 +39,30 @@
       <div><dt>In review</dt><dd id="count-in_review">—</dd></div>
       <div><dt>Resolved</dt><dd id="count-resolved">—</dd></div>
     </dl>
+    <section class="card evidence" id="evidence" aria-labelledby="evidence-title" hidden>
+      <div class="evidence-top">
+        <div>
+          <h2 id="evidence-title"></h2>
+          <p class="muted" id="evidence-description"></p>
+        </div>
+        <div class="evidence-actions">
+          <a class="secondary" id="practice-case" hidden>Open this case in practice</a>
+          <a class="secondary evidence-primary" id="example-download" download hidden>Download example ZIP</a>
+          <button class="secondary evidence-primary" id="workspace-download" type="button" hidden>Download workspace ZIP</button>
+        </div>
+      </div>
+      <details id="example-history" hidden>
+        <summary>Inspect recorded actions</summary>
+        <ol class="history" id="example-events"></ol>
+      </details>
+      <details id="evidence-verification" hidden>
+        <summary>Replay the downloaded evidence</summary>
+        <p class="muted">Run this in a terminal with CreditVintage installed from the current source checkout.</p>
+        <pre><code id="evidence-command"></code></pre>
+        <a href="https://github.com/dev-belly/CreditVintage/blob/main/docs/REVIEW_DELIVERY.md">Verification and checkpoint guide</a>
+      </details>
+      <output id="evidence-message" role="status" hidden></output>
+    </section>
     <div class="notice">
       <output id="message" role="status">Loading the review queue…</output>
       <button type="button" class="secondary" id="reload">Refresh</button>
@@ -64,7 +88,7 @@
         <a class="jump" href="#case-panel" id="jump" hidden>Review selected case ↓</a>
       </section>
       <div class="detail">
-        <section class="card" id="case-panel" aria-labelledby="case-title">
+        <section class="card" id="case-panel" aria-labelledby="case-title" tabindex="-1">
           <div class="heading">
             <h2 id="case-title">Select a case</h2>
             <span id="case-status" class="pill" hidden></span>

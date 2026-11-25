@@ -5,8 +5,11 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from io import BytesIO
 from pathlib import Path
 from typing import Any
+from zipfile import ZIP_DEFLATED, ZIP_STORED, BadZipFile, ZipFile, ZipInfo
+from zlib import error as DeflateError
 
 from creditvintage.core import DataContractError
 from creditvintage.reviews import _connection, _load, _replay, _status
@@ -20,57 +23,92 @@ def _json(value: Any) -> bytes:
     return (json.dumps(value, sort_keys=True, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
 
 
+def _capture(database: Path) -> tuple[dict[str, bytes], dict[str, Any]]:
+    with _connection(database) as connection:
+        connection.execute("BEGIN")
+        source, events, states = _load(connection)
+        queue = connection.execute("SELECT queue_csv FROM source WHERE id=1").fetchone()[0]
+    status = _status(source, events, states)
+    captured: dict[str, bytes] = {
+        "source.json": _json(source),
+        "review_queue.csv": queue,
+        "events.json": _json(events),
+        "status.json": _json(status),
+    }
+    manifest = _json(
+        {
+            "format": FORMAT,
+            "files": {
+                name: hashlib.sha256(content).hexdigest() for name, content in captured.items()
+            },
+        }
+    )
+    captured["manifest.json"] = manifest
+    return captured, {
+        "bundle_sha256": hashlib.sha256(manifest).hexdigest(),
+        "events": status["events"],
+        "counts": status["counts"],
+        "data_kind": source["data_kind"],
+    }
+
+
 def export_reviews(database: Path, directory: Path) -> dict[str, Any]:
     """Export one read-transaction snapshot without replacing an existing delivery."""
     try:
-        with _connection(database) as connection:
-            connection.execute("BEGIN")
-            source, events, states = _load(connection)
-            queue = connection.execute("SELECT queue_csv FROM source WHERE id=1").fetchone()[0]
-        status = _status(source, events, states)
-        captured = {
-            "source.json": _json(source),
-            "review_queue.csv": queue,
-            "events.json": _json(events),
-            "status.json": _json(status),
-        }
-        manifest = _json(
-            {
-                "format": FORMAT,
-                "files": {
-                    name: hashlib.sha256(content).hexdigest() for name, content in captured.items()
-                },
-            }
-        )
+        captured, receipt = _capture(database)
         # mkdir is exclusive. Cleanup below can only remove this new export, never an old one.
         directory.mkdir(parents=True, exist_ok=False)
         try:
-            for name, content in {**captured, "manifest.json": manifest}.items():
+            for name, content in captured.items():
                 (directory / name).write_bytes(content)
         except BaseException:
             for name in (*FILES, "manifest.json"):
                 (directory / name).unlink(missing_ok=True)
             directory.rmdir()
             raise
-        return {
-            "directory": str(directory),
-            "bundle_sha256": hashlib.sha256(manifest).hexdigest(),
-            "events": status["events"],
-            "counts": status["counts"],
-            "data_kind": source["data_kind"],
-        }
+        return {"directory": str(directory), **receipt}
     except (sqlite3.Error, OSError, ValueError, TypeError, KeyError) as exc:
         raise DataContractError(f"Cannot export reviews: {exc}") from exc
+
+
+def export_review_zip(database: Path) -> tuple[bytes, dict[str, Any]]:
+    """Package the same evidence files as the directory export."""
+    try:
+        captured, receipt = _capture(database)
+        buffer = BytesIO()
+        with ZipFile(buffer, "w", compression=ZIP_DEFLATED) as archive:
+            for name, content in captured.items():
+                item = ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+                archive.writestr(item, content, compress_type=ZIP_DEFLATED)
+        return buffer.getvalue(), receipt
+    except (sqlite3.Error, OSError, ValueError, TypeError, KeyError) as exc:
+        raise DataContractError(f"Cannot export reviews: {exc}") from exc
+
+
+def _read_evidence(path: Path) -> dict[str, bytes]:
+    expected_names = {*FILES, "manifest.json"}
+    if path.is_dir():
+        names = {file.name for file in path.iterdir()}
+        if names == expected_names:
+            return {name: (path / name).read_bytes() for name in names}
+    else:
+        with ZipFile(path) as archive:
+            entries = archive.infolist()
+            if (
+                len(entries) == len(expected_names)
+                and {x.filename for x in entries} == expected_names
+            ):
+                if any(x.compress_type not in (ZIP_STORED, ZIP_DEFLATED) for x in entries):
+                    raise DataContractError("Unsupported review ZIP compression")
+                return {entry.filename: archive.read(entry) for entry in entries}
+    raise DataContractError("Unexpected or missing review evidence files")
 
 
 def verify_review_bundle(directory: Path, *, expected_sha256: str | None = None) -> dict[str, Any]:
     """Recompute cases from captured evidence; a trusted external digest detects rewrites."""
     try:
-        names = {path.name for path in directory.iterdir()}
-        if names != {*FILES, "manifest.json"}:
-            raise DataContractError("Unexpected or missing review evidence files")
         # Parse and replay captured bytes, never re-read mutable files after checking them.
-        captured = {name: (directory / name).read_bytes() for name in names}
+        captured = _read_evidence(directory)
         digest = hashlib.sha256(captured["manifest.json"]).hexdigest()
         if expected_sha256 is not None:
             if (
@@ -102,5 +140,13 @@ def verify_review_bundle(directory: Path, *, expected_sha256: str | None = None)
             "bundle_sha256": digest,
             "checkpoint_matched": expected_sha256 is not None,
         }
-    except (OSError, ValueError, TypeError, KeyError) as exc:
+    except (
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        BadZipFile,
+        DeflateError,
+        RuntimeError,
+    ) as exc:
         raise DataContractError(f"Cannot verify review evidence: {exc}") from exc

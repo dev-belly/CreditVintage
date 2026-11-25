@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from creditvintage.core import DataContractError
+from creditvintage.review_bundle import export_review_zip
 from creditvintage.reviews import record_review, review_workspace
 
 ASSETS = {
@@ -22,13 +23,17 @@ def serve(workspace: Path, port: int) -> None:
     """Expose the existing workspace operations to the bundled browser page."""
 
     class Handler(BaseHTTPRequestHandler):
-        def reply(self, status: int, data: bytes, media: str) -> None:
+        def reply(
+            self, status: int, data: bytes, media: str, headers: dict[str, str] | None = None
+        ) -> None:
             self.send_response(status)
             self.send_header("Content-Type", media)
             self.send_header("Content-Length", str(len(data)))
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("X-Frame-Options", "DENY")
+            for name, value in (headers or {}).items():
+                self.send_header(name, value)
             self.end_headers()
             self.wfile.write(data)
 
@@ -49,8 +54,31 @@ def serve(workspace: Path, port: int) -> None:
                     self.send_json(200, review_workspace(workspace))
                 except (DataContractError, OSError) as exc:
                     self.send_json(422, {"error": str(exc)})
+            elif self.path == "/api/evidence":
+                self.send_evidence()
             else:
                 self.send_json(404, {"error": "Unknown route"})
+
+        def send_evidence(self) -> None:
+            if self.headers.get("Sec-Fetch-Site") not in (None, "none", "same-origin"):
+                self.send_json(403, {"error": "Export evidence from the local workbench."})
+                return
+            try:
+                data, receipt = export_review_zip(workspace)
+            except DataContractError as exc:
+                self.send_json(422, {"error": str(exc)})
+                return
+            digest = receipt["bundle_sha256"]
+            filename = f"creditvintage-{digest[:12]}.zip"
+            self.reply(
+                200,
+                data,
+                "application/zip",
+                {
+                    "Content-Disposition": f'attachment; filename="{filename}"',
+                    "X-CreditVintage-Checkpoint": digest,
+                },
+            )
 
         def do_POST(self) -> None:
             if not self.valid_host() or self.headers.get("Origin") != (

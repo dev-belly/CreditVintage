@@ -2,6 +2,14 @@
 
 一份“已处理 1 条”的截图不能回答是谁处理、依据是什么、来源是哪一版，也不能让接收人重算完成率。`review-export` 把一个读取事务里的冻结清单、来源指纹、全部事件和派生状态一起交付；接收人无需原数据库或模型标签就能重放。
 
+## 浏览器演示与下载
+
+打开[已结案的合成案例](https://dev-belly.github.io/CreditVintage/review/#evidence)，展开 **Inspect recorded actions** 查看认领和结案记录。**Open this case in practice** 打开同一条合成记录的练习状态。练习操作保存在当前标签页，演示底稿随站点发布固定。
+
+**Download example ZIP** 下载已核验的合成底稿。通过 `review-web` 打开的本地工作台提供 **Download workspace ZIP**，下载当次读取事务中的完整复核队列和已保存操作。页面的 **Replay the downloaded evidence** 给出包含文件名和清单摘要的命令。
+
+从仓库当前源码安装后，可以直接将 ZIP 路径传给 `creditvintage verify-reviews`。命令读取五个证据文件并重放，原 ZIP 保持只读。旧版 `v0.8.2` 可解压到单独目录后核验，适用其已发布的校验规则。
+
 ## 五分钟演示
 
 先完成 [复核流程](REVIEW_WORKFLOW.md)中的认领和结案，然后在仓库根目录运行：

@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import json
 import re
+import tempfile
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -12,6 +13,8 @@ from threading import Thread
 from typing import Any
 
 from playwright.sync_api import Browser, expect, sync_playwright
+
+from creditvintage.review_bundle import verify_review_bundle
 
 
 class PreviewHandler(SimpleHTTPRequestHandler):
@@ -157,10 +160,38 @@ def check_review_demo(browser: Browser, destination: Path, base_url: str) -> Non
         page.goto(base_url + "/review/")
         expect(page.locator("#count-queued")).to_have_text("48")
         expect(page.locator("#case-status")).to_have_text("Queued")
+        expect(page.get_by_role("heading", name="Replay a completed case")).to_be_visible()
+        page.get_by_text("Inspect recorded actions", exact=True).click()
+        expect(page.locator("#example-events li")).to_have_count(2)
+        expect(page.locator("#example-events")).to_contain_text(
+            "Evidence · synthetic-doc:income-001"
+        )
+        page.get_by_text("Replay the downloaded evidence", exact=True).click()
+        command = page.locator("#evidence-command").inner_text()
+        digest = command.rsplit(" ", 1)[-1]
+        with page.expect_download() as pending:
+            page.get_by_role("link", name="Download example ZIP").click()
+        with tempfile.TemporaryDirectory() as temporary:
+            advertised = "creditvintage-" + digest + ".zip"
+            download = pending.value
+            if download.suggested_filename != advertised:
+                raise ValueError("The download name differs from the verified example link")
+            archive = Path(temporary) / advertised
+            download.save_as(archive)
+            result = verify_review_bundle(archive, expected_sha256=digest)
+        expected_counts = {"queued": 47, "in_review": 0, "resolved": 1}
+        if result["events"] != 2 or result["counts"] != expected_counts:
+            raise ValueError("The downloaded example does not replay the shown counts")
+        example = next(case for case in result["cases"] if case["status"] == "resolved")
+        expect(page.locator("#evidence-description")).to_contain_text(example["application_id"])
+        expect(page.locator("#count-resolved")).to_have_text("0")
         if page.evaluate("document.documentElement.scrollWidth > window.innerWidth"):
             raise ValueError("The review demo overflows the viewport")
         if width != 320:
             page.screenshot(path=str(destination / f"review-{width}.png"), full_page=True)
+        page.get_by_role("link", name="Open this case in practice").click()
+        expect(page.locator("#case-title")).to_have_text(example["application_id"])
+        expect(page.locator("#empty-history")).to_be_visible()
         page.locator("#search").fill("no-match")
         expect(page.locator("#empty-queue")).to_be_visible()
         page.locator("#search").clear()
