@@ -188,8 +188,12 @@ function renderHistory(events) {
   byId("event-count").textContent = events.length ? events.length + (events.length === 1 ? " action" : " actions") : "";
   byId("empty-history").hidden = events.length > 0;
   byId("empty-history").textContent = selected ? "No recorded actions." : "Select a case to see its history.";
+  byId("history").replaceChildren(eventItems(events.toReversed()));
+}
+
+function eventItems(events) {
   const list = document.createDocumentFragment();
-  for (const event of events.toReversed()) {
+  for (const event of events) {
     const item = node("li");
     const label = eventLabels[event.action] + " by " + event.actor;
     const time = node("time", dateTime.format(new Date(event.occurred_at)) + " UTC");
@@ -202,7 +206,40 @@ function renderHistory(events) {
     if (event.evidence) item.append(node("small", "Evidence · " + event.evidence));
     list.append(item);
   }
-  byId("history").replaceChildren(list);
+  return list;
+}
+
+function showVerification(filename, digest) {
+  byId("evidence-command").textContent = "creditvintage verify-reviews " + filename + " --expected-sha256 " + digest;
+  byId("evidence-verification").hidden = false;
+}
+
+function renderEvidence() {
+  if (!demoMode) {
+    byId("evidence-title").textContent = "Export the review evidence";
+    byId("evidence-description").textContent = "Download one snapshot of the saved queue, review actions and current status.";
+    byId("workspace-download").hidden = false;
+  } else {
+    const example = workspace.example;
+    if (!example || !/^[a-f0-9]{64}$/u.test(example.bundle_sha256) || !Array.isArray(example.history)) return;
+    byId("evidence-title").textContent = "Replay a completed case";
+    byId("evidence-description").textContent = `${example.application_id} · ${example.history.length} recorded actions · ${example.counts.resolved} of ${workspace.cases.length} cases resolved in the example`;
+    byId("example-events").replaceChildren(eventItems(example.history));
+    byId("example-history").hidden = false;
+    const download = byId("example-download");
+    const filename = "creditvintage-" + example.bundle_sha256 + ".zip";
+    download.href = new URL(filename, location.href);
+    download.download = filename;
+    download.hidden = false;
+    const practice = byId("practice-case");
+    const url = new URL(location.href);
+    url.searchParams.set("case", example.application_id);
+    url.hash = "case-panel";
+    practice.href = url;
+    practice.hidden = false;
+    showVerification(filename, example.bundle_sha256);
+  }
+  byId("evidence").hidden = false;
 }
 
 function renderAction() {
@@ -226,23 +263,30 @@ function setBusy(value) {
   renderAction();
 }
 
-async function refresh({ revealSelected = false } = {}) {
+async function refresh({ revealSelected = false, requestedCase = null } = {}) {
   stateValid = false;
   workspace = await workspaceApi.load();
   stateValid = true;
+  const linked = requestedCase === null ? null : workspace.cases.find((row) => row.application_id === requestedCase);
+  if (linked) selected = linked;
   const current = workspace.cases.find(({ application_id }) => application_id === selected?.application_id);
   const filter = byId("filter");
   if (revealSelected && filter.value && current?.status !== filter.value) filter.value = "";
   renderSummary();
   renderQueue();
+  renderEvidence();
+  return linked;
 }
 
 async function reload(firstLoad = false) {
   if (busy) return;
   setBusy(true);
   try {
-    await refresh();
-    status(firstLoad ? "" : "Workspace refreshed.");
+    const requestedCase = firstLoad && demoMode ? new URL(location.href).searchParams.get("case") : null;
+    const linked = await refresh({ requestedCase });
+    if (requestedCase !== null && !linked) status("That sample case is unavailable. Choose a case from the queue.", true);
+    else status(firstLoad ? "" : "Workspace refreshed.");
+    if (linked && location.hash === "#case-panel") byId("case-panel").focus();
   } catch (error) {
     status(error.message, true);
   } finally {
@@ -254,6 +298,33 @@ byId("search").addEventListener("input", renderQueue);
 byId("filter").addEventListener("change", renderQueue);
 action.addEventListener("change", renderAction);
 byId("reload").addEventListener("click", () => void reload());
+byId("workspace-download").addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  status("Preparing evidence…", false, "evidence-message");
+  try {
+    const response = await fetch(new URL("./api/evidence", location.href), { cache: "no-store" });
+    if (!response.ok) throw new Error((await response.json()).error || "Could not prepare the evidence.");
+    const digest = response.headers.get("X-CreditVintage-Checkpoint");
+    if (!/^[a-f0-9]{64}$/u.test(digest ?? "")) throw new Error("The evidence checkpoint is missing.");
+    const filename = "creditvintage-" + digest.slice(0, 12) + ".zip";
+    const blob = await response.blob();
+    const link = node("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    const href = link.href;
+    setTimeout(() => URL.revokeObjectURL(href), 1000);
+    showVerification(filename, digest);
+    status("Download started. The replay command records this snapshot’s checkpoint.", false, "evidence-message");
+  } catch (error) {
+    status(error.message, true, "evidence-message");
+  } finally {
+    button.disabled = false;
+  }
+});
 byId("reset").addEventListener("click", async () => {
   if (busy || !window.confirm("Clear this tab's sample review history?")) return;
   setBusy(true);

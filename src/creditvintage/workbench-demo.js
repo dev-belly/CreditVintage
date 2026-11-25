@@ -48,7 +48,7 @@ export function createDemo(onStorageLost) {
   function replay() {
     const rows = new Map(seed.cases.map((row) => [row.application_id, { ...row }]));
     for (const event of history) apply(rows.get(event.application_id), event);
-    return { cases: Array.from(rows.values()), history };
+    return { cases: Array.from(rows.values()), history, example: seed.example };
   }
 
   async function load() {

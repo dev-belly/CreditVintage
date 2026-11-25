@@ -74,6 +74,21 @@ output[data-error="true"] { color: #a32a22; }
 #operation-message { display: block; margin-top: 9px; }
 .secondary { min-height: 40px; padding: 6px 12px; border: 1px solid #b8c9bd; background: var(--surface); border-radius: 9px; font-size: 0.875rem; }
 .secondary:hover { background: #e9f2e8; }
+.card.evidence { margin-top: 14px; background: linear-gradient(125deg, #fff 36%, #edf6ef); }
+.evidence-top, .evidence-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; }
+.evidence-top { justify-content: space-between; }
+.evidence-top h2 { margin-bottom: .3rem; }
+.evidence-top p { max-width: 54ch; }
+.evidence-actions { gap: 8px; }
+.evidence-actions .secondary { display: inline-flex; align-items: center; text-decoration: none; }
+.evidence-primary { background: var(--green); border-color: var(--green); color: #fff; font-weight: 650; }
+.evidence-primary:hover { background: #114d3d; }
+.evidence details { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.evidence summary { width: fit-content; font-weight: 650; font-size: .875rem; cursor: pointer; }
+.evidence details .history, .evidence details .muted { margin-top: 10px; }
+.evidence pre { padding: 10px; background: #f6faf7; border: 1px solid var(--line); border-radius: 9px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.evidence details a { font-size: .875rem; }
+#evidence-message { display: block; margin-top: 10px; }
 
 .workspace { display: grid; grid-template-columns: minmax(250px, 0.81fr) minmax(0, 1.9fr); align-items: start; gap: 14px; }
 .card { min-width: 0; padding: clamp(12px, 2.5vw, 24px); background: var(--surface); border: 1px solid var(--line); border-radius: 22px; }

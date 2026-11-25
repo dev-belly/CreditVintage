@@ -4,16 +4,22 @@ from __future__ import annotations
 
 import hashlib
 import json
+from http.client import HTTPConnection
+from http.server import ThreadingHTTPServer
+from io import BytesIO
 from pathlib import Path
+from queue import Queue
+from threading import Thread
 from typing import Any
+from zipfile import ZipFile
 
 import pytest
 
-from creditvintage import review_bundle
+from creditvintage import review_bundle, workbench
 from creditvintage.business import write_analysis
 from creditvintage.cli import main
 from creditvintage.core import DataContractError
-from creditvintage.review_bundle import export_reviews, verify_review_bundle
+from creditvintage.review_bundle import export_review_zip, export_reviews, verify_review_bundle
 from creditvintage.reviews import initialize_reviews, record_review, review_status
 
 
@@ -86,6 +92,96 @@ def test_empty_journal_is_deliverable(analysis: Path, tmp_path: Path) -> None:
     assert result["counts"]["queued"] == 48
     assert result["checkpoint_matched"] is False
     assert result["bundle_sha256"] == exported["bundle_sha256"]
+
+
+def test_downloaded_archive_uses_exact_directory_evidence(
+    delivery: tuple[Path, Path, str], tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    database, directory, _ = delivery
+    raw, receipt = export_review_zip(database)
+    assert export_review_zip(database)[0] == raw
+    with ZipFile(BytesIO(raw)) as archive:
+        assert {name: archive.read(name) for name in archive.namelist()} == {
+            member.name: member.read_bytes() for member in directory.iterdir()
+        }
+    evidence = tmp_path / "download.zip"
+    evidence.write_bytes(raw)
+    database.unlink()
+    digest = receipt["bundle_sha256"]
+    assert main(["verify-reviews", str(evidence), "--expected-sha256", digest]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["checkpoint_matched"] is True
+    assert result["events"] == 2
+    assert result["counts"] == {"queued": 47, "in_review": 0, "resolved": 1}
+    assert main(["verify-reviews", str(evidence), "--expected-sha256", "0" * 64]) == 2
+    assert "checkpoint mismatch" in capsys.readouterr().err
+    assert evidence.read_bytes() == raw
+
+
+def test_archive_rejects_ambiguous_or_extra_members(
+    delivery: tuple[Path, Path, str], tmp_path: Path
+) -> None:
+    database, _, _ = delivery
+    raw, _ = export_review_zip(database)
+    evidence = tmp_path / "evidence.zip"
+    evidence.write_bytes(raw)
+    with ZipFile(evidence, "a") as archive:
+        with pytest.warns(UserWarning, match="Duplicate name"):
+            archive.writestr("status.json", b"{}")
+    with pytest.raises(DataContractError, match="evidence files"):
+        verify_review_bundle(evidence)
+
+    evidence.write_bytes(raw)
+    with ZipFile(evidence, "a") as archive:
+        archive.writestr("extra.csv", b"")
+    with pytest.raises(DataContractError, match="evidence files"):
+        verify_review_bundle(evidence)
+
+    evidence.write_bytes(b"incomplete download")
+    with pytest.raises(DataContractError, match="Cannot verify review evidence"):
+        verify_review_bundle(evidence)
+
+
+def test_loopback_download_returns_verified_snapshot_and_checkpoint(
+    delivery: tuple[Path, Path, str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database, _, _ = delivery
+    ready: Queue[ThreadingHTTPServer] = Queue()
+
+    def start(*args: Any) -> ThreadingHTTPServer:
+        server = ThreadingHTTPServer(*args)
+        ready.put(server)
+        return server
+
+    monkeypatch.setattr(workbench, "ThreadingHTTPServer", start)
+    thread = Thread(target=workbench.serve, args=(database, 0), daemon=True)
+    thread.start()
+    server = ready.get(timeout=10)
+    client = HTTPConnection("127.0.0.1", server.server_port, timeout=10)
+    try:
+        client.request("GET", "/api/evidence", headers={"Sec-Fetch-Site": "cross-site"})
+        forbidden = client.getresponse()
+        assert forbidden.status == 403
+        forbidden.read()
+        client.request("GET", "/api/evidence", headers={"Sec-Fetch-Site": "same-origin"})
+        response = client.getresponse()
+        assert response.status == 200
+        assert response.getheader("Content-Type") == "application/zip"
+        assert response.getheader("Cache-Control") == "no-store"
+        digest = response.getheader("X-CreditVintage-Checkpoint")
+        assert digest and response.getheader("Content-Disposition") == (
+            f'attachment; filename="creditvintage-{digest[:12]}.zip"'
+        )
+        archive = tmp_path / "from-browser.zip"
+        archive.write_bytes(response.read())
+        result = verify_review_bundle(archive, expected_sha256=digest)
+        assert result["checkpoint_matched"] is True
+        assert result["counts"]["resolved"] == 1
+        assert result["events"] == 2
+    finally:
+        client.close()
+        server.shutdown()
+        thread.join(timeout=5)
 
 
 def test_delivery_remains_one_snapshot_when_workspace_advances(
