@@ -36,7 +36,7 @@ from creditvintage.feature_quality import (
 from creditvintage.lineage import verify_lineage, write_demo
 from creditvintage.monitoring import verify_monitor
 from creditvintage.public_credit import verify_public_benchmark, write_public_benchmark
-from creditvintage.review_bundle import export_review_zip, verify_review_bundle
+from creditvintage.review_bundle import compare_review_bundles, export_review_zip
 from creditvintage.reviews import initialize_reviews, record_review, review_workspace
 from creditvintage.sample import generate, generate_feature_quality
 from creditvintage.sba_credit import verify_sba_benchmark, write_sba_benchmark
@@ -53,6 +53,7 @@ def build_review_demo(analysis: Path, destination: Path) -> None:
             raise ValueError("The public workbench requires synthetic cases")
         identity = workspace["cases"][0]["application_id"]
         claim = record_review(database, identity, "claim", "Demo analyst", 0, "sample-claim")
+        baseline, baseline_receipt = export_review_zip(database)
         resolve = record_review(
             database,
             identity,
@@ -65,12 +66,18 @@ def build_review_demo(analysis: Path, destination: Path) -> None:
             outcome="escalated",
         )
         archive, receipt = export_review_zip(database)
+        baseline_digest = baseline_receipt["bundle_sha256"]
         digest = receipt["bundle_sha256"]
+        earlier = Path(temporary) / "baseline.zip"
+        earlier.write_bytes(baseline)
         exported = Path(temporary) / "evidence.zip"
         exported.write_bytes(archive)
-        verified = verify_review_bundle(exported, expected_sha256=digest)
-        if verified["events"] != 2 or verified["counts"]["resolved"] != 1:
-            raise ValueError("The review example must replay two actions and one resolved case")
+        comparison = compare_review_bundles(
+            earlier, exported, baseline_sha256=baseline_digest, current_sha256=digest
+        )
+        current = comparison["current"]
+        if comparison["added_events"] != 1 or current["events"] != 2:
+            raise ValueError("The review example must replay a claim followed by one decision")
     destination.mkdir(parents=True, exist_ok=False)
     assets = files("creditvintage")
     for name in ("workbench.css", "workbench.js", "workbench-demo.js"):
@@ -84,9 +91,11 @@ def build_review_demo(analysis: Path, destination: Path) -> None:
         "application_id": identity,
         "bundle_sha256": digest,
         "history": [claim["event"], resolve["event"]],
-        "counts": verified["counts"],
+        "counts": current["counts"],
+        "comparison": comparison,
     }
     (destination / "queue.json").write_text(json.dumps(queue), encoding="utf-8")
+    (destination / f"creditvintage-{baseline_digest}.zip").write_bytes(baseline)
     (destination / f"creditvintage-{digest}.zip").write_bytes(archive)
 
 

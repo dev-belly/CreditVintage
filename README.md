@@ -258,7 +258,7 @@ customer-segment interpretation and a minimal SQL query.
 
 [Try the case review demo](https://dev-belly.github.io/CreditVintage/review/) with 48 synthetic cases. Claim, resolve, release or reopen a case and inspect its history. The demo keeps its changes in the current browser tab. The local workbench records the same actions in SQLite.
 
-[Replay a completed example](https://dev-belly.github.io/CreditVintage/review/#evidence). Inspect its two recorded actions, open the same case in the practice queue, or download the verified ZIP. The page gives the exact checkpoint command for replay. From a current source checkout, `creditvintage verify-reviews` reads the ZIP directly.
+[Replay a completed example](https://dev-belly.github.io/CreditVintage/review/#evidence). Inspect its two recorded actions, open the same case in the practice queue, or download the verified ZIP. **Compare deliveries** shows the change from claim to decision and offers the earlier ZIP with both checkpoints available on the page. From a current source checkout, `creditvintage verify-reviews` reads the ZIP directly.
 
 Move the verified, label-free queue into a SQLite workspace with claim, release,
 resolve and reopen actions. Each conclusion requires a reason and evidence reference.
@@ -636,5 +636,7 @@ printed loopback URL. Select a case and enter a reviewer name to claim, resolve,
 release, or reopen it. The page reads the same SQLite history as the CLI. A stale
 case version returns a conflict and refreshes the case. **Download workspace ZIP**
 captures the saved queue and actions together and displays a replay command for
-that snapshot. Reviewer names identify
-local actions in this trusted workspace. This command binds to 127.0.0.1.
+that snapshot. **Compare deliveries** accepts an earlier ZIP and checks it
+against a fresh read of the workspace. Enter a separately saved checkpoint to
+verify the earlier ZIP against that digest. Reviewer names identify local actions
+in this trusted workspace. This command binds to 127.0.0.1.

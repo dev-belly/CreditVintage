@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from creditvintage.core import DataContractError
-from creditvintage.review_bundle import export_review_zip
+from creditvintage.review_bundle import compare_workspace_to_bundle, export_review_zip
 from creditvintage.reviews import record_review, review_workspace
 
 ASSETS = {
@@ -17,10 +17,12 @@ ASSETS = {
     "/workbench.js": ("workbench.js", "text/javascript; charset=utf-8"),
     "/workbench-demo.js": ("workbench-demo.js", "text/javascript; charset=utf-8"),
 }
+MAX_BASELINE_BYTES = 16 * 1024 * 1024
+MAX_BASELINE_UNPACKED_BYTES = 64 * 1024 * 1024
 
 
-def serve(workspace: Path, port: int) -> None:
-    """Expose the existing workspace operations to the bundled browser page."""
+def create_workbench_server(workspace: Path, port: int) -> ThreadingHTTPServer:
+    """Bind the bundled browser page and workspace operations to loopback."""
 
     class Handler(BaseHTTPRequestHandler):
         def reply(
@@ -84,7 +86,10 @@ def serve(workspace: Path, port: int) -> None:
             if not self.valid_host() or self.headers.get("Origin") != (
                 f"http://127.0.0.1:{http.server_port}"
             ):
-                self.send_json(403, {"error": "Use the local workbench to submit changes."})
+                self.send_json(403, {"error": "Use the local workbench for this request."})
+                return
+            if self.path == "/api/compare":
+                self.compare_evidence()
                 return
             if self.path != "/api/change":
                 self.send_json(404, {"error": "Unknown route"})
@@ -106,7 +111,36 @@ def serve(workspace: Path, port: int) -> None:
                 status = 409 if "Stale review version" in str(exc) else 422
                 self.send_json(status, {"error": str(exc)})
 
-    with ThreadingHTTPServer(("127.0.0.1", port), Handler) as http:
+        def compare_evidence(self) -> None:
+            if self.headers.get_content_type() != "application/zip":
+                self.send_json(415, {"error": "Choose an earlier review ZIP."})
+                return
+            try:
+                size = int(self.headers.get("Content-Length", "0"))
+                if not 0 < size <= MAX_BASELINE_BYTES:
+                    limit = MAX_BASELINE_BYTES // (1024 * 1024)
+                    self.send_json(413, {"error": f"Choose a review ZIP up to {limit} MiB."})
+                    return
+                baseline = self.rfile.read(size)
+                if len(baseline) != size:
+                    raise DataContractError("The review ZIP was not received in full")
+                result = compare_workspace_to_bundle(
+                    workspace,
+                    baseline,
+                    baseline_sha256=self.headers.get("X-CreditVintage-Baseline-Checkpoint"),
+                    max_unpacked_bytes=MAX_BASELINE_UNPACKED_BYTES,
+                )
+                self.send_json(200, result)
+            except (OSError, ValueError) as exc:
+                self.send_json(422, {"error": str(exc)})
+
+    http = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    return http
+
+
+def serve(workspace: Path, port: int) -> None:
+    """Run the local workbench until interrupted."""
+    with create_workbench_server(workspace, port) as http:
         print(f"http://127.0.0.1:{http.server_port}/", flush=True)
         try:
             http.serve_forever()
