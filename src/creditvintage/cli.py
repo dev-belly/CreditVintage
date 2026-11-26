@@ -39,7 +39,7 @@ from creditvintage.lineage import verify_lineage, write_demo
 from creditvintage.model import evaluate
 from creditvintage.monitoring import monitor, preflight_monitor, verify_monitor, write_monitor
 from creditvintage.public_credit import verify_public_benchmark, write_public_benchmark
-from creditvintage.review_bundle import export_reviews, verify_review_bundle
+from creditvintage.review_bundle import compare_review_bundles, export_reviews, verify_review_bundle
 from creditvintage.reviews import initialize_reviews, record_review, review_status
 from creditvintage.sample import generate, generate_feature_quality
 from creditvintage.sba_credit import verify_sba_benchmark, write_sba_benchmark
@@ -187,6 +187,13 @@ def main(argv: list[str] | None = None) -> int:
     review_verify = commands.add_parser("verify-reviews", help="Replay portable review evidence")
     review_verify.add_argument("evidence", type=Path, help="Evidence directory or ZIP file")
     review_verify.add_argument("--expected-sha256", help="Trusted digest saved outside this bundle")
+    review_compare = commands.add_parser(
+        "compare-reviews", help="Verify two review deliveries and summarize appended actions"
+    )
+    review_compare.add_argument("baseline", type=Path, help="Earlier evidence directory or ZIP")
+    review_compare.add_argument("current", type=Path, help="Later evidence directory or ZIP")
+    review_compare.add_argument("--baseline-sha256", help="Trusted digest of the baseline delivery")
+    review_compare.add_argument("--current-sha256", help="Trusted digest of the current delivery")
     lineage = commands.add_parser(
         "lineage-demo", help="Connect PITBridge sources to credit evaluation"
     )
@@ -256,6 +263,15 @@ def main(argv: list[str] | None = None) -> int:
                     indent=2,
                 )
             )
+            return 0
+        if args.command == "compare-reviews":
+            delivery_comparison = compare_review_bundles(
+                args.baseline,
+                args.current,
+                baseline_sha256=args.baseline_sha256,
+                current_sha256=args.current_sha256,
+            )
+            print(json.dumps(delivery_comparison, indent=2))
             return 0
         if args.command == "verify-benchmark":
             print(json.dumps(verify_benchmark(args.directory), indent=2))

@@ -279,6 +279,9 @@ delivers a portable CSV/JSON evidence bundle. `creditvintage verify-reviews outp
 replays all cases without the database. The [delivery walkthrough](docs/REVIEW_DELIVERY.md)
 shows how a separately saved `--expected-sha256` checkpoint also detects a consistent rewrite;
 internal hashes alone do not authenticate the author or evidence.
+To reconcile two deliveries, run `creditvintage compare-reviews BASELINE CURRENT`
+from the current source checkout. It verifies both snapshots, checks for an
+unbroken review history, and reports the number of new actions and the cases affected.
 
 The current source also checks the frozen queue's per-loan values and score/ID
 ordering before status replay, new review events or export. Rehashed nonfinite
