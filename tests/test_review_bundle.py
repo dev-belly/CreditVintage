@@ -9,6 +9,7 @@ from http.server import ThreadingHTTPServer
 from io import BytesIO
 from pathlib import Path
 from queue import Queue
+from shutil import copytree
 from threading import Thread
 from typing import Any
 from zipfile import ZipFile
@@ -19,7 +20,12 @@ from creditvintage import review_bundle, workbench
 from creditvintage.business import write_analysis
 from creditvintage.cli import main
 from creditvintage.core import DataContractError
-from creditvintage.review_bundle import export_review_zip, export_reviews, verify_review_bundle
+from creditvintage.review_bundle import (
+    compare_review_bundles,
+    export_review_zip,
+    export_reviews,
+    verify_review_bundle,
+)
 from creditvintage.reviews import initialize_reviews, record_review, review_status
 
 
@@ -200,6 +206,88 @@ def test_delivery_remains_one_snapshot_when_workspace_advances(
     assert review_status(database)["events"] == 3
     assert verify_review_bundle(tmp_path / "snapshot")["events"] == 2
     assert verify_review_bundle(tmp_path / "snapshot")["counts"]["resolved"] == 1
+
+
+def test_compare_deliveries_reports_appended_actions(
+    delivery: tuple[Path, Path, str], tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    database, baseline, identity = delivery
+    before = {path.name: path.read_bytes() for path in baseline.iterdir()}
+    baseline_digest = hashlib.sha256(before["manifest.json"]).hexdigest()
+    second_case = review_status(database)["cases"][1]["application_id"]
+    record_review(database, identity, "reopen", "supervisor", 2, "reopen", note="New evidence")
+    record_review(database, second_case, "claim", "alice", 0, "another-claim")
+    record_review(database, second_case, "release", "alice", 1, "release", note="Shift ended")
+    archive, receipt = export_review_zip(database)
+    current = tmp_path / "current.zip"
+    current.write_bytes(archive)
+    database.unlink()
+
+    command = ["compare-reviews", str(baseline), str(current), "--baseline-sha256", baseline_digest]
+    assert main([*command, "--current-sha256", receipt["bundle_sha256"]]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == "verified"
+    assert result["baseline"]["checkpoint_matched"] is True
+    assert result["current"]["checkpoint_matched"] is True
+    assert result["baseline"]["counts"] == {"queued": 47, "in_review": 0, "resolved": 1}
+    assert result["current"]["counts"] == {"queued": 48, "in_review": 0, "resolved": 0}
+    assert result["added_events"] == 3
+    assert result["changed_cases"] == [
+        {
+            "application_id": identity,
+            "before": {"version": 2, "status": "resolved", "outcome": "escalated"},
+            "after": {"version": 3, "status": "queued", "outcome": None},
+        },
+        {
+            "application_id": second_case,
+            "before": {"version": 0, "status": "queued", "outcome": None},
+            "after": {"version": 2, "status": "queued", "outcome": None},
+        },
+    ]
+    assert main([*command, "--current-sha256", baseline_digest]) == 2
+    error = capsys.readouterr()
+    assert error.out == ""
+    assert "Current evidence" in error.err and "checkpoint mismatch" in error.err
+    with pytest.raises(DataContractError, match="history does not extend"):
+        compare_review_bundles(current, baseline)
+    assert current.read_bytes() == archive
+    assert {path.name: path.read_bytes() for path in baseline.iterdir()} == before
+
+
+def test_compare_identical_deliveries_reports_no_changes(delivery: tuple[Path, Path, str]) -> None:
+    _, baseline, _ = delivery
+    result = compare_review_bundles(baseline, baseline)
+    assert result["added_events"] == 0
+    assert result["changed_cases"] == []
+    assert result["baseline"] == result["current"]
+    assert result["baseline"]["checkpoint_matched"] is False
+
+
+def test_compare_rejects_a_valid_but_rewritten_history(
+    delivery: tuple[Path, Path, str], tmp_path: Path
+) -> None:
+    _, baseline, _ = delivery
+    current = copytree(baseline, tmp_path / "edited")
+    events = json.loads((current / "events.json").read_bytes())
+    events[1]["note"] = "A different valid narrative"
+    _rewrite(current, "events.json", events)
+    assert verify_review_bundle(current)["events"] == 2
+    with pytest.raises(DataContractError, match="history does not extend"):
+        compare_review_bundles(baseline, current)
+
+
+def test_compare_rejects_a_different_frozen_source(
+    delivery: tuple[Path, Path, str], tmp_path: Path
+) -> None:
+    _, baseline, _ = delivery
+    current = copytree(baseline, tmp_path / "other-source")
+    status = json.loads((current / "status.json").read_bytes())
+    status["source"]["analysis_sha256"] = "f" * 64
+    _rewrite(current, "source.json", status["source"])
+    _rewrite(current, "status.json", status)
+    assert verify_review_bundle(current)["events"] == 2
+    with pytest.raises(DataContractError, match="different frozen sources"):
+        compare_review_bundles(baseline, current)
 
 
 @pytest.mark.parametrize("name", review_bundle.FILES)

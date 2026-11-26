@@ -26,6 +26,19 @@ $checkpoint = $delivery.bundle_sha256
 
 导出不会覆盖已有目录。落盘失败会清理本次创建的文件，不留下一个可被当成完整交付的残包；进程被强制终止仍可能留有不完整目录，核验会拒绝缺失文件。重新导出时使用新的路径。
 
+## 对账两次交付
+
+后续复核完成后，再导出一份底稿。接收人可以用当前源码提供的 `compare-reviews` 对账。两个输入都支持导出目录或从工作台下载的 ZIP。
+
+```powershell
+$current = .\.venv\Scripts\creditvintage.exe review-export outputs/reviews.sqlite --out outputs/review-delivery-next | ConvertFrom-Json
+.\.venv\Scripts\creditvintage.exe compare-reviews outputs/review-delivery outputs/review-delivery-next --baseline-sha256 $checkpoint --current-sha256 $current.bundle_sha256
+```
+
+命令分别重放两份底稿，检查冻结来源一致，并逐条核对旧事件是否完整保留在新日志开头。输出给出新增事件数、两次交付的队列统计，以及每个受影响案例的前后版本、状态和结案结果。若案例被认领后又释放，即使状态回到待处理，版本增加也会把它列入结果。
+
+没有新事件时，`added_events` 为 0，`changed_cases` 为空。来源不同、历史被改写或参数顺序颠倒时，命令返回 2。两个摘要参数可独立传入，各自与另外保存的检查点匹配时，对应的 `checkpoint_matched` 为 true。
+
 ## 为什么哈希和重放都要有
 
 | 检查 | 回答的问题 | 不能证明什么 |

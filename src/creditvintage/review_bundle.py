@@ -106,9 +106,16 @@ def _read_evidence(path: Path) -> dict[str, bytes]:
 
 def verify_review_bundle(directory: Path, *, expected_sha256: str | None = None) -> dict[str, Any]:
     """Recompute cases from captured evidence; a trusted external digest detects rewrites."""
+    result, _ = _verify_review_evidence(directory, expected_sha256)
+    return result
+
+
+def _verify_review_evidence(
+    path: Path, expected_sha256: str | None
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     try:
         # Parse and replay captured bytes, never re-read mutable files after checking them.
-        captured = _read_evidence(directory)
+        captured = _read_evidence(path)
         digest = hashlib.sha256(captured["manifest.json"]).hexdigest()
         if expected_sha256 is not None:
             if (
@@ -139,7 +146,7 @@ def verify_review_bundle(directory: Path, *, expected_sha256: str | None = None)
             **status,
             "bundle_sha256": digest,
             "checkpoint_matched": expected_sha256 is not None,
-        }
+        }, events
     except (
         OSError,
         ValueError,
@@ -150,3 +157,47 @@ def verify_review_bundle(directory: Path, *, expected_sha256: str | None = None)
         RuntimeError,
     ) as exc:
         raise DataContractError(f"Cannot verify review evidence: {exc}") from exc
+
+
+def compare_review_bundles(
+    baseline: Path,
+    current: Path,
+    *,
+    baseline_sha256: str | None = None,
+    current_sha256: str | None = None,
+) -> dict[str, Any]:
+    """Compare two replayed deliveries from the same frozen source and journal."""
+    try:
+        before, baseline_events = _verify_review_evidence(baseline, baseline_sha256)
+    except DataContractError as exc:
+        raise DataContractError(f"Baseline evidence: {exc}") from exc
+    try:
+        after, current_events = _verify_review_evidence(current, current_sha256)
+    except DataContractError as exc:
+        raise DataContractError(f"Current evidence: {exc}") from exc
+
+    if before["source"] != after["source"]:
+        raise DataContractError("Review deliveries have different frozen sources")
+    if current_events[: len(baseline_events)] != baseline_events:
+        raise DataContractError("Current review history does not extend the baseline")
+
+    # The verified source binds both snapshots to the same cases in the same order.
+    case_fields = ("version", "status", "outcome")
+    changed_cases = [
+        {
+            "application_id": earlier["application_id"],
+            "before": {field: earlier[field] for field in case_fields},
+            "after": {field: later[field] for field in case_fields},
+        }
+        for earlier, later in zip(before["cases"], after["cases"], strict=True)
+        if earlier["version"] != later["version"]
+    ]
+    summary_fields = ("bundle_sha256", "checkpoint_matched", "events", "counts")
+    return {
+        "status": "verified",
+        "source": before["source"],
+        "baseline": {field: before[field] for field in summary_fields},
+        "current": {field: after[field] for field in summary_fields},
+        "added_events": len(current_events) - len(baseline_events),
+        "changed_cases": changed_cases,
+    }
