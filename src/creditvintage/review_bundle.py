@@ -17,13 +17,14 @@ from creditvintage.validation import parse_json
 
 FORMAT = "creditvintage.review-evidence.v1"
 FILES = ("source.json", "review_queue.csv", "events.json", "status.json")
+type _ReviewSnapshot = tuple[dict[str, Any], list[dict[str, Any]]]
 
 
 def _json(value: Any) -> bytes:
     return (json.dumps(value, sort_keys=True, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
 
 
-def _capture(database: Path) -> tuple[dict[str, bytes], dict[str, Any]]:
+def _capture(database: Path) -> tuple[dict[str, bytes], _ReviewSnapshot]:
     with _connection(database) as connection:
         connection.execute("BEGIN")
         source, events, states = _load(connection)
@@ -44,18 +45,27 @@ def _capture(database: Path) -> tuple[dict[str, bytes], dict[str, Any]]:
         }
     )
     captured["manifest.json"] = manifest
-    return captured, {
+    snapshot = {
+        **status,
         "bundle_sha256": hashlib.sha256(manifest).hexdigest(),
+        "checkpoint_matched": False,
+    }
+    return captured, (snapshot, events)
+
+
+def _receipt(status: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "bundle_sha256": status["bundle_sha256"],
         "events": status["events"],
         "counts": status["counts"],
-        "data_kind": source["data_kind"],
+        "data_kind": status["source"]["data_kind"],
     }
 
 
 def export_reviews(database: Path, directory: Path) -> dict[str, Any]:
     """Export one read-transaction snapshot without replacing an existing delivery."""
     try:
-        captured, receipt = _capture(database)
+        captured, (status, _) = _capture(database)
         # mkdir is exclusive. Cleanup below can only remove this new export, never an old one.
         directory.mkdir(parents=True, exist_ok=False)
         try:
@@ -66,7 +76,7 @@ def export_reviews(database: Path, directory: Path) -> dict[str, Any]:
                 (directory / name).unlink(missing_ok=True)
             directory.rmdir()
             raise
-        return {"directory": str(directory), **receipt}
+        return {"directory": str(directory), **_receipt(status)}
     except (sqlite3.Error, OSError, ValueError, TypeError, KeyError) as exc:
         raise DataContractError(f"Cannot export reviews: {exc}") from exc
 
@@ -74,20 +84,20 @@ def export_reviews(database: Path, directory: Path) -> dict[str, Any]:
 def export_review_zip(database: Path) -> tuple[bytes, dict[str, Any]]:
     """Package the same evidence files as the directory export."""
     try:
-        captured, receipt = _capture(database)
+        captured, (status, _) = _capture(database)
         buffer = BytesIO()
         with ZipFile(buffer, "w", compression=ZIP_DEFLATED) as archive:
             for name, content in captured.items():
                 item = ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
                 archive.writestr(item, content, compress_type=ZIP_DEFLATED)
-        return buffer.getvalue(), receipt
+        return buffer.getvalue(), _receipt(status)
     except (sqlite3.Error, OSError, ValueError, TypeError, KeyError) as exc:
         raise DataContractError(f"Cannot export reviews: {exc}") from exc
 
 
-def _read_evidence(path: Path) -> dict[str, bytes]:
+def _read_evidence(path: Path | BytesIO, *, max_unpacked_bytes: int | None) -> dict[str, bytes]:
     expected_names = {*FILES, "manifest.json"}
-    if path.is_dir():
+    if isinstance(path, Path) and path.is_dir():
         names = {file.name for file in path.iterdir()}
         if names == expected_names:
             return {name: (path / name).read_bytes() for name in names}
@@ -100,6 +110,10 @@ def _read_evidence(path: Path) -> dict[str, bytes]:
             ):
                 if any(x.compress_type not in (ZIP_STORED, ZIP_DEFLATED) for x in entries):
                     raise DataContractError("Unsupported review ZIP compression")
+                if max_unpacked_bytes is not None and (
+                    sum(entry.file_size for entry in entries) > max_unpacked_bytes
+                ):
+                    raise DataContractError("Review ZIP contents exceed the workbench limit")
                 return {entry.filename: archive.read(entry) for entry in entries}
     raise DataContractError("Unexpected or missing review evidence files")
 
@@ -111,11 +125,11 @@ def verify_review_bundle(directory: Path, *, expected_sha256: str | None = None)
 
 
 def _verify_review_evidence(
-    path: Path, expected_sha256: str | None
-) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    path: Path | BytesIO, expected_sha256: str | None, *, max_unpacked_bytes: int | None = None
+) -> _ReviewSnapshot:
     try:
         # Parse and replay captured bytes, never re-read mutable files after checking them.
-        captured = _read_evidence(path)
+        captured = _read_evidence(path, max_unpacked_bytes=max_unpacked_bytes)
         digest = hashlib.sha256(captured["manifest.json"]).hexdigest()
         if expected_sha256 is not None:
             if (
@@ -168,18 +182,50 @@ def compare_review_bundles(
 ) -> dict[str, Any]:
     """Compare two replayed deliveries from the same frozen source and journal."""
     try:
-        before, baseline_events = _verify_review_evidence(baseline, baseline_sha256)
+        before = _verify_review_evidence(baseline, baseline_sha256)
     except DataContractError as exc:
         raise DataContractError(f"Baseline evidence: {exc}") from exc
     try:
-        after, current_events = _verify_review_evidence(current, current_sha256)
+        after = _verify_review_evidence(current, current_sha256)
     except DataContractError as exc:
         raise DataContractError(f"Current evidence: {exc}") from exc
 
+    return _compare_snapshots(before, after)
+
+
+def compare_workspace_to_bundle(
+    database: Path, baseline_zip: bytes, *, baseline_sha256: str | None, max_unpacked_bytes: int
+) -> dict[str, Any]:
+    """Check an earlier download against one read transaction of the current workspace."""
+    try:
+        before = _verify_review_evidence(
+            BytesIO(baseline_zip), baseline_sha256, max_unpacked_bytes=max_unpacked_bytes
+        )
+    except DataContractError as exc:
+        raise DataContractError(f"Baseline evidence: {exc}") from exc
+    try:
+        _, after = _capture(database)
+    except (sqlite3.Error, OSError, ValueError, TypeError, KeyError) as exc:
+        raise DataContractError(f"Cannot capture the current workspace: {exc}") from exc
+    return _compare_snapshots(before, after)
+
+
+def _compare_snapshots(baseline: _ReviewSnapshot, current: _ReviewSnapshot) -> dict[str, Any]:
+    before, baseline_events = baseline
+    after, current_events = current
     if before["source"] != after["source"]:
         raise DataContractError("Review deliveries have different frozen sources")
-    if current_events[: len(baseline_events)] != baseline_events:
-        raise DataContractError("Current review history does not extend the baseline")
+    if len(current_events) < len(baseline_events):
+        raise DataContractError(
+            "Current review history does not extend the baseline because it has fewer events"
+        )
+    for sequence, (earlier, later) in enumerate(
+        zip(baseline_events, current_events, strict=False), 1
+    ):
+        if earlier != later:
+            raise DataContractError(
+                f"Current review history does not extend the baseline at event {sequence}"
+            )
 
     # The verified source binds both snapshots to the same cases in the same order.
     case_fields = ("version", "status", "outcome")

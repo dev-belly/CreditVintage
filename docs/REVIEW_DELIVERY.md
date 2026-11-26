@@ -28,7 +28,11 @@ $checkpoint = $delivery.bundle_sha256
 
 ## 对账两次交付
 
-后续复核完成后，再导出一份底稿。接收人可以用当前源码提供的 `compare-reviews` 对账。两个输入都支持导出目录或从工作台下载的 ZIP。
+在本地工作台展开 **Compare deliveries**，选择之前下载的 ZIP，再点 **Compare with workspace**。如果另行保存了那份底稿的摘要，可以一并填写。页面会从数据库读取一次当前快照，显示新增操作数、队列统计和受影响案例的前后版本、状态及决定。展开 **Snapshot checkpoints** 可以查看两份快照的摘要。工作台接受 16 MiB 以内的 ZIP，解包后的证据文件总计上限为 64 MiB。
+
+[公开合成案例](https://dev-belly.github.io/CreditVintage/review/#evidence)展示了从认领到结案的变化。**Download baseline ZIP** 是认领后的快照，**Download example ZIP** 是结案后的快照。两份底稿及其摘要可在本地独立核验。
+
+已经拿到两份底稿时，可用当前源码提供的 `compare-reviews` 对账。两个输入都支持导出目录或从工作台下载的 ZIP。
 
 ```powershell
 $current = .\.venv\Scripts\creditvintage.exe review-export outputs/reviews.sqlite --out outputs/review-delivery-next | ConvertFrom-Json

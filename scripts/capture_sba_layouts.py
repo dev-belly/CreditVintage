@@ -14,7 +14,9 @@ from typing import Any
 
 from playwright.sync_api import Browser, expect, sync_playwright
 
-from creditvintage.review_bundle import verify_review_bundle
+from creditvintage.review_bundle import compare_review_bundles, verify_review_bundle
+from creditvintage.reviews import initialize_reviews
+from creditvintage.workbench import create_workbench_server
 
 
 class PreviewHandler(SimpleHTTPRequestHandler):
@@ -179,6 +181,27 @@ def check_review_demo(browser: Browser, destination: Path, base_url: str) -> Non
             archive = Path(temporary) / advertised
             download.save_as(archive)
             result = verify_review_bundle(archive, expected_sha256=digest)
+            page.get_by_text("Compare deliveries", exact=True).click()
+            expect(page.locator("#compare-summary")).to_have_text("1 new action across 1 case.")
+            row = page.locator("#compare-rows tr")
+            expect(row).to_have_count(1)
+            expect(row.locator("td").nth(0)).to_have_text("In review · v1")
+            expect(row.locator("td").nth(1)).to_have_text("Resolved · Escalated · v2")
+            page.get_by_text("Snapshot checkpoints", exact=True).click()
+            baseline_digest = page.locator("#compare-baseline-digest").inner_text()
+            expect(page.locator("#compare-current-digest")).to_have_text(digest)
+            with page.expect_download() as earlier:
+                page.get_by_role("link", name="Download baseline ZIP").click()
+            baseline = Path(temporary) / f"creditvintage-{baseline_digest}.zip"
+            if earlier.value.suggested_filename != baseline.name:
+                raise ValueError("The baseline ZIP name differs from the displayed checkpoint")
+            earlier.value.save_as(baseline)
+            comparison = compare_review_bundles(
+                baseline, archive, baseline_sha256=baseline_digest, current_sha256=digest
+            )
+            if len(comparison["changed_cases"]) != 1 or comparison["added_events"] != 1:
+                raise ValueError("The downloaded pair does not replay the displayed comparison")
+            expect(row.locator("th")).to_have_text(comparison["changed_cases"][0]["application_id"])
         expected_counts = {"queued": 47, "in_review": 0, "resolved": 1}
         if result["events"] != 2 or result["counts"] != expected_counts:
             raise ValueError("The downloaded example does not replay the shown counts")
@@ -215,6 +238,51 @@ def check_review_demo(browser: Browser, destination: Path, base_url: str) -> Non
         if errors:
             raise ValueError(f"Review demo JavaScript errors: {errors}")
         page.close()
+
+
+def check_workspace_comparison(browser: Browser, analysis: Path) -> None:
+    """Exercise a downloaded ZIP and a subsequent review action in the live workbench."""
+    with tempfile.TemporaryDirectory(prefix="creditvintage-browser-") as temporary:
+        root = Path(temporary)
+        workspace = root / "reviews.sqlite"
+        initialize_reviews(analysis, workspace)
+        with create_workbench_server(workspace, 0) as server:
+            thread = Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            page = browser.new_page(viewport={"width": 390, "height": 1000})
+            errors: list[str] = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            try:
+                page.goto(f"http://127.0.0.1:{server.server_port}/")
+                expect(page.locator("#case-status")).to_have_text("Queued")
+                with page.expect_download() as pending:
+                    page.get_by_role("button", name="Download workspace ZIP").click()
+                baseline = root / "baseline.zip"
+                pending.value.save_as(baseline)
+                page.get_by_text("Replay the downloaded evidence", exact=True).click()
+                checkpoint = page.locator("#evidence-command").inner_text().rsplit(" ", 1)[-1]
+                page.locator("#actor").fill("Demo analyst")
+                page.get_by_role("button", name="Save review").click()
+                expect(page.locator("#case-status")).to_have_text("In review")
+
+                page.get_by_text("Compare deliveries", exact=True).click()
+                page.get_by_label("Earlier workspace ZIP").set_input_files(baseline)
+                page.get_by_label("Saved baseline checkpoint").fill("0" * 64)
+                compare = page.get_by_role("button", name="Compare with workspace")
+                compare.click()
+                expect(page.locator("#compare-message")).to_contain_text("checkpoint mismatch")
+                page.get_by_label("Saved baseline checkpoint").fill(checkpoint)
+                compare.click()
+                expect(page.locator("#compare-summary")).to_have_text("1 new action across 1 case.")
+                expect(page.locator("#compare-rows td").nth(1)).to_have_text("In review · v1")
+                if page.evaluate("document.documentElement.scrollWidth > window.innerWidth"):
+                    raise ValueError("The workspace comparison overflows the viewport")
+                if errors:
+                    raise ValueError(f"Workspace comparison JavaScript errors: {errors}")
+            finally:
+                page.close()
+                server.shutdown()
+                thread.join()
 
 
 def capture() -> dict[str, object]:
@@ -260,6 +328,7 @@ def capture() -> dict[str, object]:
             finally:
                 server.shutdown()
                 thread.join()
+        check_workspace_comparison(browser, root / "_site" / "analysis")
         browser.close()
     return {
         "status": "verified",
@@ -271,6 +340,7 @@ def capture() -> dict[str, object]:
         "screenshots": 10,
         "brief": brief,
         "review_demo_widths": [1440, 390, 320],
+        "local_workspace_comparison": True,
     }
 
 

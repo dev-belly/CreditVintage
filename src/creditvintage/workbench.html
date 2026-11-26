@@ -61,6 +61,45 @@
         <pre><code id="evidence-command"></code></pre>
         <a href="https://github.com/dev-belly/CreditVintage/blob/main/docs/REVIEW_DELIVERY.md">Verification and checkpoint guide</a>
       </details>
+      <details id="delivery-comparison" hidden>
+        <summary>Compare deliveries</summary>
+        <div id="compare-example" class="compare-body" hidden>
+          <p class="muted">Compare the snapshot after the claim with the example ZIP above, captured after the decision.</p>
+          <a id="baseline-download" class="secondary" download>Download baseline ZIP</a>
+        </div>
+        <form id="compare-form" class="compare-body" hidden>
+          <fieldset id="compare-fields" aria-label="Compare a saved ZIP with the current workspace">
+            <div class="form-grid">
+              <label for="baseline-zip">Earlier workspace ZIP
+                <input id="baseline-zip" type="file" accept=".zip,application/zip" required>
+              </label>
+              <label for="baseline-checkpoint">Saved baseline checkpoint (optional)
+                <input id="baseline-checkpoint" type="text" placeholder="SHA-256 digest" autocomplete="off" spellcheck="false">
+              </label>
+            </div>
+            <button class="secondary evidence-primary" id="compare-submit" type="submit">Compare with workspace</button>
+          </fieldset>
+        </form>
+        <output id="compare-message" role="status" hidden></output>
+        <div id="compare-result" class="compare-body" hidden>
+          <p id="compare-summary" role="status"></p>
+          <dl id="compare-counts" class="facts compare-counts" aria-label="Case totals from baseline to current"></dl>
+          <table id="compare-cases" hidden>
+            <caption>Changed cases</caption>
+            <thead><tr><th scope="col">Case</th><th scope="col">Baseline</th><th scope="col">Current</th></tr></thead>
+            <tbody id="compare-rows"></tbody>
+          </table>
+          <details id="compare-checkpoints">
+            <summary>Snapshot checkpoints</summary>
+            <dl>
+              <dt id="compare-baseline-label">Baseline</dt>
+              <dd><code id="compare-baseline-digest"></code></dd>
+              <dt>Current snapshot</dt>
+              <dd><code id="compare-current-digest"></code></dd>
+            </dl>
+          </details>
+        </div>
+      </details>
       <output id="evidence-message" role="status" hidden></output>
     </section>
     <div class="notice">

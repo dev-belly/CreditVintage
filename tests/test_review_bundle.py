@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterator
 from http.client import HTTPConnection
-from http.server import ThreadingHTTPServer
 from io import BytesIO
 from pathlib import Path
-from queue import Queue
 from shutil import copytree
 from threading import Thread
 from typing import Any
@@ -148,46 +147,105 @@ def test_archive_rejects_ambiguous_or_extra_members(
         verify_review_bundle(evidence)
 
 
+@pytest.fixture
+def review_client(delivery: tuple[Path, Path, str]) -> Iterator[HTTPConnection]:
+    database, _, _ = delivery
+    with workbench.create_workbench_server(database, 0) as server:
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        client = HTTPConnection("127.0.0.1", server.server_port, timeout=10)
+        try:
+            yield client
+        finally:
+            client.close()
+            server.shutdown()
+            thread.join(timeout=5)
+
+
 def test_loopback_download_returns_verified_snapshot_and_checkpoint(
-    delivery: tuple[Path, Path, str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    review_client: HTTPConnection, tmp_path: Path
+) -> None:
+    review_client.request("GET", "/api/evidence", headers={"Sec-Fetch-Site": "cross-site"})
+    forbidden = review_client.getresponse()
+    assert forbidden.status == 403
+    forbidden.read()
+    review_client.request("GET", "/api/evidence", headers={"Sec-Fetch-Site": "same-origin"})
+    response = review_client.getresponse()
+    assert response.status == 200
+    assert response.getheader("Content-Type") == "application/zip"
+    assert response.getheader("Cache-Control") == "no-store"
+    digest = response.getheader("X-CreditVintage-Checkpoint")
+    assert digest and response.getheader("Content-Disposition") == (
+        f'attachment; filename="creditvintage-{digest[:12]}.zip"'
+    )
+    archive = tmp_path / "from-browser.zip"
+    archive.write_bytes(response.read())
+    result = verify_review_bundle(archive, expected_sha256=digest)
+    assert result["checkpoint_matched"] is True
+    assert result["counts"]["resolved"] == 1
+    assert result["events"] == 2
+
+
+def test_loopback_comparison_matches_the_two_cli_snapshots(
+    delivery: tuple[Path, Path, str], review_client: HTTPConnection, tmp_path: Path
+) -> None:
+    database, baseline_directory, identity = delivery
+    archive, baseline = export_review_zip(database)
+    record_review(database, identity, "reopen", "supervisor", 2, "reopen", note="New evidence")
+    current_directory = tmp_path / "current"
+    current = export_reviews(database, current_directory)
+
+    headers = {
+        "Origin": f"http://127.0.0.1:{review_client.port}",
+        "Content-Type": "application/zip",
+        "X-CreditVintage-Baseline-Checkpoint": baseline["bundle_sha256"],
+    }
+    review_client.request("POST", "/api/compare", body=archive, headers=headers)
+    response = review_client.getresponse()
+    assert response.status == 200
+    assert response.getheader("Cache-Control") == "no-store"
+    result = json.loads(response.read())
+    assert result == compare_review_bundles(
+        baseline_directory,
+        current_directory,
+        baseline_sha256=baseline["bundle_sha256"],
+    )
+    assert result["added_events"] == 1
+    assert result["changed_cases"][0]["after"]["status"] == "queued"
+    assert result["current"]["bundle_sha256"] == current["bundle_sha256"]
+    assert review_status(database)["events"] == 3
+
+    headers["X-CreditVintage-Baseline-Checkpoint"] = "0" * 64
+    review_client.request("POST", "/api/compare", body=archive, headers=headers)
+    mismatch = review_client.getresponse()
+    assert mismatch.status == 422
+    assert "checkpoint mismatch" in json.loads(mismatch.read())["error"]
+
+
+def test_loopback_comparison_checks_origin_and_archive_size(
+    delivery: tuple[Path, Path, str], review_client: HTTPConnection, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     database, _, _ = delivery
-    ready: Queue[ThreadingHTTPServer] = Queue()
+    archive, _ = export_review_zip(database)
+    headers = {"Origin": "https://example.com", "Content-Type": "application/zip"}
+    review_client.request("POST", "/api/compare", body=archive, headers=headers)
+    rejected = review_client.getresponse()
+    assert rejected.status == 403
+    rejected.read()
 
-    def start(*args: Any) -> ThreadingHTTPServer:
-        server = ThreadingHTTPServer(*args)
-        ready.put(server)
-        return server
+    headers["Origin"] = f"http://127.0.0.1:{review_client.port}"
+    with monkeypatch.context() as limits:
+        limits.setattr(workbench, "MAX_BASELINE_BYTES", len(archive) - 1)
+        review_client.request("POST", "/api/compare", body=archive, headers=headers)
+        too_large = review_client.getresponse()
+        assert too_large.status == 413
+        too_large.read()
 
-    monkeypatch.setattr(workbench, "ThreadingHTTPServer", start)
-    thread = Thread(target=workbench.serve, args=(database, 0), daemon=True)
-    thread.start()
-    server = ready.get(timeout=10)
-    client = HTTPConnection("127.0.0.1", server.server_port, timeout=10)
-    try:
-        client.request("GET", "/api/evidence", headers={"Sec-Fetch-Site": "cross-site"})
-        forbidden = client.getresponse()
-        assert forbidden.status == 403
-        forbidden.read()
-        client.request("GET", "/api/evidence", headers={"Sec-Fetch-Site": "same-origin"})
-        response = client.getresponse()
-        assert response.status == 200
-        assert response.getheader("Content-Type") == "application/zip"
-        assert response.getheader("Cache-Control") == "no-store"
-        digest = response.getheader("X-CreditVintage-Checkpoint")
-        assert digest and response.getheader("Content-Disposition") == (
-            f'attachment; filename="creditvintage-{digest[:12]}.zip"'
-        )
-        archive = tmp_path / "from-browser.zip"
-        archive.write_bytes(response.read())
-        result = verify_review_bundle(archive, expected_sha256=digest)
-        assert result["checkpoint_matched"] is True
-        assert result["counts"]["resolved"] == 1
-        assert result["events"] == 2
-    finally:
-        client.close()
-        server.shutdown()
-        thread.join(timeout=5)
+    monkeypatch.setattr(workbench, "MAX_BASELINE_UNPACKED_BYTES", len(archive))
+    review_client.request("POST", "/api/compare", body=archive, headers=headers)
+    too_large_unpacked = review_client.getresponse()
+    assert too_large_unpacked.status == 422
+    assert "contents exceed" in json.loads(too_large_unpacked.read())["error"]
 
 
 def test_delivery_remains_one_snapshot_when_workspace_advances(
@@ -248,7 +306,7 @@ def test_compare_deliveries_reports_appended_actions(
     error = capsys.readouterr()
     assert error.out == ""
     assert "Current evidence" in error.err and "checkpoint mismatch" in error.err
-    with pytest.raises(DataContractError, match="history does not extend"):
+    with pytest.raises(DataContractError, match="history does not extend.*fewer events"):
         compare_review_bundles(current, baseline)
     assert current.read_bytes() == archive
     assert {path.name: path.read_bytes() for path in baseline.iterdir()} == before
@@ -272,7 +330,7 @@ def test_compare_rejects_a_valid_but_rewritten_history(
     events[1]["note"] = "A different valid narrative"
     _rewrite(current, "events.json", events)
     assert verify_review_bundle(current)["events"] == 2
-    with pytest.raises(DataContractError, match="history does not extend"):
+    with pytest.raises(DataContractError, match="history does not extend.*event 2"):
         compare_review_bundles(baseline, current)
 
 

@@ -89,6 +89,26 @@ output[data-error="true"] { color: #a32a22; }
 .evidence pre { padding: 10px; background: #f6faf7; border: 1px solid var(--line); border-radius: 9px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .evidence details a { font-size: .875rem; }
 #evidence-message { display: block; margin-top: 10px; }
+.compare-body { min-width: 0; margin-top: 10px; }
+.compare-body .secondary { display: inline-block; margin-top: 10px; }
+#baseline-download { text-decoration: none; }
+#compare-message { display: block; margin-top: 10px; }
+#compare-summary { font-weight: 650; }
+.facts.compare-counts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+#compare-cases { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: .875rem; }
+#compare-cases caption { text-align: start; font-weight: 650; margin-bottom: 5px; }
+#compare-cases th, #compare-cases td {
+  border-bottom: 1px solid var(--line);
+  padding: 6px;
+  text-align: start;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+#compare-cases th { font-weight: 650; }
+#compare-cases thead { color: var(--muted); background: #f4f8f4; }
+#compare-checkpoints dl { margin-top: 9px; }
+#compare-checkpoints dt { color: var(--muted); font-size: .875rem; }
+#compare-checkpoints dd { margin-bottom: 6px; overflow-wrap: anywhere; }
 
 .workspace { display: grid; grid-template-columns: minmax(250px, 0.81fr) minmax(0, 1.9fr); align-items: start; gap: 14px; }
 .card { min-width: 0; padding: clamp(12px, 2.5vw, 24px); background: var(--surface); border: 1px solid var(--line); border-radius: 22px; }

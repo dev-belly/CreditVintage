@@ -11,12 +11,14 @@ const action = byId("action");
 const money = new Intl.NumberFormat("en-US");
 const formatPD = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 2 });
 const dateTime = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
+const checkpointPattern = /^[a-f0-9]{64}$/u;
 
 const states = {
   queued: "Queued",
   in_review: "In review",
   resolved: "Resolved",
 };
+const outcomeLabels = { cleared: "Cleared", escalated: "Escalated" };
 const actions = {
   queued: ["claim"],
   in_review: ["resolve", "release"],
@@ -55,13 +57,8 @@ function status(text, error = false, target = "message") {
   message.hidden = !text;
 }
 
-async function api(path, body) {
-  const options = body === undefined ? { cache: "no-store" } : {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  };
-  const response = await fetch(new URL("./api/" + path, location.href), options);
+async function api(path, options) {
+  const response = await fetch(new URL("./api/" + path, location.href), { cache: "no-store", ...options });
   const value = await response.json();
   if (!response.ok) {
     const error = new Error(value.error ?? "The workspace could not be reached.");
@@ -75,7 +72,14 @@ const workspaceApi = demoMode
   ? createDemo(() => {
     byId("intro-copy").textContent = "Review a sample case. Changes last while this page is open.";
   })
-  : { load: () => api("state"), change: (command) => api("change", command) };
+  : {
+    load: () => api("state"),
+    change: (command) => api("change", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(command),
+    }),
+  };
 
 if (demoMode) {
   byId("mode").textContent = "Interactive demo · Synthetic cases";
@@ -201,7 +205,7 @@ function eventItems(events) {
     const timestamp = node("p");
     timestamp.append(time);
     item.append(node("strong", label), timestamp);
-    if (event.outcome) item.append(node("p", event.outcome === "escalated" ? "Escalated" : "Cleared"));
+    if (event.outcome) item.append(node("p", outcomeLabels[event.outcome]));
     if (event.note) item.append(node("p", event.note));
     if (event.evidence) item.append(node("small", "Evidence · " + event.evidence));
     list.append(item);
@@ -214,14 +218,47 @@ function showVerification(filename, digest) {
   byId("evidence-verification").hidden = false;
 }
 
+function renderComparison({ baseline, current, added_events, changed_cases }) {
+  const changed = changed_cases.length;
+  byId("compare-summary").textContent = added_events === 0
+    ? "No new actions."
+    : `${added_events} new ${added_events === 1 ? "action" : "actions"} across ${changed} ${changed === 1 ? "case" : "cases"}.`;
+  byId("compare-counts").replaceChildren(...Object.entries(states).map(([key, label]) => {
+    const total = node("div");
+    total.append(node("dt", label), node("dd", baseline.counts[key] + " → " + current.counts[key]));
+    return total;
+  }));
+  const rows = document.createDocumentFragment();
+  for (const { application_id, before, after } of changed_cases) {
+    const row = node("tr");
+    const identity = node("th", application_id);
+    identity.scope = "row";
+    row.append(identity);
+    for (const value of [before, after]) {
+      const outcome = outcomeLabels[value.outcome];
+      row.append(node("td", [states[value.status], outcome, "v" + value.version].filter(Boolean).join(" · ")));
+    }
+    rows.append(row);
+  }
+  byId("compare-rows").replaceChildren(rows);
+  byId("compare-cases").hidden = changed === 0;
+  byId("compare-baseline-label").textContent = baseline.checkpoint_matched
+    ? "Baseline · checkpoint matched" : "Baseline · no checkpoint supplied";
+  byId("compare-baseline-digest").textContent = baseline.bundle_sha256;
+  byId("compare-current-digest").textContent = current.bundle_sha256;
+  byId("compare-result").hidden = false;
+}
+
 function renderEvidence() {
   if (!demoMode) {
     byId("evidence-title").textContent = "Export the review evidence";
     byId("evidence-description").textContent = "Download one snapshot of the saved queue, review actions and current status.";
     byId("workspace-download").hidden = false;
+    byId("compare-form").hidden = false;
+    byId("delivery-comparison").hidden = false;
   } else {
     const example = workspace.example;
-    if (!example || !/^[a-f0-9]{64}$/u.test(example.bundle_sha256) || !Array.isArray(example.history)) return;
+    if (!example || !checkpointPattern.test(example.bundle_sha256) || !Array.isArray(example.history)) return;
     byId("evidence-title").textContent = "Replay a completed case";
     byId("evidence-description").textContent = `${example.application_id} · ${example.history.length} recorded actions · ${example.counts.resolved} of ${workspace.cases.length} cases resolved in the example`;
     byId("example-events").replaceChildren(eventItems(example.history));
@@ -238,6 +275,16 @@ function renderEvidence() {
     practice.href = url;
     practice.hidden = false;
     showVerification(filename, example.bundle_sha256);
+    const comparison = example.comparison;
+    if (comparison?.current?.bundle_sha256 === example.bundle_sha256 &&
+        checkpointPattern.test(comparison.baseline?.bundle_sha256 ?? "")) {
+      const baseline = byId("baseline-download");
+      baseline.download = "creditvintage-" + comparison.baseline.bundle_sha256 + ".zip";
+      baseline.href = new URL(baseline.download, location.href);
+      byId("compare-example").hidden = false;
+      renderComparison(comparison);
+      byId("delivery-comparison").hidden = false;
+    }
   }
   byId("evidence").hidden = false;
 }
@@ -298,6 +345,36 @@ byId("search").addEventListener("input", renderQueue);
 byId("filter").addEventListener("change", renderQueue);
 action.addEventListener("change", renderAction);
 byId("reload").addEventListener("click", () => void reload());
+for (const id of ["baseline-zip", "baseline-checkpoint"]) {
+  byId(id).addEventListener("input", () => {
+    byId("compare-result").hidden = true;
+    status("", false, "compare-message");
+  });
+}
+byId("compare-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const fields = byId("compare-fields");
+  const zip = byId("baseline-zip").files[0];
+  if (demoMode || fields.disabled || !zip) return;
+  byId("compare-result").hidden = true;
+  const checkpoint = byId("baseline-checkpoint").value.trim().toLowerCase();
+  if (checkpoint && !checkpointPattern.test(checkpoint)) {
+    status("Enter the 64-character SHA-256 checkpoint from your earlier delivery.", true, "compare-message");
+    return;
+  }
+  const headers = { "Content-Type": "application/zip" };
+  if (checkpoint) headers["X-CreditVintage-Baseline-Checkpoint"] = checkpoint;
+  fields.disabled = true;
+  status("Comparing deliveries…", false, "compare-message");
+  try {
+    renderComparison(await api("compare", { method: "POST", headers, body: zip }));
+    status("", false, "compare-message");
+  } catch (error) {
+    status(error.message, true, "compare-message");
+  } finally {
+    fields.disabled = false;
+  }
+});
 byId("workspace-download").addEventListener("click", async (event) => {
   const button = event.currentTarget;
   button.disabled = true;
@@ -306,7 +383,7 @@ byId("workspace-download").addEventListener("click", async (event) => {
     const response = await fetch(new URL("./api/evidence", location.href), { cache: "no-store" });
     if (!response.ok) throw new Error((await response.json()).error || "Could not prepare the evidence.");
     const digest = response.headers.get("X-CreditVintage-Checkpoint");
-    if (!/^[a-f0-9]{64}$/u.test(digest ?? "")) throw new Error("The evidence checkpoint is missing.");
+    if (!checkpointPattern.test(digest ?? "")) throw new Error("The evidence checkpoint is missing.");
     const filename = "creditvintage-" + digest.slice(0, 12) + ".zip";
     const blob = await response.blob();
     const link = node("a");
