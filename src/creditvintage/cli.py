@@ -184,6 +184,10 @@ def main(argv: list[str] | None = None) -> int:
     review_export = commands.add_parser("review-export", help="Deliver portable review evidence")
     review_export.add_argument("database", type=Path)
     review_export.add_argument("--out", type=Path, required=True)
+    review_export.add_argument(
+        "--through-event", type=int, help="Last journal event to include (0 for the initial queue)"
+    )
+    review_export.add_argument("--expected-sha256", help="Trusted digest of the requested delivery")
     review_verify = commands.add_parser("verify-reviews", help="Replay portable review evidence")
     review_verify.add_argument("evidence", type=Path, help="Evidence directory or ZIP file")
     review_verify.add_argument("--expected-sha256", help="Trusted digest saved outside this bundle")
@@ -194,6 +198,11 @@ def main(argv: list[str] | None = None) -> int:
     review_compare.add_argument("current", type=Path, help="Later evidence directory or ZIP")
     review_compare.add_argument("--baseline-sha256", help="Trusted digest of the baseline delivery")
     review_compare.add_argument("--current-sha256", help="Trusted digest of the current delivery")
+    review_compare.add_argument(
+        "--include-actions",
+        action="store_true",
+        help="Include newly recorded notes and evidence references",
+    )
     lineage = commands.add_parser(
         "lineage-demo", help="Connect PITBridge sources to credit evaluation"
     )
@@ -254,7 +263,13 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(verify_public_benchmark(args.directory), indent=2))
             return 0
         if args.command == "review-export":
-            print(json.dumps(export_reviews(args.database, args.out), indent=2))
+            receipt = export_reviews(
+                args.database,
+                args.out,
+                through_event=args.through_event,
+                expected_sha256=args.expected_sha256,
+            )
+            print(json.dumps(receipt, indent=2))
             return 0
         if args.command == "verify-reviews":
             print(
@@ -270,6 +285,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.current,
                 baseline_sha256=args.baseline_sha256,
                 current_sha256=args.current_sha256,
+                include_actions=args.include_actions,
             )
             print(json.dumps(delivery_comparison, indent=2))
             return 0

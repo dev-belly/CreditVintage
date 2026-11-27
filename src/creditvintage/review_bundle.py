@@ -24,11 +24,24 @@ def _json(value: Any) -> bytes:
     return (json.dumps(value, sort_keys=True, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
 
 
-def _capture(database: Path) -> tuple[dict[str, bytes], _ReviewSnapshot]:
+def _check_checkpoint(digest: str, expected_sha256: str | None) -> None:
+    if expected_sha256 is not None and digest != expected_sha256:
+        raise DataContractError("Review evidence checkpoint mismatch")
+
+
+def _capture(
+    database: Path, *, through_event: int | None = None, expected_sha256: str | None = None
+) -> tuple[dict[str, bytes], _ReviewSnapshot]:
     with _connection(database) as connection:
         connection.execute("BEGIN")
         source, events, states = _load(connection)
         queue = connection.execute("SELECT queue_csv FROM source WHERE id=1").fetchone()[0]
+    if through_event is not None:
+        if type(through_event) is not int or not 0 <= through_event <= len(events):
+            raise DataContractError(f"Review event must be an integer from 0 through {len(events)}")
+        if through_event < len(events):
+            events = events[:through_event]
+            states = _replay(source, queue, events)
     status = _status(source, events, states)
     captured: dict[str, bytes] = {
         "source.json": _json(source),
@@ -45,10 +58,12 @@ def _capture(database: Path) -> tuple[dict[str, bytes], _ReviewSnapshot]:
         }
     )
     captured["manifest.json"] = manifest
+    digest = hashlib.sha256(manifest).hexdigest()
+    _check_checkpoint(digest, expected_sha256)
     snapshot = {
         **status,
-        "bundle_sha256": hashlib.sha256(manifest).hexdigest(),
-        "checkpoint_matched": False,
+        "bundle_sha256": digest,
+        "checkpoint_matched": expected_sha256 is not None,
     }
     return captured, (snapshot, events)
 
@@ -62,10 +77,18 @@ def _receipt(status: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def export_reviews(database: Path, directory: Path) -> dict[str, Any]:
-    """Export one read-transaction snapshot without replacing an existing delivery."""
+def export_reviews(
+    database: Path,
+    directory: Path,
+    *,
+    through_event: int | None = None,
+    expected_sha256: str | None = None,
+) -> dict[str, Any]:
+    """Export the captured journal or one of its prefixes to a new directory."""
     try:
-        captured, (status, _) = _capture(database)
+        captured, (status, _) = _capture(
+            database, through_event=through_event, expected_sha256=expected_sha256
+        )
         # mkdir is exclusive. Cleanup below can only remove this new export, never an old one.
         directory.mkdir(parents=True, exist_ok=False)
         try:
@@ -81,10 +104,14 @@ def export_reviews(database: Path, directory: Path) -> dict[str, Any]:
         raise DataContractError(f"Cannot export reviews: {exc}") from exc
 
 
-def export_review_zip(database: Path) -> tuple[bytes, dict[str, Any]]:
+def export_review_zip(
+    database: Path, *, through_event: int | None = None, expected_sha256: str | None = None
+) -> tuple[bytes, dict[str, Any]]:
     """Package the same evidence files as the directory export."""
     try:
-        captured, (status, _) = _capture(database)
+        captured, (status, _) = _capture(
+            database, through_event=through_event, expected_sha256=expected_sha256
+        )
         buffer = BytesIO()
         with ZipFile(buffer, "w", compression=ZIP_DEFLATED) as archive:
             for name, content in captured.items():
@@ -131,13 +158,7 @@ def _verify_review_evidence(
         # Parse and replay captured bytes, never re-read mutable files after checking them.
         captured = _read_evidence(path, max_unpacked_bytes=max_unpacked_bytes)
         digest = hashlib.sha256(captured["manifest.json"]).hexdigest()
-        if expected_sha256 is not None:
-            if (
-                len(expected_sha256) != 64
-                or any(character not in "0123456789abcdef" for character in expected_sha256)
-                or expected_sha256 != digest
-            ):
-                raise DataContractError("Review evidence checkpoint mismatch")
+        _check_checkpoint(digest, expected_sha256)
         manifest = parse_json(captured["manifest.json"], "manifest.json")
         expected = {
             "format": FORMAT,
@@ -179,6 +200,7 @@ def compare_review_bundles(
     *,
     baseline_sha256: str | None = None,
     current_sha256: str | None = None,
+    include_actions: bool = False,
 ) -> dict[str, Any]:
     """Compare two replayed deliveries from the same frozen source and journal."""
     try:
@@ -190,11 +212,16 @@ def compare_review_bundles(
     except DataContractError as exc:
         raise DataContractError(f"Current evidence: {exc}") from exc
 
-    return _compare_snapshots(before, after)
+    return _compare_snapshots(before, after, include_actions=include_actions)
 
 
 def compare_workspace_to_bundle(
-    database: Path, baseline_zip: bytes, *, baseline_sha256: str | None, max_unpacked_bytes: int
+    database: Path,
+    baseline_zip: bytes,
+    *,
+    baseline_sha256: str | None,
+    max_unpacked_bytes: int,
+    include_actions: bool = False,
 ) -> dict[str, Any]:
     """Check an earlier download against one read transaction of the current workspace."""
     try:
@@ -207,10 +234,12 @@ def compare_workspace_to_bundle(
         _, after = _capture(database)
     except (sqlite3.Error, OSError, ValueError, TypeError, KeyError) as exc:
         raise DataContractError(f"Cannot capture the current workspace: {exc}") from exc
-    return _compare_snapshots(before, after)
+    return _compare_snapshots(before, after, include_actions=include_actions)
 
 
-def _compare_snapshots(baseline: _ReviewSnapshot, current: _ReviewSnapshot) -> dict[str, Any]:
+def _compare_snapshots(
+    baseline: _ReviewSnapshot, current: _ReviewSnapshot, *, include_actions: bool
+) -> dict[str, Any]:
     before, baseline_events = baseline
     after, current_events = current
     if before["source"] != after["source"]:
@@ -239,7 +268,7 @@ def _compare_snapshots(baseline: _ReviewSnapshot, current: _ReviewSnapshot) -> d
         if earlier["version"] != later["version"]
     ]
     summary_fields = ("bundle_sha256", "checkpoint_matched", "events", "counts")
-    return {
+    comparison = {
         "status": "verified",
         "source": before["source"],
         "baseline": {field: before[field] for field in summary_fields},
@@ -247,3 +276,6 @@ def _compare_snapshots(baseline: _ReviewSnapshot, current: _ReviewSnapshot) -> d
         "added_events": len(current_events) - len(baseline_events),
         "changed_cases": changed_cases,
     }
+    if include_actions:
+        comparison["new_actions"] = current_events[len(baseline_events) :]
+    return comparison

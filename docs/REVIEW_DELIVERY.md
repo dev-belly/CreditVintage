@@ -28,7 +28,9 @@ $checkpoint = $delivery.bundle_sha256
 
 ## 对账两次交付
 
-在本地工作台展开 **Compare deliveries**，选择之前下载的 ZIP，再点 **Compare with workspace**。如果另行保存了那份底稿的摘要，可以一并填写。页面会从数据库读取一次当前快照，显示新增操作数、队列统计和受影响案例的前后版本、状态及决定。展开 **Snapshot checkpoints** 可以查看两份快照的摘要。工作台接受 16 MiB 以内的 ZIP，解包后的证据文件总计上限为 64 MiB。
+在本地工作台展开 **Compare deliveries**，选择之前下载的 ZIP，再点 **Compare with workspace**。如果另行保存了那份底稿的摘要，可以一并填写。页面会从数据库读取一次当前快照，显示新增操作数、队列统计和受影响案例的前后版本、状态及决定。展开 **Inspect new actions** 可以按事件序号查看操作者、决定、备注和材料引用。工作台接受 16 MiB 以内的 ZIP，解包后的证据文件总计上限为 64 MiB。
+
+**Snapshot checkpoints** 显示两份底稿的摘要，以及当前比较截止的事件序号。用 **Download compared workspace ZIP** 下载对账时使用的工作台快照。即使另一位复核人随后追加了操作，下载仍按原事件序号重放，核对摘要后才返回 ZIP。顶部 **Download workspace ZIP** 用来导出此刻的最新记录。
 
 [公开合成案例](https://dev-belly.github.io/CreditVintage/review/#evidence)展示了从认领到结案的变化。**Download baseline ZIP** 是认领后的快照，**Download example ZIP** 是结案后的快照。两份底稿及其摘要可在本地独立核验。
 
@@ -40,6 +42,14 @@ $current = .\.venv\Scripts\creditvintage.exe review-export outputs/reviews.sqlit
 ```
 
 命令分别重放两份底稿，检查冻结来源一致，并逐条核对旧事件是否完整保留在新日志开头。输出给出新增事件数、两次交付的队列统计，以及每个受影响案例的前后版本、状态和结案结果。若案例被认领后又释放，即使状态回到待处理，版本增加也会把它列入结果。
+
+加上 `--include-actions` 时，`new_actions` 包含按序追加的完整操作记录，包括备注和材料引用。重新导出已交付的版本时，把回执中的 `events` 和 `bundle_sha256` 交给 `review-export`。
+
+```powershell
+.\.venv\Scripts\creditvintage.exe review-export outputs/reviews.sqlite --out outputs/review-delivery-recreated --through-event $current.events --expected-sha256 $current.bundle_sha256
+```
+
+`--through-event 0` 对应只有冻结队列的初始版本。通过序号和摘要校验后，命令才创建输出目录。
 
 没有新事件时，`added_events` 为 0，`changed_cases` 为空。来源不同、历史被改写或参数顺序颠倒时，命令返回 2。两个摘要参数可独立传入，各自与另外保存的检查点匹配时，对应的 `checkpoint_matched` 为 true。
 

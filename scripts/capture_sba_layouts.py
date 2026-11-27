@@ -197,11 +197,22 @@ def check_review_demo(browser: Browser, destination: Path, base_url: str) -> Non
                 raise ValueError("The baseline ZIP name differs from the displayed checkpoint")
             earlier.value.save_as(baseline)
             comparison = compare_review_bundles(
-                baseline, archive, baseline_sha256=baseline_digest, current_sha256=digest
+                baseline,
+                archive,
+                baseline_sha256=baseline_digest,
+                current_sha256=digest,
+                include_actions=True,
             )
             if len(comparison["changed_cases"]) != 1 or comparison["added_events"] != 1:
                 raise ValueError("The downloaded pair does not replay the displayed comparison")
             expect(row.locator("th")).to_have_text(comparison["changed_cases"][0]["application_id"])
+            page.get_by_text("Inspect new actions", exact=True).click()
+            actions = page.locator("#compare-events li")
+            expect(actions).to_have_count(1)
+            event = comparison["new_actions"][0]
+            expect(actions.first).to_contain_text(f"Event {event['sequence']}")
+            expect(actions.first).to_contain_text(event["note"])
+            expect(actions.first).to_contain_text(event["evidence"])
         expected_counts = {"queued": 47, "in_review": 0, "resolved": 1}
         if result["events"] != 2 or result["counts"] != expected_counts:
             raise ValueError("The downloaded example does not replay the shown counts")
@@ -292,6 +303,14 @@ def check_workspace_comparison(browser: Browser, analysis: Path) -> None:
                 expect(page.locator("#compare-summary")).to_have_text(
                     "2 new actions across 1 case."
                 )
+                page.get_by_text("Inspect new actions", exact=True).click()
+                expect(page.locator("#compare-events li")).to_have_count(2)
+                expect(page.locator("#compare-events li").last).to_contain_text(
+                    "The synthetic evidence was checked."
+                )
+                page.get_by_text("Snapshot checkpoints", exact=True).click()
+                expect(page.locator("#compare-current-label")).to_contain_text("through event 2")
+                compared_digest = page.locator("#compare-current-digest").inner_text()
 
                 identity = page.locator("#case-title").inner_text()
                 record_review(
@@ -303,6 +322,13 @@ def check_workspace_comparison(browser: Browser, analysis: Path) -> None:
                     "external-reopen",
                     note="Request a second look at the synthetic evidence.",
                 )
+                with page.expect_download() as compared_download:
+                    page.get_by_role("button", name="Download compared workspace ZIP").click()
+                compared_zip = root / compared_download.value.suggested_filename
+                compared_download.value.save_as(compared_zip)
+                captured = verify_review_bundle(compared_zip, expected_sha256=compared_digest)
+                if captured["events"] != 2 or captured["counts"]["resolved"] != 1:
+                    raise ValueError("The compared download must reproduce event 2 after event 3")
                 refresh.click()
                 expect(page.locator("#case-status")).to_have_text("Queued")
                 expect(result).to_be_hidden()

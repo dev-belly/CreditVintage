@@ -73,7 +73,11 @@ def build_review_demo(analysis: Path, destination: Path) -> None:
         exported = Path(temporary) / "evidence.zip"
         exported.write_bytes(archive)
         comparison = compare_review_bundles(
-            earlier, exported, baseline_sha256=baseline_digest, current_sha256=digest
+            earlier,
+            exported,
+            baseline_sha256=baseline_digest,
+            current_sha256=digest,
+            include_actions=True,
         )
         current = comparison["current"]
         if comparison["added_events"] != 1 or current["events"] != 2:
