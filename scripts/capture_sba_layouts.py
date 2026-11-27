@@ -15,7 +15,7 @@ from typing import Any
 from playwright.sync_api import Browser, expect, sync_playwright
 
 from creditvintage.review_bundle import compare_review_bundles, verify_review_bundle
-from creditvintage.reviews import initialize_reviews
+from creditvintage.reviews import initialize_reviews, record_review
 from creditvintage.workbench import create_workbench_server
 
 
@@ -275,6 +275,42 @@ def check_workspace_comparison(browser: Browser, analysis: Path) -> None:
                 compare.click()
                 expect(page.locator("#compare-summary")).to_have_text("1 new action across 1 case.")
                 expect(page.locator("#compare-rows td").nth(1)).to_have_text("In review · v1")
+
+                result = page.locator("#compare-result")
+                refresh = page.get_by_role("button", name="Refresh", exact=True)
+                refresh.click()
+                expect(page.locator("#message")).to_have_text("Workspace refreshed.")
+                expect(result).to_be_visible()
+
+                page.get_by_label("Reason").fill("The synthetic evidence was checked.")
+                page.get_by_label("Evidence reference").fill("synthetic-doc:sample")
+                page.get_by_role("button", name="Save review").click()
+                expect(page.locator("#case-status")).to_have_text("Resolved")
+                expect(result).to_be_hidden()
+                expect(page.locator("#compare-message")).to_contain_text("Workspace changed")
+                compare.click()
+                expect(page.locator("#compare-summary")).to_have_text(
+                    "2 new actions across 1 case."
+                )
+
+                identity = page.locator("#case-title").inner_text()
+                record_review(
+                    workspace,
+                    identity,
+                    "reopen",
+                    "Demo analyst",
+                    2,
+                    "external-reopen",
+                    note="Request a second look at the synthetic evidence.",
+                )
+                refresh.click()
+                expect(page.locator("#case-status")).to_have_text("Queued")
+                expect(result).to_be_hidden()
+                compare.click()
+                expect(page.locator("#compare-summary")).to_have_text(
+                    "3 new actions across 1 case."
+                )
+                expect(page.locator("#compare-rows td").nth(1)).to_have_text("Queued · v3")
                 if page.evaluate("document.documentElement.scrollWidth > window.innerWidth"):
                     raise ValueError("The workspace comparison overflows the viewport")
                 if errors:
