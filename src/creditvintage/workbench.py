@@ -36,8 +36,12 @@ def create_workbench_server(workspace: Path, port: int) -> ThreadingHTTPServer:
             self.send_header("X-Frame-Options", "DENY")
             for name, value in (headers or {}).items():
                 self.send_header(name, value)
-            self.end_headers()
-            self.wfile.write(data)
+            try:
+                self.end_headers()
+                self.wfile.write(data)
+            except ConnectionError:
+                # The browser can abandon an outdated comparison while replay finishes.
+                self.close_connection = True
 
         def send_json(self, status: int, value: dict[str, Any]) -> None:
             self.reply(status, json.dumps(value).encode("utf-8"), "application/json")

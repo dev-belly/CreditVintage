@@ -42,6 +42,7 @@ let selected;
 let busy = false;
 let stateValid = false;
 let pending;
+let comparisonRequest;
 
 function node(tag, text, className) {
   const element = document.createElement(tag);
@@ -249,6 +250,14 @@ function renderComparison({ baseline, current, added_events, changed_cases }) {
   byId("compare-result").hidden = false;
 }
 
+function invalidateComparison() {
+  const result = byId("compare-result");
+  if (result.hidden && !comparisonRequest) return;
+  comparisonRequest?.abort();
+  result.hidden = true;
+  status("Workspace changed. Compare again for the latest snapshot.", false, "compare-message");
+}
+
 function renderEvidence() {
   if (!demoMode) {
     byId("evidence-title").textContent = "Export the review evidence";
@@ -312,7 +321,15 @@ function setBusy(value) {
 
 async function refresh({ revealSelected = false, requestedCase = null } = {}) {
   stateValid = false;
-  workspace = await workspaceApi.load();
+  const updated = await workspaceApi.load();
+  if (!demoMode && workspace && (
+    workspace.events !== updated.events ||
+    workspace.source.analysis_sha256 !== updated.source.analysis_sha256 ||
+    workspace.source.queue_sha256 !== updated.source.queue_sha256
+  )) {
+    invalidateComparison();
+  }
+  workspace = updated;
   stateValid = true;
   const linked = requestedCase === null ? null : workspace.cases.find((row) => row.application_id === requestedCase);
   if (linked) selected = linked;
@@ -364,14 +381,19 @@ byId("compare-form").addEventListener("submit", async (event) => {
   }
   const headers = { "Content-Type": "application/zip" };
   if (checkpoint) headers["X-CreditVintage-Baseline-Checkpoint"] = checkpoint;
+  const request = new AbortController();
+  comparisonRequest = request;
   fields.disabled = true;
   status("Comparing deliveries…", false, "compare-message");
   try {
-    renderComparison(await api("compare", { method: "POST", headers, body: zip }));
+    const result = await api("compare", { method: "POST", headers, body: zip, signal: request.signal });
+    if (request.signal.aborted) return;
+    renderComparison(result);
     status("", false, "compare-message");
   } catch (error) {
-    status(error.message, true, "compare-message");
+    if (!request.signal.aborted) status(error.message, true, "compare-message");
   } finally {
+    comparisonRequest = undefined;
     fields.disabled = false;
   }
 });
@@ -444,6 +466,7 @@ form.addEventListener("submit", async (event) => {
     await workspaceApi.change({ ...command, request_id: pending.request_id });
     saved = true;
     pending = undefined;
+    if (!demoMode) invalidateComparison();
     note.value = "";
     reference.value = "";
     await refresh({ revealSelected: true });
