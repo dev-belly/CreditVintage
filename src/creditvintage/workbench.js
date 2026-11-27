@@ -43,6 +43,7 @@ let busy = false;
 let stateValid = false;
 let pending;
 let comparisonRequest;
+let comparedSnapshot;
 
 function node(tag, text, className) {
   const element = document.createElement(tag);
@@ -196,7 +197,7 @@ function renderHistory(events) {
   byId("history").replaceChildren(eventItems(events.toReversed()));
 }
 
-function eventItems(events) {
+function eventItems(events, { showCase = false } = {}) {
   const list = document.createDocumentFragment();
   for (const event of events) {
     const item = node("li");
@@ -205,6 +206,11 @@ function eventItems(events) {
     time.dateTime = event.occurred_at;
     const timestamp = node("p");
     timestamp.append(time);
+    if (showCase) {
+      const context = node("p");
+      context.append(node("small", "Event " + event.sequence + " · " + event.application_id));
+      item.append(context);
+    }
     item.append(node("strong", label), timestamp);
     if (event.outcome) item.append(node("p", outcomeLabels[event.outcome]));
     if (event.note) item.append(node("p", event.note));
@@ -219,7 +225,7 @@ function showVerification(filename, digest) {
   byId("evidence-verification").hidden = false;
 }
 
-function renderComparison({ baseline, current, added_events, changed_cases }) {
+function renderComparison({ baseline, current, added_events, changed_cases, new_actions = [] }) {
   const changed = changed_cases.length;
   byId("compare-summary").textContent = added_events === 0
     ? "No new actions."
@@ -243,18 +249,29 @@ function renderComparison({ baseline, current, added_events, changed_cases }) {
   }
   byId("compare-rows").replaceChildren(rows);
   byId("compare-cases").hidden = changed === 0;
+  byId("compare-events").replaceChildren(eventItems(new_actions, { showCase: true }));
+  byId("compare-actions").hidden = new_actions.length === 0;
   byId("compare-baseline-label").textContent = baseline.checkpoint_matched
     ? "Baseline · checkpoint matched" : "Baseline · no checkpoint supplied";
   byId("compare-baseline-digest").textContent = baseline.bundle_sha256;
+  byId("compare-current-label").textContent = "Current snapshot · through event " + current.events;
   byId("compare-current-digest").textContent = current.bundle_sha256;
+  if (!demoMode) {
+    comparedSnapshot = current;
+    byId("compare-download").hidden = false;
+  }
   byId("compare-result").hidden = false;
 }
 
+function clearComparison() {
+  byId("compare-result").hidden = true;
+  comparedSnapshot = undefined;
+}
+
 function invalidateComparison() {
-  const result = byId("compare-result");
-  if (result.hidden && !comparisonRequest) return;
+  if (byId("compare-result").hidden && !comparisonRequest) return;
   comparisonRequest?.abort();
-  result.hidden = true;
+  clearComparison();
   status("Workspace changed. Compare again for the latest snapshot.", false, "compare-message");
 }
 
@@ -364,7 +381,7 @@ action.addEventListener("change", renderAction);
 byId("reload").addEventListener("click", () => void reload());
 for (const id of ["baseline-zip", "baseline-checkpoint"]) {
   byId(id).addEventListener("input", () => {
-    byId("compare-result").hidden = true;
+    clearComparison();
     status("", false, "compare-message");
   });
 }
@@ -373,7 +390,7 @@ byId("compare-form").addEventListener("submit", async (event) => {
   const fields = byId("compare-fields");
   const zip = byId("baseline-zip").files[0];
   if (demoMode || fields.disabled || !zip) return;
-  byId("compare-result").hidden = true;
+  clearComparison();
   const checkpoint = byId("baseline-checkpoint").value.trim().toLowerCase();
   if (checkpoint && !checkpointPattern.test(checkpoint)) {
     status("Enter the 64-character SHA-256 checkpoint from your earlier delivery.", true, "compare-message");
@@ -397,15 +414,20 @@ byId("compare-form").addEventListener("submit", async (event) => {
     fields.disabled = false;
   }
 });
-byId("workspace-download").addEventListener("click", async (event) => {
-  const button = event.currentTarget;
+async function downloadEvidence(button, snapshot) {
   button.disabled = true;
   status("Preparing evidence…", false, "evidence-message");
   try {
-    const response = await fetch(new URL("./api/evidence", location.href), { cache: "no-store" });
+    const url = new URL("./api/evidence", location.href);
+    if (snapshot) {
+      url.searchParams.set("through_event", snapshot.events);
+      url.searchParams.set("expected_sha256", snapshot.bundle_sha256);
+    }
+    const response = await fetch(url, { cache: "no-store" });
     if (!response.ok) throw new Error((await response.json()).error || "Could not prepare the evidence.");
     const digest = response.headers.get("X-CreditVintage-Checkpoint");
     if (!checkpointPattern.test(digest ?? "")) throw new Error("The evidence checkpoint is missing.");
+    if (snapshot && digest !== snapshot.bundle_sha256) throw new Error("The downloaded snapshot differs from the comparison.");
     const filename = "creditvintage-" + digest.slice(0, 12) + ".zip";
     const blob = await response.blob();
     const link = node("a");
@@ -423,6 +445,10 @@ byId("workspace-download").addEventListener("click", async (event) => {
   } finally {
     button.disabled = false;
   }
+}
+byId("workspace-download").addEventListener("click", (event) => void downloadEvidence(event.currentTarget));
+byId("compare-download").addEventListener("click", (event) => {
+  if (comparedSnapshot) void downloadEvidence(event.currentTarget, comparedSnapshot);
 });
 byId("reset").addEventListener("click", async () => {
   if (busy || !window.confirm("Clear this tab's sample review history?")) return;

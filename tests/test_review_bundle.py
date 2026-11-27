@@ -97,6 +97,37 @@ def test_empty_journal_is_deliverable(analysis: Path, tmp_path: Path) -> None:
     assert result["counts"]["queued"] == 48
     assert result["checkpoint_matched"] is False
     assert result["bundle_sha256"] == exported["bundle_sha256"]
+    original, receipt = export_review_zip(database)
+    identity = result["cases"][0]["application_id"]
+    record_review(database, identity, "claim", "alice", 0, "claim")
+    assert export_review_zip(
+        database, through_event=0, expected_sha256=receipt["bundle_sha256"]
+    ) == (original, receipt)
+
+
+def test_cli_recreates_an_earlier_delivery_without_advancing_the_workspace(
+    delivery: tuple[Path, Path, str], tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    database, directory, identity = delivery
+    original, receipt = export_review_zip(database)
+    digest = receipt["bundle_sha256"]
+    record_review(database, identity, "reopen", "supervisor", 2, "reopen", note="New evidence")
+    replayed = tmp_path / "recreated"
+    command = ["review-export", str(database), "--out", str(replayed)]
+
+    assert main([*command, "--through-event", "4", "--expected-sha256", digest]) == 2
+    assert "0 through 3" in capsys.readouterr().err
+    assert main([*command, "--through-event", "1", "--expected-sha256", digest]) == 2
+    assert "checkpoint mismatch" in capsys.readouterr().err
+    assert not replayed.exists()
+
+    assert main([*command, "--through-event", "2", "--expected-sha256", digest]) == 0
+    assert json.loads(capsys.readouterr().out) == {"directory": str(replayed), **receipt}
+    assert {file.name: file.read_bytes() for file in replayed.iterdir()} == {
+        file.name: file.read_bytes() for file in directory.iterdir()
+    }
+    assert export_review_zip(database, through_event=2, expected_sha256=digest)[0] == original
+    assert review_status(database)["events"] == 3
 
 
 def test_downloaded_archive_uses_exact_directory_evidence(
@@ -191,7 +222,9 @@ def test_loopback_comparison_matches_the_two_cli_snapshots(
 ) -> None:
     database, baseline_directory, identity = delivery
     archive, baseline = export_review_zip(database)
-    record_review(database, identity, "reopen", "supervisor", 2, "reopen", note="New evidence")
+    reopened = record_review(
+        database, identity, "reopen", "supervisor", 2, "reopen", note="New evidence"
+    )
     current_directory = tmp_path / "current"
     current = export_reviews(database, current_directory)
 
@@ -209,8 +242,10 @@ def test_loopback_comparison_matches_the_two_cli_snapshots(
         baseline_directory,
         current_directory,
         baseline_sha256=baseline["bundle_sha256"],
+        include_actions=True,
     )
     assert result["added_events"] == 1
+    assert result["new_actions"] == [reopened["event"]]
     assert result["changed_cases"][0]["after"]["status"] == "queued"
     assert result["current"]["bundle_sha256"] == current["bundle_sha256"]
     assert review_status(database)["events"] == 3
@@ -220,6 +255,33 @@ def test_loopback_comparison_matches_the_two_cli_snapshots(
     mismatch = review_client.getresponse()
     assert mismatch.status == 422
     assert "checkpoint mismatch" in json.loads(mismatch.read())["error"]
+
+    record_review(database, identity, "claim", "alice", 3, "next-claim")
+    digest = result["current"]["bundle_sha256"]
+    route = f"/api/evidence?through_event=3&expected_sha256={digest}"
+    review_client.request("GET", route, headers={"Sec-Fetch-Site": "cross-site"})
+    blocked = review_client.getresponse()
+    assert blocked.status == 403
+    blocked.read()
+
+    review_client.request("GET", route)
+    download = review_client.getresponse()
+    assert download.status == 200
+    assert download.getheader("X-CreditVintage-Checkpoint") == digest
+    path = tmp_path / "compared.zip"
+    path.write_bytes(download.read())
+    assert verify_review_bundle(path, expected_sha256=digest)["events"] == 3
+    assert review_status(database)["events"] == 4
+
+    review_client.request("GET", route.replace("through_event=3", "through_event=4"))
+    wrong_snapshot = review_client.getresponse()
+    assert wrong_snapshot.status == 422
+    assert wrong_snapshot.getheader("X-CreditVintage-Checkpoint") is None
+    assert "checkpoint mismatch" in json.loads(wrong_snapshot.read())["error"]
+    review_client.request("GET", route + "&through_event=4")
+    invalid = review_client.getresponse()
+    assert invalid.status == 400
+    invalid.read()
 
 
 def test_loopback_comparison_checks_origin_and_archive_size(
@@ -290,6 +352,7 @@ def test_compare_deliveries_reports_appended_actions(
     assert result["baseline"]["counts"] == {"queued": 47, "in_review": 0, "resolved": 1}
     assert result["current"]["counts"] == {"queued": 48, "in_review": 0, "resolved": 0}
     assert result["added_events"] == 3
+    assert "new_actions" not in result
     assert result["changed_cases"] == [
         {
             "application_id": identity,
@@ -302,6 +365,11 @@ def test_compare_deliveries_reports_appended_actions(
             "after": {"version": 2, "status": "queued", "outcome": None},
         },
     ]
+    assert main([*command, "--include-actions", "--current-sha256", receipt["bundle_sha256"]]) == 0
+    detailed = json.loads(capsys.readouterr().out)
+    with ZipFile(current) as evidence:
+        assert detailed.pop("new_actions") == json.loads(evidence.read("events.json"))[2:]
+    assert detailed == result
     assert main([*command, "--current-sha256", baseline_digest]) == 2
     error = capsys.readouterr()
     assert error.out == ""
@@ -314,8 +382,9 @@ def test_compare_deliveries_reports_appended_actions(
 
 def test_compare_identical_deliveries_reports_no_changes(delivery: tuple[Path, Path, str]) -> None:
     _, baseline, _ = delivery
-    result = compare_review_bundles(baseline, baseline)
+    result = compare_review_bundles(baseline, baseline, include_actions=True)
     assert result["added_events"] == 0
+    assert result["new_actions"] == []
     assert result["changed_cases"] == []
     assert result["baseline"] == result["current"]
     assert result["baseline"]["checkpoint_matched"] is False

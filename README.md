@@ -282,6 +282,9 @@ internal hashes alone do not authenticate the author or evidence.
 To reconcile two deliveries, run `creditvintage compare-reviews BASELINE CURRENT`
 from the current source checkout. It verifies both snapshots, checks for an
 unbroken review history, and reports the number of new actions and the cases affected.
+Use `--include-actions` to include the appended records. The browser workbench
+can download the exact snapshot from its comparison, and `review-export --through-event`
+can recreate an earlier delivery using its saved event count and checkpoint.
 
 The current source also checks the frozen queue's per-loan values and score/ID
 ordering before status replay, new review events or export. Rehashed nonfinite

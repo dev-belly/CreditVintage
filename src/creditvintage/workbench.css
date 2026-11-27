@@ -95,7 +95,7 @@ output[data-error="true"] { color: #a32a22; }
 #compare-message { display: block; margin-top: 10px; }
 #compare-summary { font-weight: 650; }
 .facts.compare-counts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-#compare-cases { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: .875rem; }
+#compare-cases { width: 100%; margin-top: 10px; table-layout: fixed; border-collapse: collapse; font-size: .875rem; }
 #compare-cases caption { text-align: start; font-weight: 650; margin-bottom: 5px; }
 #compare-cases th, #compare-cases td {
   border-bottom: 1px solid var(--line);

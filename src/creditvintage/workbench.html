@@ -84,17 +84,22 @@
         <div id="compare-result" class="compare-body" hidden>
           <p id="compare-summary" role="status"></p>
           <dl id="compare-counts" class="facts compare-counts" aria-label="Case totals from baseline to current"></dl>
+          <button id="compare-download" class="secondary" type="button" hidden>Download compared workspace ZIP</button>
           <table id="compare-cases" hidden>
             <caption>Changed cases</caption>
             <thead><tr><th scope="col">Case</th><th scope="col">Baseline</th><th scope="col">Current</th></tr></thead>
             <tbody id="compare-rows"></tbody>
           </table>
+          <details id="compare-actions" hidden>
+            <summary>Inspect new actions</summary>
+            <ol class="history" id="compare-events"></ol>
+          </details>
           <details id="compare-checkpoints">
             <summary>Snapshot checkpoints</summary>
             <dl>
               <dt id="compare-baseline-label">Baseline</dt>
               <dd><code id="compare-baseline-digest"></code></dd>
-              <dt>Current snapshot</dt>
+              <dt id="compare-current-label">Current snapshot</dt>
               <dd><code id="compare-current-digest"></code></dd>
             </dl>
           </details>

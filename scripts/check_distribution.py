@@ -564,7 +564,8 @@ def check(
         )
         if "Stale review version" not in stale["stderr"]:
             raise ValueError("A stale installed-CLI claim did not explain the version conflict")
-        command(
+        baseline = command("review-export", "reviews.sqlite", "--out", "review-baseline")
+        decision = command(
             "review",
             "reviews.sqlite",
             identity,
@@ -602,6 +603,28 @@ def check(
             or replayed["checkpoint_matched"] is not True
         ):
             raise ValueError("Installed review evidence did not replay its delivery snapshot")
+        restored = command(
+            "review-export",
+            "reviews.sqlite",
+            "--out",
+            "review-at-claim",
+            "--through-event",
+            "1",
+            "--expected-sha256",
+            baseline["bundle_sha256"],
+        )
+        comparison = command(
+            "compare-reviews",
+            "review-at-claim",
+            "review-evidence",
+            "--baseline-sha256",
+            baseline["bundle_sha256"],
+            "--current-sha256",
+            delivery["bundle_sha256"],
+            "--include-actions",
+        )
+        if restored["events"] != 1 or comparison["new_actions"] != [decision["event"]]:
+            raise ValueError("Installed CLI did not recover the claim snapshot and its exact delta")
         missing = command("lineage-demo", "--out", "missing-integration", expected=2)
         if (
             "Install PITBridge first" not in missing["stderr"]

@@ -6,6 +6,7 @@ import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qsl
 
 from creditvintage.core import DataContractError
 from creditvintage.review_bundle import compare_workspace_to_bundle, export_review_zip
@@ -60,7 +61,7 @@ def create_workbench_server(workspace: Path, port: int) -> ThreadingHTTPServer:
                     self.send_json(200, review_workspace(workspace))
                 except (DataContractError, OSError) as exc:
                     self.send_json(422, {"error": str(exc)})
-            elif self.path == "/api/evidence":
+            elif self.path == "/api/evidence" or self.path.startswith("/api/evidence?"):
                 self.send_evidence()
             else:
                 self.send_json(404, {"error": "Unknown route"})
@@ -69,8 +70,22 @@ def create_workbench_server(workspace: Path, port: int) -> ThreadingHTTPServer:
             if self.headers.get("Sec-Fetch-Site") not in (None, "none", "same-origin"):
                 self.send_json(403, {"error": "Export evidence from the local workbench."})
                 return
+            through_event, expected_sha256 = None, None
+            query = self.path.partition("?")[2]
+            if query:
+                try:
+                    parameters = dict(parse_qsl(query, strict_parsing=True, max_num_fields=2))
+                    if parameters.keys() != {"through_event", "expected_sha256"}:
+                        raise ValueError
+                    through_event = int(parameters["through_event"])
+                    expected_sha256 = parameters["expected_sha256"]
+                except ValueError:
+                    self.send_json(400, {"error": "Supply one review event number and checkpoint."})
+                    return
             try:
-                data, receipt = export_review_zip(workspace)
+                data, receipt = export_review_zip(
+                    workspace, through_event=through_event, expected_sha256=expected_sha256
+                )
             except DataContractError as exc:
                 self.send_json(422, {"error": str(exc)})
                 return
@@ -133,6 +148,7 @@ def create_workbench_server(workspace: Path, port: int) -> ThreadingHTTPServer:
                     baseline,
                     baseline_sha256=self.headers.get("X-CreditVintage-Baseline-Checkpoint"),
                     max_unpacked_bytes=MAX_BASELINE_UNPACKED_BYTES,
+                    include_actions=True,
                 )
                 self.send_json(200, result)
             except (OSError, ValueError) as exc:
