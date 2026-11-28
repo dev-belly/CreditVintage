@@ -34,6 +34,8 @@ $checkpoint = $delivery.bundle_sha256
 
 ## 对账两次交付
 
+接收人可以运行 `creditvintage review-web`，展开 **Choose deliveries**，分别选择早、晚两份 ZIP。可以为每份底稿提供独立保存的 SHA-256 摘要。对账会重放两份底稿，核对冻结队列和历史顺序，再显示新增操作及案件状态变化。两份底稿在本机读取，每份 ZIP 上限为 16 MiB，解包内容上限为 64 MiB。
+
 在本地工作台展开 **Compare deliveries**，选择之前下载的 ZIP，再点 **Compare with workspace**。如果另行保存了那份底稿的摘要，可以一并填写。页面会从数据库读取一次当前快照，显示新增操作数、队列统计和受影响案例的前后版本、状态及决定。展开 **Inspect new actions** 可以按事件序号查看操作者、决定、备注和材料引用。工作台接受 16 MiB 以内的 ZIP，解包后的证据文件总计上限为 64 MiB。
 
 **Snapshot checkpoints** 显示两份底稿的摘要，以及当前比较截止的事件序号。用 **Download compared workspace ZIP** 下载对账时使用的工作台快照。即使另一位复核人随后追加了操作，下载仍按原事件序号重放，核对摘要后才返回 ZIP。顶部 **Download workspace ZIP** 用来导出此刻的最新记录。

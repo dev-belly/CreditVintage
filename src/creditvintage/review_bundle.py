@@ -205,20 +205,25 @@ def _verify_review_evidence(
 
 
 def compare_review_bundles(
-    baseline: Path,
-    current: Path,
+    baseline: Path | BytesIO,
+    current: Path | BytesIO,
     *,
     baseline_sha256: str | None = None,
     current_sha256: str | None = None,
     include_actions: bool = False,
+    max_unpacked_bytes: int | None = None,
 ) -> dict[str, Any]:
     """Compare two replayed deliveries from the same frozen source and journal."""
     try:
-        before = _verify_review_evidence(baseline, baseline_sha256)
+        before = _verify_review_evidence(
+            baseline, baseline_sha256, max_unpacked_bytes=max_unpacked_bytes
+        )
     except DataContractError as exc:
         raise DataContractError(f"Baseline evidence: {exc}") from exc
     try:
-        after = _verify_review_evidence(current, current_sha256)
+        after = _verify_review_evidence(
+            current, current_sha256, max_unpacked_bytes=max_unpacked_bytes
+        )
     except DataContractError as exc:
         raise DataContractError(f"Current evidence: {exc}") from exc
 

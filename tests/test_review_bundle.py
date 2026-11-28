@@ -284,6 +284,83 @@ def test_review_web_can_start_with_only_a_port(monkeypatch: pytest.MonkeyPatch) 
     assert starts == [(None, 0), (Path("reviews.sqlite"), 9000)]
 
 
+def test_reader_compares_two_deliveries_without_a_database(
+    delivery: tuple[Path, Path, str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database, earlier_directory, identity = delivery
+    earlier, baseline = export_review_zip(database)
+    reopened = record_review(
+        database, identity, "reopen", "supervisor", 2, "reopen", note="Check another document"
+    )
+    later, current = export_review_zip(database)
+    later_zip = tmp_path / "later.zip"
+    later_zip.write_bytes(later)
+    database.unlink()
+    baseline_digest, current_digest = baseline["bundle_sha256"], current["bundle_sha256"]
+
+    with _workbench_client(None) as client:
+        origin = f"http://127.0.0.1:{client.port}"
+        boundary = "creditvintage-deliveries"
+        headers = {
+            "Origin": origin,
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+            "X-CreditVintage-Baseline-Checkpoint": baseline_digest,
+            "X-CreditVintage-Current-Checkpoint": current_digest,
+        }
+
+        def submit(parts: tuple[tuple[str, bytes], ...]) -> tuple[int, dict[str, Any]]:
+            chunks = []
+            for name, content in parts:
+                chunks.append(
+                    (
+                        f"--{boundary}\r\n"
+                        f'Content-Disposition: form-data; name="{name}"; '
+                        'filename="delivery.zip"\r\n'
+                        "Content-Type: application/zip\r\n\r\n"
+                    ).encode("ascii")
+                    + content
+                    + b"\r\n"
+                )
+            chunks.append(f"--{boundary}--\r\n".encode("ascii"))
+            client.request("POST", "/api/compare-deliveries", b"".join(chunks), headers)
+            response = client.getresponse()
+            return response.status, json.loads(response.read())
+
+        pair = (("baseline", earlier), ("current", later))
+        status, result = submit(pair)
+        assert status == 200
+        assert result == compare_review_bundles(
+            earlier_directory,
+            later_zip,
+            baseline_sha256=baseline_digest,
+            current_sha256=current_digest,
+            include_actions=True,
+        )
+        assert result["new_actions"] == [reopened["event"]]
+        assert result["changed_cases"][0]["after"]["status"] == "queued"
+
+        headers["X-CreditVintage-Current-Checkpoint"] = "0" * 64
+        status, result = submit(pair)
+        assert status == 422 and "Current evidence" in result["error"]
+        assert "checkpoint mismatch" in result["error"]
+        headers["X-CreditVintage-Current-Checkpoint"] = current_digest
+        headers["Origin"] = "https://example.com"
+        assert submit(pair)[0] == 403
+        headers["Origin"] = origin
+        assert submit((pair[0], pair[0]))[0] == 422
+
+        with monkeypatch.context() as limits:
+            limits.setattr(workbench, "MAX_REVIEW_ZIP_BYTES", len(later) - 1)
+            assert submit(pair)[0] == 413
+        with ZipFile(BytesIO(earlier)) as archive:
+            earlier_unpacked = sum(member.file_size for member in archive.infolist())
+        monkeypatch.setattr(workbench, "MAX_REVIEW_UNPACKED_BYTES", earlier_unpacked)
+        status, result = submit(pair)
+        assert status == 422 and "Current evidence" in result["error"]
+        assert "contents exceed" in result["error"]
+    assert not database.exists()
+
+
 def test_loopback_download_returns_verified_snapshot_and_checkpoint(
     review_client: HTTPConnection, tmp_path: Path
 ) -> None:

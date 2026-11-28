@@ -256,11 +256,14 @@ function renderComparison({ baseline, current, added_events, changed_cases, new_
   byId("compare-events").replaceChildren(eventItems(new_actions, { showCase: true }));
   byId("compare-actions").hidden = new_actions.length === 0;
   byId("compare-baseline-label").textContent = baseline.checkpoint_matched
-    ? "Baseline · checkpoint matched" : "Baseline · no checkpoint supplied";
+    ? "Baseline · checkpoint matched" : "Baseline · internal replay";
   byId("compare-baseline-digest").textContent = baseline.bundle_sha256;
-  byId("compare-current-label").textContent = "Current snapshot · through event " + current.events;
+  const currentLabel = readerMode
+    ? (current.checkpoint_matched ? "Later delivery · checkpoint matched" : "Later delivery · internal replay")
+    : "Current snapshot";
+  byId("compare-current-label").textContent = currentLabel + " · through event " + current.events;
   byId("compare-current-digest").textContent = current.bundle_sha256;
-  if (!demoMode) {
+  if (!demoMode && !readerMode) {
     comparedSnapshot = current;
     byId("compare-download").hidden = false;
   }
@@ -384,8 +387,8 @@ byId("search").addEventListener("input", renderQueue);
 byId("filter").addEventListener("change", renderQueue);
 action.addEventListener("change", renderAction);
 byId("reload").addEventListener("click", () => void reload());
-for (const id of ["baseline-zip", "baseline-checkpoint"]) {
-  byId(id).addEventListener("input", () => {
+for (const id of ["baseline-zip", "baseline-checkpoint", "later-zip", "later-checkpoint"]) {
+  byId(id)?.addEventListener("input", () => {
     clearComparison();
     status("", false, "compare-message");
   });
@@ -394,21 +397,38 @@ byId("compare-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const fields = byId("compare-fields");
   const zip = byId("baseline-zip").files[0];
-  if (demoMode || fields.disabled || !zip) return;
+  const laterZip = readerMode ? byId("later-zip").files[0] : undefined;
+  if (demoMode || fields.disabled || !zip || (readerMode && !laterZip)) return;
   clearComparison();
   const checkpoint = byId("baseline-checkpoint").value.trim().toLowerCase();
   if (checkpoint && !checkpointPattern.test(checkpoint)) {
     status("Enter the 64-character SHA-256 checkpoint from your earlier delivery.", true, "compare-message");
     return;
   }
-  const headers = { "Content-Type": "application/zip" };
+  const headers = {};
   if (checkpoint) headers["X-CreditVintage-Baseline-Checkpoint"] = checkpoint;
+  let path = "compare";
+  let body = zip;
+  if (readerMode) {
+    const laterCheckpoint = byId("later-checkpoint").value.trim().toLowerCase();
+    if (laterCheckpoint && !checkpointPattern.test(laterCheckpoint)) {
+      status("Enter the 64-character SHA-256 checkpoint from your later delivery.", true, "compare-message");
+      return;
+    }
+    if (laterCheckpoint) headers["X-CreditVintage-Current-Checkpoint"] = laterCheckpoint;
+    path = "compare-deliveries";
+    body = new FormData();
+    body.set("baseline", zip);
+    body.set("current", laterZip);
+  } else {
+    headers["Content-Type"] = "application/zip";
+  }
   const request = new AbortController();
   comparisonRequest = request;
   fields.disabled = true;
   status("Comparing deliveries…", false, "compare-message");
   try {
-    const result = await api("compare", { method: "POST", headers, body: zip, signal: request.signal });
+    const result = await api(path, { method: "POST", headers, body, signal: request.signal });
     if (request.signal.aborted) return;
     renderComparison(result);
     status("", false, "compare-message");
@@ -532,8 +552,18 @@ function startReader() {
   document.title = "Review evidence · CreditVintage";
   byId("mode").textContent = "Local evidence reader";
   byId("page-title").textContent = "Review evidence";
-  byId("intro-copy").textContent = "Inspect the queue and recorded actions in a delivered ZIP.";
+  byId("intro-copy").textContent = "Inspect the queue in a received ZIP or compare two deliveries.";
   byId("reader").hidden = false;
+  byId("evidence-title").textContent = "Compare two ZIPs";
+  byId("evidence").hidden = false;
+  byId("delivery-comparison").hidden = false;
+  byId("compare-toggle").textContent = "Choose deliveries";
+  byId("compare-form").hidden = false;
+  byId("compare-submit").textContent = "Compare ZIPs";
+  byId("later-zip-field").hidden = false;
+  byId("later-checkpoint-field").hidden = false;
+  byId("later-zip").disabled = false;
+  byId("later-checkpoint").disabled = false;
   const input = byId("reader-zip");
   const checkpointInput = byId("reader-checkpoint");
   const fields = byId("reader-fields");
