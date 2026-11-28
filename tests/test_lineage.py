@@ -32,7 +32,6 @@ class AdapterTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.path = Path(self.temp.name) / "pit"
         self.app = Application("loan-1", date(2024, 7, 1), 100000, "retail")
         self.data = {
             "data_kind": "synthetic",
@@ -69,6 +68,7 @@ class AdapterTests(unittest.TestCase):
         }
 
     def export(self):
+        self.path = Path(tempfile.mkdtemp(dir=self.temp.name)) / "pit"
         write_bundle(self.data, self.path)
         return adapt_bundle([self.app], self.path)
 
