@@ -1,6 +1,7 @@
 import { createDemo } from "./workbench-demo.js";
 
 const demoMode = document.documentElement.dataset.mode === "demo";
+const readerMode = document.documentElement.dataset.mode === "reader";
 const byId = (id) => document.getElementById(id);
 const form = byId("review");
 const cases = byId("cases");
@@ -184,7 +185,7 @@ function updateSelected(row) {
   const available = actions[row?.status] ?? [];
   action.replaceChildren(...available.map((value) => new Option(actionLabels[value], value)));
   if (available.includes(previous)) action.value = previous;
-  form.hidden = !row;
+  form.hidden = readerMode || !row;
   const events = row ? workspace.history.filter((event) => event.application_id === row.application_id) : [];
   renderHistory(events);
   renderAction();
@@ -202,7 +203,10 @@ function eventItems(events, { showCase = false } = {}) {
   for (const event of events) {
     const item = node("li");
     const label = eventLabels[event.action] + " by " + event.actor;
-    const time = node("time", dateTime.format(new Date(event.occurred_at)) + " UTC");
+    const instant = new Date(event.occurred_at);
+    const timestampText = Number.isNaN(instant.getTime())
+      ? event.occurred_at : dateTime.format(instant) + " UTC";
+    const time = node("time", timestampText);
     time.dateTime = event.occurred_at;
     const timestamp = node("p");
     timestamp.append(time);
@@ -280,6 +284,7 @@ function renderEvidence() {
     byId("evidence-title").textContent = "Export the review evidence";
     byId("evidence-description").textContent = "Download one snapshot of the saved queue, review actions and current status.";
     byId("workspace-download").hidden = false;
+    byId("workspace-reader").hidden = false;
     byId("compare-form").hidden = false;
     byId("delivery-comparison").hidden = false;
   } else {
@@ -515,4 +520,64 @@ form.addEventListener("submit", async (event) => {
   }
 });
 
-void reload(true);
+function clearReader() {
+  workspace = undefined;
+  selected = undefined;
+  delete document.documentElement.dataset.replayed;
+  byId("reader-receipt").hidden = true;
+  status("", false, "reader-message");
+}
+
+function startReader() {
+  document.title = "Review evidence · CreditVintage";
+  byId("mode").textContent = "Local evidence reader";
+  byId("page-title").textContent = "Review evidence";
+  byId("intro-copy").textContent = "Inspect the queue and recorded actions in a delivered ZIP.";
+  byId("reader").hidden = false;
+  const input = byId("reader-zip");
+  const checkpointInput = byId("reader-checkpoint");
+  const fields = byId("reader-fields");
+  input.addEventListener("change", clearReader);
+  checkpointInput.addEventListener("input", clearReader);
+  byId("reader-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const zip = input.files[0];
+    if (fields.disabled || !zip) return;
+    clearReader();
+    const checkpoint = checkpointInput.value.trim().toLowerCase();
+    if (checkpoint && !checkpointPattern.test(checkpoint)) {
+      status("Enter the 64-character SHA-256 checkpoint for this delivery.", true, "reader-message");
+      return;
+    }
+    const headers = { "Content-Type": "application/zip" };
+    if (checkpoint) headers["X-CreditVintage-Checkpoint"] = checkpoint;
+    fields.disabled = true;
+    setBusy(true);
+    status("Verifying delivery…", false, "reader-message");
+    try {
+      const snapshot = await api("replay", { method: "POST", headers, body: zip });
+      workspace = snapshot;
+      const lastAction = snapshot.history.at(-1);
+      if (lastAction) selected = snapshot.cases.find((row) => row.application_id === lastAction.application_id);
+      byId("search").value = "";
+      byId("filter").value = "";
+      renderSummary();
+      renderQueue();
+      byId("reader-source").textContent = snapshot.source.data_kind === "synthetic" ? "Synthetic" : "User supplied";
+      byId("reader-events").textContent = snapshot.events;
+      byId("reader-digest").textContent = snapshot.bundle_sha256;
+      byId("reader-receipt").hidden = false;
+      document.documentElement.dataset.replayed = "true";
+      status(snapshot.checkpoint_matched ? "Saved checkpoint matched." : "Internal replay verified.", false, "reader-message");
+    } catch (error) {
+      clearReader();
+      status(error.message, true, "reader-message");
+    } finally {
+      setBusy(false);
+      fields.disabled = false;
+    }
+  });
+}
+
+if (readerMode) startReader();
+else void reload(true);

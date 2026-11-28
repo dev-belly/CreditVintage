@@ -28,13 +28,42 @@
         <h1 id="page-title">Case review</h1>
         <p class="lead" id="intro-copy">Claim a case, record a decision, and inspect its review history.</p>
       </div>
-      <div class="progress-card">
+      <div class="progress-card" data-reader-result>
         <p id="completion-label">Review progress</p>
         <progress id="completion" aria-labelledby="completion-label" value="0" max="1"></progress>
         <span id="progress-text">Loading cases…</span>
       </div>
     </section>
-    <dl class="summary" aria-label="Case totals">
+    <section class="card evidence" id="reader" aria-labelledby="reader-title" hidden>
+      <h2 id="reader-title">Open a review ZIP</h2>
+      <p class="muted">Enter the SHA-256 checkpoint if you received it separately.</p>
+      <form id="reader-form">
+        <fieldset id="reader-fields" aria-label="Verify a review delivery">
+          <div class="form-grid">
+            <label for="reader-zip">Review evidence ZIP
+              <input id="reader-zip" type="file" accept=".zip,application/zip" required>
+            </label>
+            <label for="reader-checkpoint">Saved checkpoint (optional)
+              <input id="reader-checkpoint" type="text" placeholder="SHA-256 digest" autocomplete="off" spellcheck="false">
+            </label>
+          </div>
+          <button class="secondary evidence-primary" type="submit">Verify and open</button>
+        </fieldset>
+      </form>
+      <output id="reader-message" role="status" hidden></output>
+      <details class="checkpoint-details" id="reader-receipt" hidden>
+        <summary>Snapshot details</summary>
+        <dl>
+          <dt>Queue source</dt>
+          <dd id="reader-source"></dd>
+          <dt>Recorded actions</dt>
+          <dd id="reader-events"></dd>
+          <dt>Manifest SHA-256</dt>
+          <dd><code id="reader-digest"></code></dd>
+        </dl>
+      </details>
+    </section>
+    <dl class="summary" aria-label="Case totals" data-reader-result>
       <div><dt>Queued</dt><dd id="count-queued">—</dd></div>
       <div><dt>In review</dt><dd id="count-in_review">—</dd></div>
       <div><dt>Resolved</dt><dd id="count-resolved">—</dd></div>
@@ -46,6 +75,7 @@
           <p class="muted" id="evidence-description"></p>
         </div>
         <div class="evidence-actions">
+          <a class="secondary" id="workspace-reader" href="./replay" hidden>Open a delivered ZIP</a>
           <a class="secondary" id="practice-case" hidden>Open this case in practice</a>
           <a class="secondary evidence-primary" id="example-download" download hidden>Download example ZIP</a>
           <button class="secondary evidence-primary" id="workspace-download" type="button" hidden>Download workspace ZIP</button>
@@ -57,7 +87,8 @@
       </details>
       <details id="evidence-verification" hidden>
         <summary>Replay the downloaded evidence</summary>
-        <p class="muted">Run this in a terminal with CreditVintage installed from the current source checkout.</p>
+        <p class="muted">To inspect the ZIP in a browser, start <code>creditvintage review-web</code> from the current source checkout.</p>
+        <p class="muted">To verify it in a terminal, run the command below.</p>
         <pre><code id="evidence-command"></code></pre>
         <a href="https://github.com/dev-belly/CreditVintage/blob/main/docs/REVIEW_DELIVERY.md">Verification and checkpoint guide</a>
       </details>
@@ -94,7 +125,7 @@
             <summary>Inspect new actions</summary>
             <ol class="history" id="compare-events"></ol>
           </details>
-          <details id="compare-checkpoints">
+          <details class="checkpoint-details" id="compare-checkpoints">
             <summary>Snapshot checkpoints</summary>
             <dl>
               <dt id="compare-baseline-label">Baseline</dt>
@@ -113,7 +144,7 @@
       <button type="button" class="secondary" id="reset" hidden>Reset demo</button>
     </div>
     <noscript>Enable JavaScript to review cases. <a href="https://dev-belly.github.io/CreditVintage/">Read the research reports</a>.</noscript>
-    <div class="workspace">
+    <div class="workspace" data-reader-result>
       <section class="card queue" aria-labelledby="queue-title">
         <div class="heading"><h2 id="queue-title">Review queue</h2><span id="match-count"></span></div>
         <div class="queue-controls">

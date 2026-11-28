@@ -169,6 +169,7 @@ def check_review_demo(browser: Browser, destination: Path, base_url: str) -> Non
             "Evidence · synthetic-doc:income-001"
         )
         page.get_by_text("Replay the downloaded evidence", exact=True).click()
+        expect(page.get_by_text("creditvintage review-web", exact=True)).to_be_visible()
         command = page.locator("#evidence-command").inner_text()
         digest = command.rsplit(" ", 1)[-1]
         with page.expect_download() as pending:
@@ -339,12 +340,74 @@ def check_workspace_comparison(browser: Browser, analysis: Path) -> None:
                 expect(page.locator("#compare-rows td").nth(1)).to_have_text("Queued · v3")
                 if page.evaluate("document.documentElement.scrollWidth > window.innerWidth"):
                     raise ValueError("The workspace comparison overflows the viewport")
+                page.get_by_role("link", name="Open a delivered ZIP").click()
+                expect(page.get_by_role("heading", name="Review evidence")).to_be_visible()
+                expect(page.locator("#case-title")).to_be_hidden()
                 if errors:
                     raise ValueError(f"Workspace comparison JavaScript errors: {errors}")
             finally:
                 page.close()
                 server.shutdown()
                 thread.join()
+
+
+def check_review_reader(browser: Browser, demo: Path) -> None:
+    """Open a published delivery with a bare reader and inspect the replay."""
+    example = json.loads((demo / "queue.json").read_bytes())["example"]
+    digest = example["bundle_sha256"]
+    baseline = example["comparison"]["baseline"]["bundle_sha256"]
+    with create_workbench_server(None, 0) as server:
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        page = browser.new_page(viewport={"width": 320, "height": 900})
+        errors: list[str] = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        try:
+            page.goto(f"http://127.0.0.1:{server.server_port}/")
+            expect(page.get_by_role("heading", name="Review evidence")).to_be_visible()
+            case = page.locator("#case-title")
+            expect(case).to_be_hidden()
+            file_input = page.get_by_label("Review evidence ZIP")
+            file_input.set_input_files(demo / f"creditvintage-{digest}.zip")
+            checkpoint = page.get_by_label("Saved checkpoint")
+            button = page.get_by_role("button", name="Verify and open")
+            message = page.locator("#reader-message")
+
+            checkpoint.fill("0" * 64)
+            button.click()
+            expect(message).to_contain_text("checkpoint mismatch")
+            expect(case).to_be_hidden()
+
+            checkpoint.fill(digest.upper())
+            button.click()
+            expect(message).to_have_text("Saved checkpoint matched.")
+            expect(case).to_have_text(example["application_id"])
+            expect(page.locator("#case-status")).to_have_text("Resolved")
+            expect(page.locator("#history li")).to_have_count(2)
+            expect(page.locator("#history")).to_contain_text("Evidence · synthetic-doc:income-001")
+            expect(page.get_by_role("button", name="Save review")).to_be_hidden()
+            page.get_by_text("Snapshot details", exact=True).click()
+            expect(page.locator("#reader-digest")).to_have_text(digest)
+            expect(page.locator("#reader-events")).to_have_text("2")
+            page.get_by_label("Find a case").fill("no-match")
+            expect(page.locator("#empty-queue")).to_be_visible()
+
+            file_input.set_input_files(demo / f"creditvintage-{baseline}.zip")
+            expect(case).to_be_hidden()
+            checkpoint.clear()
+            button.click()
+            expect(message).to_have_text("Internal replay verified.")
+            expect(case).to_have_text(example["application_id"])
+            expect(page.locator("#case-status")).to_have_text("In review")
+            expect(page.locator("#history li")).to_have_count(1)
+            if page.evaluate("document.documentElement.scrollWidth > window.innerWidth"):
+                raise ValueError("The review reader overflows the viewport")
+            if errors:
+                raise ValueError(f"Review reader JavaScript errors: {errors}")
+        finally:
+            page.close()
+            server.shutdown()
+            thread.join()
 
 
 def capture() -> dict[str, object]:
@@ -391,6 +454,7 @@ def capture() -> dict[str, object]:
                 server.shutdown()
                 thread.join()
         check_workspace_comparison(browser, root / "_site" / "analysis")
+        check_review_reader(browser, root / "_site" / "review")
         browser.close()
     return {
         "status": "verified",
@@ -403,6 +467,7 @@ def capture() -> dict[str, object]:
         "brief": brief,
         "review_demo_widths": [1440, 390, 320],
         "local_workspace_comparison": True,
+        "local_review_reader": True,
     }
 
 

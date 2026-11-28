@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Iterator
+from contextlib import contextmanager
 from http.client import HTTPConnection
 from io import BytesIO
 from pathlib import Path
@@ -178,9 +179,8 @@ def test_archive_rejects_ambiguous_or_extra_members(
         verify_review_bundle(evidence)
 
 
-@pytest.fixture
-def review_client(delivery: tuple[Path, Path, str]) -> Iterator[HTTPConnection]:
-    database, _, _ = delivery
+@contextmanager
+def _workbench_client(database: Path | None) -> Iterator[HTTPConnection]:
     with workbench.create_workbench_server(database, 0) as server:
         thread = Thread(target=server.serve_forever, daemon=True)
         thread.start()
@@ -191,6 +191,97 @@ def review_client(delivery: tuple[Path, Path, str]) -> Iterator[HTTPConnection]:
             client.close()
             server.shutdown()
             thread.join(timeout=5)
+
+
+@pytest.fixture
+def review_client(delivery: tuple[Path, Path, str]) -> Iterator[HTTPConnection]:
+    database, _, _ = delivery
+    with _workbench_client(database) as client:
+        yield client
+
+
+def test_reader_replays_a_delivery_without_the_review_database(
+    delivery: tuple[Path, Path, str],
+) -> None:
+    database, directory, _ = delivery
+    archive, receipt = export_review_zip(database)
+    digest = receipt["bundle_sha256"]
+    database.unlink()
+    expected = verify_review_bundle(directory, expected_sha256=digest)
+    expected["history"] = json.loads((directory / "events.json").read_bytes())
+
+    with _workbench_client(None) as client:
+        client.request("GET", "/")
+        page = client.getresponse()
+        assert page.status == 200
+        assert b'data-mode="reader"' in page.read()
+        origin = f"http://127.0.0.1:{client.port}"
+        headers = {
+            "Origin": origin,
+            "Content-Type": "application/zip",
+            "X-CreditVintage-Checkpoint": digest,
+        }
+        client.request("POST", "/api/replay", body=archive, headers=headers)
+        replay = client.getresponse()
+        assert replay.status == 200
+        assert replay.getheader("Cache-Control") == "no-store"
+        assert json.loads(replay.read()) == expected
+
+        client.request("GET", "/api/state")
+        unavailable = client.getresponse()
+        assert unavailable.status == 404
+        unavailable.read()
+        client.request("POST", "/api/change", body=b"{}", headers={"Origin": origin})
+        unavailable = client.getresponse()
+        assert unavailable.status == 404
+        unavailable.read()
+    assert not database.exists()
+
+
+def test_reader_requires_same_origin_and_checks_the_supplied_checkpoint(
+    delivery: tuple[Path, Path, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database, _, _ = delivery
+    archive, _ = export_review_zip(database)
+    with _workbench_client(None) as client:
+        headers = {"Origin": "https://example.com", "Content-Type": "application/zip"}
+        client.request("POST", "/api/replay", body=archive, headers=headers)
+        forbidden = client.getresponse()
+        assert forbidden.status == 403
+        forbidden.read()
+
+        headers["Origin"] = f"http://127.0.0.1:{client.port}"
+        client.request("POST", "/api/replay", body=archive, headers=headers)
+        success = client.getresponse()
+        assert success.status == 200
+        assert json.loads(success.read())["checkpoint_matched"] is False
+
+        headers["X-CreditVintage-Checkpoint"] = "0" * 64
+        client.request("POST", "/api/replay", body=archive, headers=headers)
+        mismatch = client.getresponse()
+        assert mismatch.status == 422
+        assert "checkpoint mismatch" in json.loads(mismatch.read())["error"]
+
+        with monkeypatch.context() as limits:
+            limits.setattr(workbench, "MAX_REVIEW_ZIP_BYTES", len(archive) - 1)
+            client.request("POST", "/api/replay", body=archive, headers=headers)
+            oversized = client.getresponse()
+            assert oversized.status == 413
+            oversized.read()
+
+        monkeypatch.setattr(workbench, "MAX_REVIEW_UNPACKED_BYTES", len(archive))
+        client.request("POST", "/api/replay", body=archive, headers=headers)
+        oversized_contents = client.getresponse()
+        assert oversized_contents.status == 422
+        assert "contents exceed" in json.loads(oversized_contents.read())["error"]
+
+
+def test_review_web_can_start_with_only_a_port(monkeypatch: pytest.MonkeyPatch) -> None:
+    starts: list[tuple[Path | None, int]] = []
+    monkeypatch.setattr(workbench, "serve", lambda database, port: starts.append((database, port)))
+    assert main(["review-web", "--port", "0"]) == 0
+    assert main(["review-web", "reviews.sqlite", "--port", "9000"]) == 0
+    assert starts == [(None, 0), (Path("reviews.sqlite"), 9000)]
 
 
 def test_loopback_download_returns_verified_snapshot_and_checkpoint(
@@ -297,13 +388,13 @@ def test_loopback_comparison_checks_origin_and_archive_size(
 
     headers["Origin"] = f"http://127.0.0.1:{review_client.port}"
     with monkeypatch.context() as limits:
-        limits.setattr(workbench, "MAX_BASELINE_BYTES", len(archive) - 1)
+        limits.setattr(workbench, "MAX_REVIEW_ZIP_BYTES", len(archive) - 1)
         review_client.request("POST", "/api/compare", body=archive, headers=headers)
         too_large = review_client.getresponse()
         assert too_large.status == 413
         too_large.read()
 
-    monkeypatch.setattr(workbench, "MAX_BASELINE_UNPACKED_BYTES", len(archive))
+    monkeypatch.setattr(workbench, "MAX_REVIEW_UNPACKED_BYTES", len(archive))
     review_client.request("POST", "/api/compare", body=archive, headers=headers)
     too_large_unpacked = review_client.getresponse()
     assert too_large_unpacked.status == 422

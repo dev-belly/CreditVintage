@@ -8,6 +8,12 @@
 
 **Download example ZIP** 下载已核验的合成底稿。通过 `review-web` 打开的本地工作台提供 **Download workspace ZIP**，下载当次读取事务中的完整复核队列和已保存操作。页面的 **Replay the downloaded evidence** 给出包含文件名和清单摘要的命令。
 
+## 在浏览器核验收到的 ZIP
+
+从当前源码安装后，运行 `creditvintage review-web`，打开终端显示的本机地址。选择 **Review evidence ZIP**。如果另行收到了清单摘要，可粘贴到 **Saved checkpoint**。点击 **Verify and open** 后，可以筛选案件，查看决定、备注和材料引用，也可以在 **Snapshot details** 查看队列来源和清单摘要。
+
+**Saved checkpoint matched** 表示底稿重放成功，并与另外保存的摘要一致。**Internal replay verified** 表示文件通过了包内清单和事件重放检查。底稿由本地服务读取。已打开 SQLite 工作区时，可通过 **Open a delivered ZIP** 进入同一只读界面。
+
 从仓库当前源码安装后，可以直接将 ZIP 路径传给 `creditvintage verify-reviews`。命令读取五个证据文件并重放，原 ZIP 保持只读。旧版 `v0.8.2` 可解压到单独目录后核验，适用其已发布的校验规则。
 
 ## 五分钟演示

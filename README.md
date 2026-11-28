@@ -260,6 +260,10 @@ customer-segment interpretation and a minimal SQL query.
 
 [Replay a completed example](https://dev-belly.github.io/CreditVintage/review/#evidence). Inspect its two recorded actions, open the same case in the practice queue, or download the verified ZIP. **Compare deliveries** shows the change from claim to decision and offers the earlier ZIP with both checkpoints available on the page. From a current source checkout, `creditvintage verify-reviews` reads the ZIP directly.
 
+Run `creditvintage review-web` to open a local evidence reader without a database.
+Choose the ZIP and optionally enter a separately saved checkpoint. The reader
+replays the journal and shows searchable cases, decisions and evidence references.
+
 Move the verified, label-free queue into a SQLite workspace with claim, release,
 resolve and reopen actions. Each conclusion requires a reason and evidence reference.
 Concurrent claims are serialized in one transaction and checked against a case version;
