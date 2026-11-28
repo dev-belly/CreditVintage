@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import json
+import re
+from email import policy
+from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl
 
 from creditvintage.core import DataContractError
 from creditvintage.review_bundle import (
+    compare_review_bundles,
     compare_workspace_to_bundle,
     export_review_zip,
     replay_review_zip,
@@ -25,6 +30,35 @@ ASSETS = {
 }
 MAX_REVIEW_ZIP_BYTES = 16 * 1024 * 1024
 MAX_REVIEW_UNPACKED_BYTES = 64 * 1024 * 1024
+MAX_MULTIPART_OVERHEAD = 8 * 1024
+
+
+def _uploaded_zip_pair(body: bytes, boundary: str) -> tuple[bytes, bytes]:
+    header = f'Content-Type: multipart/form-data; boundary="{boundary}"\r\n\r\n'
+    message = BytesParser(policy=policy.default).parsebytes(header.encode("ascii") + body)
+    error = "Choose one earlier and one later review ZIP."
+    if not message.is_multipart() or message.defects:
+        raise DataContractError(error)
+    files: dict[str, bytes] = {}
+    for part in message.iter_parts():
+        name = part.get_param("name", header="content-disposition")
+        if (
+            part.get_content_disposition() != "form-data"
+            or part.is_multipart()
+            or part.defects
+            or part.get("Content-Transfer-Encoding") is not None
+            or not isinstance(name, str)
+            or name not in ("baseline", "current")
+            or name in files
+        ):
+            raise DataContractError(error)
+        payload = part.get_payload(decode=True)
+        if not isinstance(payload, bytes) or not payload:
+            raise DataContractError(error)
+        files[name] = payload
+    if len(files) != 2:
+        raise DataContractError(error)
+    return files["baseline"], files["current"]
 
 
 def create_workbench_server(workspace: Path | None, port: int) -> ThreadingHTTPServer:
@@ -120,6 +154,9 @@ def create_workbench_server(workspace: Path | None, port: int) -> ThreadingHTTPS
             if self.path == "/api/replay":
                 self.inspect_zip(None)
                 return
+            if self.path == "/api/compare-deliveries":
+                self.compare_deliveries()
+                return
             if workspace is None:
                 self.send_json(404, {"error": "This route requires an open review workspace."})
                 return
@@ -151,14 +188,9 @@ def create_workbench_server(workspace: Path | None, port: int) -> ThreadingHTTPS
                 self.send_json(415, {"error": "Choose a review ZIP."})
                 return
             try:
-                size = int(self.headers.get("Content-Length", "0"))
-                if not 0 < size <= MAX_REVIEW_ZIP_BYTES:
-                    limit = MAX_REVIEW_ZIP_BYTES // (1024 * 1024)
-                    self.send_json(413, {"error": f"Choose a review ZIP up to {limit} MiB."})
+                archive = self.read_upload(MAX_REVIEW_ZIP_BYTES)
+                if archive is None:
                     return
-                archive = self.rfile.read(size)
-                if len(archive) != size:
-                    raise DataContractError("The review ZIP was not received in full")
                 if compare_with is None:
                     result = replay_review_zip(
                         archive,
@@ -173,6 +205,49 @@ def create_workbench_server(workspace: Path | None, port: int) -> ThreadingHTTPS
                         max_unpacked_bytes=MAX_REVIEW_UNPACKED_BYTES,
                         include_actions=True,
                     )
+                self.send_json(200, result)
+            except (OSError, ValueError) as exc:
+                self.send_json(422, {"error": str(exc)})
+
+        def read_upload(self, maximum: int) -> bytes | None:
+            size = int(self.headers.get("Content-Length", "0"))
+            if not 0 < size <= maximum:
+                self.reject_upload_size()
+                return None
+            body = self.rfile.read(size)
+            if len(body) != size:
+                raise DataContractError("The review upload was not received in full")
+            return body
+
+        def reject_upload_size(self) -> None:
+            limit = MAX_REVIEW_ZIP_BYTES // (1024 * 1024)
+            self.send_json(413, {"error": f"Choose review ZIPs of up to {limit} MiB each."})
+
+        def compare_deliveries(self) -> None:
+            boundary = self.headers.get_boundary()
+            if (
+                self.headers.get_content_type() != "multipart/form-data"
+                or not boundary
+                or not re.fullmatch(r"[A-Za-z0-9'()+_,./:=?-]{1,70}", boundary)
+            ):
+                self.send_json(415, {"error": "Choose two review ZIPs."})
+                return
+            try:
+                body = self.read_upload(2 * MAX_REVIEW_ZIP_BYTES + MAX_MULTIPART_OVERHEAD)
+                if body is None:
+                    return
+                baseline, current = _uploaded_zip_pair(body, boundary)
+                if max(len(baseline), len(current)) > MAX_REVIEW_ZIP_BYTES:
+                    self.reject_upload_size()
+                    return
+                result = compare_review_bundles(
+                    BytesIO(baseline),
+                    BytesIO(current),
+                    baseline_sha256=self.headers.get("X-CreditVintage-Baseline-Checkpoint"),
+                    current_sha256=self.headers.get("X-CreditVintage-Current-Checkpoint"),
+                    max_unpacked_bytes=MAX_REVIEW_UNPACKED_BYTES,
+                    include_actions=True,
+                )
                 self.send_json(200, result)
             except (OSError, ValueError) as exc:
                 self.send_json(422, {"error": str(exc)})

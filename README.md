@@ -263,6 +263,8 @@ customer-segment interpretation and a minimal SQL query.
 Run `creditvintage review-web` to open a local evidence reader without a database.
 Choose the ZIP and optionally enter a separately saved checkpoint. The reader
 replays the journal and shows searchable cases, decisions and evidence references.
+Use **Choose deliveries** in the same reader to compare a pair of received ZIPs with
+their respective checkpoints.
 
 Move the verified, label-free queue into a SQLite workspace with claim, release,
 resolve and reopen actions. Each conclusion requires a reason and evidence reference.

@@ -93,19 +93,25 @@
         <a href="https://github.com/dev-belly/CreditVintage/blob/main/docs/REVIEW_DELIVERY.md">Verification and checkpoint guide</a>
       </details>
       <details id="delivery-comparison" hidden>
-        <summary>Compare deliveries</summary>
+        <summary id="compare-toggle">Compare deliveries</summary>
         <div id="compare-example" class="compare-body" hidden>
           <p class="muted">Compare the snapshot after the claim with the example ZIP above, captured after the decision.</p>
           <a id="baseline-download" class="secondary" download>Download baseline ZIP</a>
         </div>
         <form id="compare-form" class="compare-body" hidden>
-          <fieldset id="compare-fields" aria-label="Compare a saved ZIP with the current workspace">
+          <fieldset id="compare-fields" aria-label="Compare review deliveries">
             <div class="form-grid">
               <label for="baseline-zip">Earlier workspace ZIP
                 <input id="baseline-zip" type="file" accept=".zip,application/zip" required>
               </label>
               <label for="baseline-checkpoint">Saved baseline checkpoint (optional)
                 <input id="baseline-checkpoint" type="text" placeholder="SHA-256 digest" autocomplete="off" spellcheck="false">
+              </label>
+              <label id="later-zip-field" for="later-zip" hidden>Later review ZIP
+                <input id="later-zip" type="file" accept=".zip,application/zip" required disabled>
+              </label>
+              <label id="later-checkpoint-field" for="later-checkpoint" hidden>Saved later checkpoint (optional)
+                <input id="later-checkpoint" type="text" placeholder="SHA-256 digest" autocomplete="off" spellcheck="false" disabled>
               </label>
             </div>
             <button class="secondary evidence-primary" id="compare-submit" type="submit">Compare with workspace</button>
