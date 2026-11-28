@@ -151,6 +151,16 @@ def verify_review_bundle(directory: Path, *, expected_sha256: str | None = None)
     return result
 
 
+def replay_review_zip(
+    data: bytes, *, expected_sha256: str | None, max_unpacked_bytes: int
+) -> dict[str, Any]:
+    """Return the verified queue and journal from a browser-supplied delivery."""
+    snapshot, events = _verify_review_evidence(
+        BytesIO(data), expected_sha256, max_unpacked_bytes=max_unpacked_bytes
+    )
+    return {**snapshot, "history": events}
+
+
 def _verify_review_evidence(
     path: Path | BytesIO, expected_sha256: str | None, *, max_unpacked_bytes: int | None = None
 ) -> _ReviewSnapshot:

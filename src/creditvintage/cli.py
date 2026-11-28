@@ -213,8 +213,8 @@ def main(argv: list[str] | None = None) -> int:
         "verify-lineage", help="Replay source features and refit the model"
     )
     check_lineage.add_argument("directory", type=Path)
-    web = commands.add_parser("review-web", help="Open the local browser workbench")
-    web.add_argument("database", type=Path)
+    web = commands.add_parser("review-web", help="Open the local review workbench or read a ZIP")
+    web.add_argument("database", type=Path, nargs="?", help="SQLite workspace to review")
     web.add_argument("--port", type=int, default=8765)
     args = parser.parse_args(argv)
     if args.command == "review-web":
